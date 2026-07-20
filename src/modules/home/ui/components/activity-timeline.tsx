@@ -38,7 +38,7 @@ export const ActivityTimeline = ({ activities }: { activities: Activity[] }) => 
   return (
     <div className="space-y-8 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 before:to-transparent">
       {activities.map((activity, index) => {
-        const Config = activityConfig[activity.type];
+        const Config = activityConfig[activity.type] ?? { icon: Clock, color: "text-slate-500", bg: "bg-slate-500/10" };
         return (
           <motion.div
             key={activity.id}

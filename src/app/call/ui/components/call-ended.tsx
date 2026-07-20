@@ -1,10 +1,15 @@
 'use client';
 
+import { useEffect } from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 
 export const CallEnded = () => {
+  // Safety net: cancel any AI speech still queued when the ended screen mounts
+  useEffect(() => {
+    window.speechSynthesis.cancel();
+  }, []);
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-white p-4 text-center">
       <div className="w-full max-w-md bg-white rounded-3xl border border-slate-100 p-10 shadow-2xl">

@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { PlusIcon, VideoIcon, SparklesIcon, CalendarDaysIcon, SearchIcon, FilterIcon, BotIcon } from "lucide-react";
+import { PlusIcon, VideoIcon, SparklesIcon, SearchIcon, FilterIcon, BotIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { 
@@ -59,13 +59,7 @@ const MeetingsListHeader = ({ onOpenDialog }: MeetingsListHeaderProps) => {
         </div>
 
         <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            className="rounded-xl h-11 px-5 font-bold border-gray-200 hover:bg-gray-50 hover:border-gray-300 text-gray-600 transition-all flex items-center gap-2"
-          >
-            <CalendarDaysIcon className="size-4" />
-            <span className="hidden sm:inline">Calendar View</span>
-          </Button>
+
           <Button
             onClick={onOpenDialog}
             className="rounded-xl h-11 px-6 bg-[#3B6D11] hover:bg-[#2f5a0d] text-white font-bold shadow-lg shadow-green-600/20 transition-all active:scale-95 flex items-center gap-2"

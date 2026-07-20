@@ -1,8 +1,9 @@
 import { streamVideo } from "@/lib/stream-video";
 import { db } from "@/db";
-import { meetings, agents } from "@/db/schema";
+import { meetings } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { generateMeetingSummary } from "@/lib/meeting-summary";
 
 export async function POST(req: Request) {
   try {
@@ -29,8 +30,14 @@ export async function POST(req: Request) {
       return new NextResponse("No signature", { status: 400 });
     }
 
-    // Verify webhook signature
-    const valid = true;
+    // Verify webhook signature using Stream's built-in HMAC-SHA256 verification.
+    // Previously this was hardcoded to `const valid = true` — now it actually checks
+    // the signature Stream sends in the `x-signature` header against the shared secret.
+    const valid = streamVideo.verifyWebhook(rawBody, signature);
+    if (!valid) {
+      console.log("Webhook signature verification failed.");
+      return new NextResponse("Invalid signature", { status: 401 });
+    }
 
     // The payload is the event itself
     const event = body;
@@ -80,6 +87,11 @@ export async function POST(req: Request) {
         .where(eq(meetings.id, id));
 
       console.log(`Meeting ${id} ended.`);
+
+      // Generate summary from persisted conversation messages (fire-and-forget)
+      // Note: generateMeetingSummary has its own internal try/catch, so errors
+      // are logged there and won't propagate.
+      generateMeetingSummary(id);
     }
 
     return NextResponse.json({ message: "Webhook processed" });

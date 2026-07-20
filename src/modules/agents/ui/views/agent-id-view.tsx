@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { EditAgentDialog } from "../components/edit-agent-dialog";
+import { NewMeetingDialog } from "@/modules/meetings/ui/components/new-meeting-dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,6 +47,7 @@ export const AgentIdView = ({ agentId }: AgentIdViewProps) => {
   const utils = trpc.useUtils();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isNewMeetingDialogOpen, setIsNewMeetingDialogOpen] = useState(false);
   const agentQuery = trpc.agents.getOne.useQuery({ id: agentId });
 
   const deleteMutation = trpc.agents.remove.useMutation({
@@ -100,6 +102,12 @@ export const AgentIdView = ({ agentId }: AgentIdViewProps) => {
           name: agent.name,
           instruction: agent.instruction,
         }} 
+      />
+
+      <NewMeetingDialog 
+        open={isNewMeetingDialogOpen} 
+        onOpenChange={setIsNewMeetingDialogOpen} 
+        defaultAgentId={agent.id}
       />
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
@@ -272,7 +280,10 @@ export const AgentIdView = ({ agentId }: AgentIdViewProps) => {
         </div>
 
         <div className="flex items-center gap-2 px-6 py-4 bg-gray-50 border-t border-gray-100">
-          <Button className="rounded-lg  bg-green-600 hover:bg-green-700 text-white h-9 font-medium text-sm gap-2 shadow-none px-4">
+          <Button 
+            onClick={() => setIsNewMeetingDialogOpen(true)}
+            className="rounded-lg bg-green-600 hover:bg-green-700 text-white h-9 font-medium text-sm gap-2 shadow-none px-4"
+          >
             <VideoIcon className="size-3.5" />
             Start Meeting
           </Button>

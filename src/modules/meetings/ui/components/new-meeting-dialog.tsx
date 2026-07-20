@@ -32,11 +32,14 @@ type FormValues = z.infer<typeof meetingsInsertSchema>;
 interface NewMeetingDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Pre-select an agent when opening from an agent detail page */
+  defaultAgentId?: string;
 }
 
 export const NewMeetingDialog = ({
   open,
   onOpenChange,
+  defaultAgentId,
 }: NewMeetingDialogProps) => {
   const utils = trpc.useUtils();
   const agentsQuery = trpc.agents.getMany.useQuery({ pageSize: 100 });
@@ -45,7 +48,7 @@ export const NewMeetingDialog = ({
     resolver: zodResolver(meetingsInsertSchema) as any,
     defaultValues: {
       name: "",
-      agentId: "",
+      agentId: defaultAgentId ?? "",
       instructions: "",
       status: "scheduled",
     },

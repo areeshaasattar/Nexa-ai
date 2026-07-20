@@ -137,11 +137,12 @@ export const agentsRelations = relations(agents, ({ many }) => ({
   meetings: many(meetings),
 }));
 
-export const meetingsRelations = relations(meetings, ({ one }) => ({
+export const meetingsRelations = relations(meetings, ({ one, many }) => ({
   agent: one(agents, {
     fields: [meetings.agentId],
     references: [agents.id],
   }),
+  messages: many(conversationMessages),
 }));
 
 export const activityType = [
@@ -174,6 +175,31 @@ export const activities = pgTable(
   },
   (table) => [index("activities_userId_idx").on(table.userId)],
 );
+
+export const conversationMessages = pgTable(
+  "conversation_messages",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => nanoid()),
+    meetingId: text("meeting_id")
+      .notNull()
+      .references(() => meetings.id, { onDelete: "cascade" }),
+    role: text("role", { enum: ["user", "ai"] }).notNull(),
+    content: text("content").notNull(),
+    createdAt: timestamp("created_at")
+      .$defaultFn(() => new Date())
+      .notNull(),
+  },
+  (table) => [index("conversation_messages_meetingId_idx").on(table.meetingId)],
+);
+
+export const conversationMessagesRelations = relations(conversationMessages, ({ one }) => ({
+  meeting: one(meetings, {
+    fields: [conversationMessages.meetingId],
+    references: [meetings.id],
+  }),
+}));
 
 export const voiceInteractions = pgTable(
   "voice_interactions",

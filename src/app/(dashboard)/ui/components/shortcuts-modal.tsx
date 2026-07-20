@@ -19,9 +19,11 @@ import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { NewMeetingDialog } from "@/modules/meetings/ui/components/new-meeting-dialog";
 
 export function ShortcutsModal() {
   const [open, setOpen] = React.useState(false);
+  const [newMeetingOpen, setNewMeetingOpen] = React.useState(false);
   const router = useRouter();
 
   React.useEffect(() => {
@@ -63,6 +65,8 @@ export function ShortcutsModal() {
 
   return (
     <>
+      <NewMeetingDialog open={newMeetingOpen} onOpenChange={setNewMeetingOpen} />
+
       {open && (
         <div
           className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm animate-in fade-in duration-150"
@@ -129,7 +133,7 @@ export function ShortcutsModal() {
                   iconBg="bg-green-50 text-green-600"
                   label="New Meeting"
                   onSelect={() =>
-                    runCommand(() => toast.info("New meeting coming soon!"))
+                    runCommand(() => setNewMeetingOpen(true))
                   }
                 />
                 <CommandRow

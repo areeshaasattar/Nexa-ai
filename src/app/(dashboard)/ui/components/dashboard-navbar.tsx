@@ -1,9 +1,19 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { SearchIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
 import DashboardUserButton from "./Dashboard-user-button";
 
 const openShortcuts = () => {
@@ -11,6 +21,19 @@ const openShortcuts = () => {
 };
 
 export const DashboardNavbar = () => {
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackText, setFeedbackText] = useState("");
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+
+  const handleSubmitFeedback = () => {
+    setFeedbackSubmitted(true);
+    setFeedbackOpen(false);
+    toast.success("Thanks for your feedback!");
+    setTimeout(() => {
+      setFeedbackText("");
+      setFeedbackSubmitted(false);
+    }, 300);
+  };
   return (
     <header
       className={cn(
@@ -62,9 +85,54 @@ export const DashboardNavbar = () => {
           <SearchIcon className="h-4 w-4" />
         </button>
 
-        <button className="hidden lg:flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-white bg-green-600 hover:bg-green-700 shadow-md shadow-green-600/20 transition-all active:scale-95">
+        <button
+          onClick={() => setFeedbackOpen(true)}
+          className="hidden lg:flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-white bg-green-600 hover:bg-green-700 shadow-md shadow-green-600/20 transition-all active:scale-95"
+        >
           <span>Feedback</span>
         </button>
+
+        {/* Feedback Dialog */}
+        <Dialog open={feedbackOpen} onOpenChange={setFeedbackOpen}>
+          <DialogContent className="sm:max-w-[420px] p-0 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl">
+            <div className="px-6 pt-6 pb-4 border-b border-gray-100">
+              <DialogHeader className="p-0 space-y-0.5">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">
+                  Nexa AI
+                </p>
+                <DialogTitle className="text-base font-semibold text-gray-900 leading-tight">
+                  Send Feedback
+                </DialogTitle>
+              </DialogHeader>
+            </div>
+            <div className="px-6 pt-4 pb-6 space-y-4">
+              <Textarea
+                placeholder="Tell us what's on your mind..."
+                value={feedbackText}
+                onChange={(e) => setFeedbackText(e.target.value)}
+                className="min-h-[120px] rounded-xl border-gray-200 bg-gray-50 text-sm focus:bg-white resize-none"
+              />
+            </div>
+            <DialogFooter className="px-6 pb-6 border-t border-gray-100 pt-4 flex flex-row items-center justify-end gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setFeedbackOpen(false)}
+                className="rounded-lg border-gray-200 text-gray-600 h-9 px-4 text-xs"
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleSubmitFeedback}
+                disabled={!feedbackText.trim() || feedbackSubmitted}
+                className="rounded-lg bg-green-600 hover:bg-green-700 text-white h-9 px-5 text-xs font-medium"
+              >
+                {feedbackSubmitted ? "Sending…" : "Submit"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <DashboardUserButton variant="header" />
       </div>

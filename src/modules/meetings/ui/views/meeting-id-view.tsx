@@ -71,7 +71,17 @@ const StatusBadge = ({ status }: { status: string }) => {
 };
 
 export const MeetingIdView = ({ meetingId }: MeetingIdViewProps) => {
-  const meetingQuery = trpc.meetings.getOne.useQuery({ id: meetingId });
+  const meetingQuery = trpc.meetings.getOne.useQuery(
+    { id: meetingId },
+    {
+      // Poll every 5s while the call has completed but summary hasn't arrived yet
+      refetchInterval: (query) => {
+        const data = query.state.data;
+        if (data?.status === 'completed' && !data?.summary) return 5000;
+        return false;
+      },
+    }
+  );
 
   if (meetingQuery.isLoading) {
     return (
@@ -217,6 +227,16 @@ export const MeetingIdView = ({ meetingId }: MeetingIdViewProps) => {
               <div className="prose prose-sm max-w-none text-gray-600 leading-relaxed whitespace-pre-wrap">
                 {meeting.summary}
               </div>
+            ) : meeting.status === "completed" ? (
+              <div className="flex flex-col items-center justify-center py-20 text-center gap-4">
+                <div className="size-12 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-200">
+                  <ClipboardListIcon className="size-6" />
+                </div>
+                <div className="flex flex-col">
+                  <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">No Conversation Recorded</p>
+                  <p className="text-xs text-gray-400 max-w-[200px] mt-1">This meeting ended without any conversation data being captured.</p>
+                </div>
+              </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-20 text-center gap-4">
                 <div className="size-12 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-200">
@@ -224,7 +244,7 @@ export const MeetingIdView = ({ meetingId }: MeetingIdViewProps) => {
                 </div>
                 <div className="flex flex-col">
                   <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">Summary Pending</p>
-                  <p className="text-xs text-gray-400 max-w-[200px] mt-1">The AI operative is currently processing the mission logs.</p>
+                  <p className="text-xs text-gray-400 max-w-[200px] mt-1">The AI operative will process the mission logs once the relay ends.</p>
                 </div>
               </div>
             )}
