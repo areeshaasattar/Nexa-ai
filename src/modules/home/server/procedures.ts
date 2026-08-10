@@ -164,7 +164,14 @@ export const homeRouter = createTRPCRouter({
     const start = Date.now();
     
     // Check DB
-    const dbStatus = await db.select({ one: sql`1` }).from(user).limit(1).then(() => "online").catch(() => "offline");
+    // `as const` keeps the literal "online" | "offline" union so it satisfies
+    // StatusMonitor's StatusItem["status"] (string would widen and not match).
+    const dbStatus = await db
+      .select({ one: sql`1` })
+      .from(user)
+      .limit(1)
+      .then(() => "online" as const)
+      .catch(() => "offline" as const);
     const dbLatency = Date.now() - start;
 
     // In a real app, you'd ping the other services here. 
@@ -174,9 +181,11 @@ export const homeRouter = createTRPCRouter({
     return {
       services: [
         { name: "Neon Database", status: dbStatus, latency: `${dbLatency}ms` },
-        { name: "Stream Video API", status: "online", latency: "42ms" },
-        { name: "OpenRouter API", status: "online", latency: "156ms" },
-        { name: "Gemini Model", status: "online", latency: "210ms" },
+        // Nail the literals so the array's inferred status union stays
+        // "online"|"offline" instead of widening to string.
+        { name: "Stream Video API", status: "online" as const, latency: "42ms" },
+        { name: "OpenRouter API", status: "online" as const, latency: "156ms" },
+        { name: "Gemini Model", status: "online" as const, latency: "210ms" },
       ]
     };
   })

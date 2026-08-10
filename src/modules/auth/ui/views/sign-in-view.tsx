@@ -6,7 +6,7 @@ import Link from "next/link";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, Controller } from "react-hook-form";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { ArrowRight, Loader2, MailCheck, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { FaGithub, FaGoogle } from "react-icons/fa";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -32,6 +32,10 @@ const SignInView = () => {
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState<string | null>(null);
+  // Set when sign-in returns 403 (email not verified) — flips on the
+  // "verify your email" panel with a resend button.
+  const [verifyEmail, setVerifyEmail] = useState<string | null>(null);
+  const [resending, setResending] = useState(false);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -61,6 +65,13 @@ const SignInView = () => {
           },
           onError: (ctx) => {
             setLoading(false);
+            // 403 = requireEmailVerification blocked the sign-in because the
+            // email isn't verified yet. Surface a distinct "verify your email"
+            // panel (with a resend button) instead of the generic toast.
+            if (ctx.error.status === 403) {
+              setVerifyEmail(data.email);
+              return;
+            }
             toast.error("Authentication Failed", {
               description: ctx.error.message || "Invalid email or password.",
               duration: 5000,
@@ -70,6 +81,35 @@ const SignInView = () => {
       );
     } catch (error) {
       setLoading(false);
+      toast.error("Unexpected Error", {
+        description: "An unexpected error occurred. Please try again later.",
+      });
+    }
+  };
+
+  // Resend the verification email for the address that was blocked by 403.
+  const handleResendVerification = async () => {
+    if (!verifyEmail) return;
+    setResending(true);
+    try {
+      const { error } = await authClient.sendVerificationEmail({
+        email: verifyEmail,
+        callbackURL: "/",
+      });
+      setResending(false);
+      if (error) {
+        toast.error("Could not resend verification email", {
+          description:
+            error.message || "Please check the email and try again.",
+          duration: 5000,
+        });
+        return;
+      }
+      toast.success("Verification email sent!", {
+        description: `Check ${verifyEmail} for the link. It expires in 1 hour.`,
+      });
+    } catch (error) {
+      setResending(false);
       toast.error("Unexpected Error", {
         description: "An unexpected error occurred. Please try again later.",
       });
@@ -169,7 +209,7 @@ const SignInView = () => {
                         Password
                       </FieldLabel>
                       <Link
-                        href="#"
+                        href="/forgot-password"
                         className="text-xs text-green-800 hover:text-green-900 font-medium"
                       >
                         Forgot password?
@@ -202,6 +242,39 @@ const SignInView = () => {
                 "Sign In"
               )}
             </Button>
+
+            {verifyEmail && (
+              /* ---- Unverified email: distinct panel with resend ---- */
+              <div className="flex flex-col items-start gap-3 px-4 py-3.5 bg-amber-50 border border-amber-200 rounded-xl text-left">
+                <div className="flex items-start gap-2.5">
+                  <MailCheck className="size-4 text-amber-600 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-sm font-semibold text-amber-800">
+                      Please verify your email before signing in
+                    </p>
+                    <p className="text-xs text-amber-700/90 mt-0.5">
+                      We sent a verification link to{" "}
+                      <span className="font-semibold">{verifyEmail}</span>.
+                      Check your inbox, or resend the link below.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={resending}
+                  onClick={handleResendVerification}
+                  className="h-10 rounded-xl border-amber-300 hover:bg-amber-100 text-amber-800 font-semibold text-sm transition-all flex items-center justify-center gap-2"
+                >
+                  {resending ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="size-4" />
+                  )}
+                  Resend verification email
+                </Button>
+              </div>
+            )}
 
             <div className="flex items-center gap-4 my-8">
               <div className="flex-1 h-px bg-gray-300" />

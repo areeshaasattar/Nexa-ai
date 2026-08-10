@@ -43,18 +43,16 @@ export const DashboardNavbar = () => {
         "flex items-center justify-between px-4 md:px-6 shrink-0",
       )}
     >
-      <div className="flex items-center gap-4">
-        <SidebarTrigger className="bg-gray-50 hover:bg-green-50 hover:text-green-700 transition-colors rounded-lg h-9 w-9 flex items-center justify-center border border-gray-200 shadow-sm" />
+      <div className="flex items-center gap-3">
+        <SidebarTrigger className="bg-gray-50 hover:bg-emerald-50 hover:text-emerald-700 transition-colors rounded-lg h-9 w-9 flex items-center justify-center border border-gray-200 shadow-sm" />
 
-        <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-green-50 rounded-full border border-green-100 text-green-700 text-xs font-semibold">
-          <span className="flex items-center gap-1">
-            <span className="size-1.5 rounded-full bg-green-500 animate-pulse" />
-            System Online
-          </span>
+        <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 rounded-full border border-emerald-100 text-emerald-700 text-[11px] font-semibold">
+          <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          System Online
         </div>
       </div>
 
-      <div className="flex-1 max-w-md mx-6 hidden sm:block">
+      <div className="flex-1 max-w-lg mx-3 lg:mx-5 hidden sm:block">
         <button
           type="button"
           onClick={openShortcuts}
@@ -76,10 +74,10 @@ export const DashboardNavbar = () => {
         </button>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2.5">
         <button
           onClick={openShortcuts}
-          className="flex sm:hidden items-center justify-center h-9 w-9 rounded-lg border border-gray-200 bg-gray-50 text-gray-500 hover:bg-green-50 hover:text-green-600 hover:border-green-300 transition-all shadow-sm"
+          className="flex sm:hidden items-center justify-center h-9 w-9 rounded-lg border border-gray-200 bg-gray-50 text-gray-500 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-300 transition-all shadow-sm"
           aria-label="Open search"
         >
           <SearchIcon className="h-4 w-4" />

@@ -1,10 +1,10 @@
 'use client';
 
 import type { Message } from "@/hooks/use-voice-assistant";
-import { Mic, MicOff, Loader2, MessageSquare, X, Bot, User } from "lucide-react";
+import { Mic, MicOff, Loader2, MessageSquare, Send, X, Bot, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type KeyboardEvent } from "react";
 import { cn } from "@/lib/utils";
 
 // Three-dot typing indicator component
@@ -24,6 +24,8 @@ interface VoiceAssistantProps {
   isListening: boolean;
   isProcessing: boolean;
   onStartListening: () => void;
+  onStopListening: () => void;
+  onSendText: (text: string) => void;
 }
 
 export const VoiceAssistant = ({
@@ -31,8 +33,11 @@ export const VoiceAssistant = ({
   isListening,
   isProcessing,
   onStartListening,
+  onStopListening,
+  onSendText,
 }: VoiceAssistantProps) => {
   const [isOpen, setIsOpen] = useState(true);
+  const [draft, setDraft] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -49,10 +54,27 @@ export const VoiceAssistant = ({
     messages.length > 0 &&
     messages[messages.length - 1].role === 'user';
 
+  // ---- Typed input helpers --------------------------------------------
+  const canSend = draft.trim().length > 0;
+
+  const handleSendText = () => {
+    const text = draft.trim();
+    if (!text || isProcessing) return;
+    setDraft("");
+    onSendText(text);
+  };
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendText();
+    }
+  };
+
   return (
     <div className={cn(
       "h-full flex flex-col transition-all duration-300 ease-in-out relative",
-      isOpen ? 'w-80' : 'w-0 overflow-hidden'
+      isOpen ? 'w-64 sm:w-80' : 'w-0 overflow-hidden'
     )}>
       {/* Toggle button (visible when panel is hidden) */}
       {!isOpen && (
@@ -100,7 +122,7 @@ export const VoiceAssistant = ({
                   <MessageSquare className="size-6 text-emerald-500" />
                 </div>
                 <p className="text-xs text-slate-500 font-medium max-w-[160px]">
-                  Click the button below and start talking to your AI agent.
+                  Type a message below or press Push to Talk to chat with your AI agent.
                 </p>
               </div>
             )}
@@ -159,13 +181,47 @@ export const VoiceAssistant = ({
 
         {/* ---- Pinned bottom area (not scrollable) ---- */}
         <div className="shrink-0 px-4 py-3 bg-white border-t border-slate-100">
-          <Button 
-            onClick={onStartListening} 
+          {/* ---- Typed input ---- */}
+          {/* Both input modes stay visible: type a message here OR hold Push to
+              Talk below — no mode toggle. Typed messages flow through the same
+              /api/chat → transcript → TTS pipeline as spoken ones. */}
+          <div className="flex items-end gap-2 mb-3">
+            <textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={handleKeyDown}
+              // Gracefully close an open mic the moment the user starts typing so
+              // voice and typed input can't both fire at once.
+              onFocus={onStopListening}
+              placeholder="Type a message…"
+              rows={2}
+              disabled={isProcessing}
+              className="flex-1 min-h-[38px] max-h-24 resize-none overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            />
+            <Button
+              size="icon"
+              onClick={handleSendText}
+              disabled={isProcessing || !canSend}
+              aria-label="Send message"
+              className={cn(
+                'h-9 w-9 shrink-0 rounded-xl transition-all shadow',
+                canSend && !isProcessing
+                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200'
+                  : 'bg-slate-100 text-slate-400 hover:bg-slate-100'
+              )}
+            >
+              <Send className="size-4" />
+            </Button>
+          </div>
+
+          {/* ---- Push to Talk button ---- */}
+          <Button
+            onClick={onStartListening}
             disabled={isListening || isProcessing}
             className={cn(
               'w-full rounded-xl gap-3 h-12 text-sm font-bold transition-all shadow-lg',
-              isListening 
-                ? 'bg-red-500 hover:bg-red-600 animate-pulse text-white shadow-red-200' 
+              isListening
+                ? 'bg-red-500 hover:bg-red-600 animate-pulse text-white shadow-red-200'
                 : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200'
             )}
           >

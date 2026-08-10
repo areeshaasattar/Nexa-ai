@@ -13,7 +13,9 @@ const Layout = ({ children }: Props) => {
       <DashboardSidebar />
       <SidebarInset className="flex flex-col">
         <DashboardNavbar />
-        <div className="flex-1 overflow-y-auto bg-muted/30 p-6">{children}</div>
+        <div className="flex-1 overflow-y-auto [scrollbar-gutter:stable] bg-slate-50 p-4 md:p-6">
+          {children}
+        </div>
       </SidebarInset>
 
       <ShortcutsModal />

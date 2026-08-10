@@ -6,7 +6,7 @@ import Link from "next/link";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, Controller } from "react-hook-form";
-import { ArrowRight, Loader2, User, Mail, Lock } from "lucide-react";
+import { ArrowRight, Loader2, MailCheck, User, Mail, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { FaGithub, FaGoogle } from "react-icons/fa";
 import { authClient } from "@/lib/auth-client";
@@ -19,28 +19,17 @@ import {
   FieldError,
   FieldGroup,
 } from "@/components/ui/field";
-import { useRouter } from "next/navigation";
+import { signUpSchema } from "../../schemas";
 
-const formSchema = z
-  .object({
-    name: z.string().min(2, { message: "Name must be at least 2 characters" }),
-    email: z.string().email({ message: "Please enter a valid email address" }),
-    password: z
-      .string()
-      .min(8, { message: "Password must be at least 8 characters" }),
-    confirmPassword: z.string(),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords don't match",
-    path: ["confirmPassword"],
-  });
+const formSchema = signUpSchema;
 
 type FormValues = z.infer<typeof formSchema>;
 
 const SignUpView = () => {
-  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState<string | null>(null);
+  // Set once signup succeeds — flips the view to a "check your email" screen.
+  const [submittedEmail, setSubmittedEmail] = useState<string | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -70,11 +59,11 @@ const SignUpView = () => {
           onRequest: () => setLoading(true),
           onSuccess: () => {
             setLoading(false);
-            router.push("/");
-            toast.success("Account created!", {
-              description:
-                "Welcome to Nexa AI. You have successfully signed up.",
-            });
+            // With requireEmailVerification the user is NOT signed in yet (no
+            // session is created), so redirecting to "/" would drop them on a
+            // page they can't use. Show the check-your-email state instead and
+            // let them finish verification from their inbox.
+            setSubmittedEmail(data.email);
           },
           onError: (ctx) => {
             setLoading(false);
@@ -134,10 +123,37 @@ const SignUpView = () => {
               Create Account
             </h1>
             <p className="text-gray-500 text-lg text-center">
-              Join the future of AI with Nexa
+              {submittedEmail ? "Check your inbox" : "Join the future of AI with Nexa"}
             </p>
           </div>
 
+          {submittedEmail ? (
+            /* ---- Success state: user must verify email before they can sign in ---- */
+            <div className="flex flex-col items-center text-center space-y-6">
+              <div className="size-20 rounded-2xl bg-green-50 border border-green-100 flex items-center justify-center">
+                <MailCheck className="size-10 text-green-700" />
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-lg font-bold text-gray-900">
+                  Check your email
+                </h2>
+                <p className="text-sm text-gray-500 max-w-sm">
+                  We&apos;ve sent a verification link to{" "}
+                  <span className="font-semibold text-gray-700">
+                    {submittedEmail}
+                  </span>
+                  . Click it to verify your account — you&apos;ll be signed in
+                  automatically. The link expires in 1 hour.
+                </p>
+              </div>
+              <Button
+                asChild
+                className="h-12 rounded-xl bg-green-800 hover:bg-green-900 text-white font-bold shadow-lg shadow-green-900/20 transition-all active:scale-[0.98]"
+              >
+                <Link href="/sign-in">Back to sign in</Link>
+              </Button>
+            </div>
+          ) : (
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
             <FieldGroup>
               <Controller
@@ -292,6 +308,7 @@ const SignUpView = () => {
               </Link>
             </p>
           </form>
+          )}
         </div>
 
         <div className="hidden md:flex md:w-1/2 bg-gradient-to-br from-green-950 via-green-900 to-emerald-950 p-12 relative overflow-hidden flex-col items-center justify-center text-white">

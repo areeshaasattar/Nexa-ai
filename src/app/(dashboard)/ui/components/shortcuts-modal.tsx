@@ -65,7 +65,12 @@ export function ShortcutsModal() {
 
   return (
     <>
-      <NewMeetingDialog open={newMeetingOpen} onOpenChange={setNewMeetingOpen} />
+      {newMeetingOpen && (
+        <NewMeetingDialog
+          open={newMeetingOpen}
+          onOpenChange={setNewMeetingOpen}
+        />
+      )}
 
       {open && (
         <div
@@ -142,7 +147,7 @@ export function ShortcutsModal() {
                   label="Upgrade to Pro"
                   badge="Pro"
                   badgeColor="bg-amber-100 text-amber-600"
-                  onSelect={() => runCommand(() => router.push("/upgrade"))}
+                  onSelect={() => runCommand(() => router.push("/settings?tab=billing"))}
                 />
               </CommandSection>
 

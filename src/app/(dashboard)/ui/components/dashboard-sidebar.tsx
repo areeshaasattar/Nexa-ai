@@ -57,7 +57,7 @@ export const DashboardSidebar = () => {
     >
       {/* This inner wrapper ensures bg is solid on mobile sheet/drawer */}
       <div className="flex h-full w-full flex-col bg-green-950">
-        <SidebarHeader className="p-6 pb-2">
+        <SidebarHeader className="p-6 pb-4">
           <Link href="/" className="flex items-center gap-3 group">
             <div>
               <Image
@@ -80,14 +80,14 @@ export const DashboardSidebar = () => {
           </Link>
         </SidebarHeader>
 
-        <div className="px-6 py-4">
-          <SidebarSeparator className="bg-green-900/30" />
+        <div className="px-6 py-3">
+          <SidebarSeparator className="bg-white/10" />
         </div>
 
-        <SidebarContent className="px-4 py-2">
+        <SidebarContent className="px-3 py-2">
           <SidebarGroup>
             <SidebarGroupContent>
-              <SidebarMenu className="gap-2">
+              <SidebarMenu className="gap-1">
                 {mainNav.map((item) => {
                   const isActive = pathname === item.href;
                   return (
@@ -100,7 +100,7 @@ export const DashboardSidebar = () => {
                             className="flex items-center gap-3"
                           >
                             <item.icon
-                              className={`size-5 ${isActive ? "text-white" : "text-green-400"}`}
+                              className={`size-5 ${isActive ? "text-emerald-300" : "text-green-400"}`}
                             />
                             <span className="font-medium">{item.label}</span>
                           </Link>
@@ -109,7 +109,7 @@ export const DashboardSidebar = () => {
                           h-11 px-4 rounded-xl transition-all duration-200
                           ${
                             isActive
-                              ? "bg-green-700 text-white shadow-md shadow-green-900/40 hover:bg-green-600"
+                              ? "bg-white/10 text-white"
                               : "text-green-100 hover:bg-white/5 hover:text-white"
                           }
                         `}

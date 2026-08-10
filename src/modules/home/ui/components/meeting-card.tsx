@@ -3,17 +3,21 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { 
-  Video, 
-  Users, 
-  Calendar as CalendarIcon, 
-  Clock, 
+import {
+  Calendar as CalendarIcon,
   MoreVertical,
   Bot,
-  ArrowRight
+  ArrowRight,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import Link from "next/link";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface MeetingCardProps {
   title: string;
@@ -22,6 +26,10 @@ interface MeetingCardProps {
   date: string;
   participants: number;
   status: "scheduled" | "ongoing" | "completed";
+  /** Meeting id — enables navigation links to the detail / call pages */
+  id?: string;
+  /** Override the detail link (defaults to `/meetings/{id}`) */
+  href?: string;
   className?: string;
 }
 
@@ -32,25 +40,44 @@ export const MeetingCard = ({
   date,
   participants,
   status,
+  id,
+  href,
   className,
 }: MeetingCardProps) => {
   const statusColors = {
-    scheduled: "bg-blue-500/10 text-blue-500 border-blue-500/20",
-    ongoing: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
-    completed: "bg-slate-500/10 text-slate-500 border-slate-500/20",
+    scheduled: "bg-blue-50 text-blue-600 border-blue-200",
+    ongoing: "bg-emerald-50 text-emerald-600 border-emerald-200",
+    completed: "bg-slate-50 text-slate-500 border-slate-200",
   };
+
+  // Both links are only rendered when we know the meeting id, so the card stays
+  // purely presentational wherever it's used without one.
+  const detailsHref = href ?? (id ? `/meetings/${id}` : undefined);
+  const callHref = id ? `/call/${id}` : undefined;
 
   return (
     <motion.div
-      whileHover={{ scale: 1.01 }}
+      whileHover={{ y: -2 }}
+      transition={{ duration: 0.2 }}
       className={className}
     >
-      <Card className="border-none bg-white/50 backdrop-blur-xl shadow-sm hover:shadow-md transition-all duration-300">
-        <CardContent className="p-5">
+      <Card className="h-full rounded-xl border border-slate-200 bg-white shadow-sm hover:shadow-md transition-all duration-200 ring-0">
+        <CardContent className="p-5 flex flex-col flex-1">
           <div className="flex items-start justify-between mb-4">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <h4 className="font-bold text-slate-900 line-clamp-1">{title}</h4>
+                <h4 className="font-bold text-slate-900 line-clamp-1">
+                  {detailsHref ? (
+                    <Link
+                      href={detailsHref}
+                      className="transition-colors hover:text-emerald-700"
+                    >
+                      {title}
+                    </Link>
+                  ) : (
+                    title
+                  )}
+                </h4>
                 <Badge variant="outline" className={statusColors[status]}>
                   {status === "ongoing" && <div className="size-1.5 rounded-full bg-emerald-500 animate-pulse mr-1.5" />}
                   {status.charAt(0).toUpperCase() + status.slice(1)}
@@ -61,12 +88,48 @@ export const MeetingCard = ({
                 {date} at {time}
               </p>
             </div>
-            <Button variant="ghost" size="icon" className="size-8 -mr-2">
-              <MoreVertical className="size-4 text-slate-400" />
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-8 -mr-2"
+                    aria-label="Meeting actions"
+                  >
+                    <MoreVertical className="size-4 text-slate-400" />
+                  </Button>
+                }
+              />
+              <DropdownMenuContent
+                align="end"
+                className="rounded-xl border-slate-200 shadow-lg p-1 min-w-[160px]"
+              >
+                {detailsHref && (
+                  <DropdownMenuItem
+                    render={
+                      <Link href={detailsHref} className="text-xs font-bold text-gray-600 hover:text-gray-900 rounded-lg">
+                        View details
+                      </Link>
+                    }
+                    className="text-xs font-bold text-gray-600 rounded-lg cursor-pointer"
+                  />
+                )}
+                {callHref && (
+                  <DropdownMenuItem
+                    render={
+                      <Link href={callHref} className="text-xs font-bold text-emerald-600 hover:text-emerald-700 rounded-lg">
+                        Open live call
+                      </Link>
+                    }
+                    className="text-xs font-bold text-emerald-600 hover:bg-emerald-50 focus:bg-emerald-50 focus:text-emerald-700 rounded-lg cursor-pointer"
+                  />
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
-          <div className="flex items-center justify-between py-4 border-y border-slate-50 mb-4">
+          <div className="flex flex-1 items-center justify-between py-4 border-y border-slate-100">
             <div className="flex items-center gap-3">
               <div className="size-9 rounded-xl bg-emerald-500/10 flex items-center justify-center">
                 <Bot className="size-4 text-emerald-600" />
@@ -90,12 +153,48 @@ export const MeetingCard = ({
           </div>
 
           <div className="flex items-center gap-2">
-            <Button className="flex-1 rounded-xl bg-slate-900 text-white font-bold hover:bg-slate-800 h-10">
-              {status === "ongoing" ? "Join Now" : "Details"}
-            </Button>
-            <Button variant="outline" size="icon" className="rounded-xl border-slate-200 size-10">
-              <ArrowRight className="size-4" />
-            </Button>
+            {detailsHref ? (
+              <Button
+                asChild
+                className="flex-1 rounded-xl bg-slate-900 text-white font-bold hover:bg-slate-800 h-10"
+              >
+                <Link
+                  href={
+                    status === "ongoing" && callHref
+                      ? callHref
+                      : detailsHref
+                  }
+                >
+                  {status === "ongoing" ? "Join Now" : "Details"}
+                </Link>
+              </Button>
+            ) : (
+              <Button className="flex-1 rounded-xl bg-slate-900 text-white font-bold hover:bg-slate-800 h-10">
+                {status === "ongoing" ? "Join Now" : "Details"}
+              </Button>
+            )}
+            {detailsHref ? (
+              <Button
+                asChild
+                variant="outline"
+                size="icon"
+                className="rounded-xl border-slate-200 size-10"
+                aria-label="View meeting details"
+              >
+                <Link href={detailsHref}>
+                  <ArrowRight className="size-4" />
+                </Link>
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                size="icon"
+                className="rounded-xl border-slate-200 size-10"
+                aria-label="View meeting details"
+              >
+                <ArrowRight className="size-4" />
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>

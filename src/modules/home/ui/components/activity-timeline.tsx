@@ -1,21 +1,27 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { 
-  Video, 
-  Bot, 
-  CheckCircle2, 
-  MessageSquare, 
+import {
+  Video,
+  Bot,
+  CheckCircle2,
+  MessageSquare,
   FileText,
   Clock,
-  Mic
+  Mic,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface Activity {
   id: string;
-  type: "meeting_created" | "meeting_completed" | "agent_created" | "recording_ready" | "transcription_done" | "voice_call";
+  type:
+    | "meeting_created"
+    | "meeting_completed"
+    | "agent_created"
+    | "recording_ready"
+    | "transcription_done"
+    | "voice_call";
   title: string;
   user: {
     name: string;
@@ -25,51 +31,78 @@ interface Activity {
   description?: string;
 }
 
+// Semantic hue per activity type (emerald = positive ops signal).
 const activityConfig = {
-  meeting_created: { icon: Video, color: "text-blue-500", bg: "bg-blue-500/10" },
-  meeting_completed: { icon: CheckCircle2, color: "text-emerald-500", bg: "bg-emerald-500/10" },
-  agent_created: { icon: Bot, color: "text-purple-500", bg: "bg-purple-500/10" },
-  recording_ready: { icon: MessageSquare, color: "text-amber-500", bg: "bg-amber-500/10" },
-  transcription_done: { icon: FileText, color: "text-rose-500", bg: "bg-rose-500/10" },
-  voice_call: { icon: Mic, color: "text-cyan-500", bg: "bg-cyan-500/10" },
+  meeting_created: { icon: Video, color: "#3b82f6" },
+  meeting_completed: { icon: CheckCircle2, color: "#10b981" },
+  agent_created: { icon: Bot, color: "#8b5cf6" },
+  recording_ready: { icon: MessageSquare, color: "#f59e0b" },
+  transcription_done: { icon: FileText, color: "#0ea5e9" },
+  voice_call: { icon: Mic, color: "#06b6d4" },
 };
 
 export const ActivityTimeline = ({ activities }: { activities: Activity[] }) => {
   return (
-    <div className="space-y-8 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 before:to-transparent">
+    <div className="relative space-y-3 pl-1">
       {activities.map((activity, index) => {
-        const Config = activityConfig[activity.type] ?? { icon: Clock, color: "text-slate-500", bg: "bg-slate-500/10" };
+        const Config =
+          activityConfig[activity.type] ??
+          { icon: Clock, color: "#64748b" };
+        const isLast = index === activities.length - 1;
+
         return (
           <motion.div
             key={activity.id}
-            initial={{ opacity: 0, x: index % 2 === 0 ? -20 : 20 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.05, duration: 0.3 }}
+            className="relative flex gap-3"
           >
-            {/* Dot */}
-            <div className="flex items-center justify-center w-10 h-10 rounded-full border border-white bg-slate-50 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 transition-transform group-hover:scale-110 duration-300">
-               <Config.icon className={cn("size-4", Config.color)} />
+            {/* Rail + dot column */}
+            <div className="flex flex-col items-center">
+              <div
+                className={cn(
+                  "flex size-9 shrink-0 items-center justify-center rounded-full border transition-transform duration-300 group-hover:scale-110",
+                  "border-white bg-slate-50 shadow-sm",
+                )}
+                style={{
+                  background: `${Config.color}14`,
+                  color: Config.color,
+                }}
+              >
+                <Config.icon className="size-4" />
+              </div>
+              {!isLast && (
+                <div className="w-px flex-1 bg-gradient-to-b from-slate-200 to-transparent" />
+              )}
             </div>
 
-            {/* Content */}
-            <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-2xl bg-white/50 backdrop-blur-xl border border-slate-100/50 shadow-sm transition-all hover:shadow-md hover:bg-white duration-300">
-              <div className="flex items-center justify-between space-x-2 mb-1">
-                <div className="flex items-center gap-2">
-                   <Avatar className="size-6 border border-slate-100">
-                      <AvatarImage src={activity.user.image || `https://api.dicebear.com/7.x/initials/svg?seed=${activity.user.name}`} />
-                      <AvatarFallback>{activity.user.name[0]}</AvatarFallback>
-                   </Avatar>
-                   <span className="font-bold text-slate-900 text-sm">{activity.title}</span>
+            {/* Content card */}
+            <div className="group mb-1 min-w-0 flex-1 rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-all duration-200 hover:border-slate-300 hover:shadow-md">
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-2">
+                  <Avatar className="size-6 shrink-0 border border-slate-100">
+                    <AvatarImage
+                      src={
+                        activity.user.image ||
+                        `https://api.dicebear.com/7.x/initials/svg?seed=${activity.user.name}`
+                      }
+                    />
+                    <AvatarFallback>{activity.user.name[0]}</AvatarFallback>
+                  </Avatar>
+                  <span className="truncate text-sm font-semibold text-slate-900">
+                    {activity.title}
+                  </span>
                 </div>
-                <time className="font-medium text-xs text-slate-400 italic flex items-center gap-1">
-                   <Clock className="size-3" />
-                   {activity.time}
+                <time className="flex shrink-0 items-center gap-1 text-xs font-medium tabular-nums text-slate-400">
+                  <Clock className="size-3" />
+                  {activity.time}
                 </time>
               </div>
-              <div className="text-slate-500 text-xs leading-relaxed font-medium">
-                {activity.description || "System automatically updated the status of this event."}
-              </div>
+              <p className="text-xs leading-relaxed font-medium text-slate-500">
+                {activity.description ||
+                  "System automatically updated the status of this event."}
+              </p>
             </div>
           </motion.div>
         );

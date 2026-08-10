@@ -38,7 +38,7 @@ export const CallActive = () => {
   // --- Single source of truth for voice state ---
   const { data: meeting } = trpc.meetings.getOne.useQuery({ id: meetingId });
   const voice = useVoiceAssistant({ agentId: meeting?.agentId, meetingId });
-  const { isListening, isProcessing, messages, startListening } = voice;
+  const { isListening, isProcessing, messages, startListening, stopListening, sendTextMessage } = voice;
 
   // Fire-and-forget mutation: end the call on the server so summary is generated
   // even when the Stream webhook can't reach localhost.
@@ -153,11 +153,13 @@ export const CallActive = () => {
       </div>
 
       {/* ---- Right: Voice Assistant Sidebar ---- */}
-      <VoiceAssistant 
+      <VoiceAssistant
         messages={messages}
         isListening={isListening}
         isProcessing={isProcessing}
         onStartListening={startListening}
+        onStopListening={stopListening}
+        onSendText={sendTextMessage}
       />
     </div>
   );

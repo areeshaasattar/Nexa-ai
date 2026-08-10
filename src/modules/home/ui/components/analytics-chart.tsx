@@ -37,6 +37,7 @@ export const AnalyticsChart = ({
       toolbar: { show: false },
       fontFamily: "inherit",
       background: "transparent",
+      animations: { enabled: true, speed: 500 },
     },
     colors,
     stroke: {
@@ -61,6 +62,9 @@ export const AnalyticsChart = ({
       },
     },
     yaxis: {
+      min: 0,
+      forceNiceScale: true,
+      tickAmount: 4,
       labels: {
         style: { colors: "#64748b", fontSize: "12px" },
       },
@@ -82,11 +86,11 @@ export const AnalyticsChart = ({
       fontSize: "13px",
       fontWeight: 500,
       labels: { colors: "#64748b" },
-      markers: { radius: 12 },
     },
     plotOptions: {
       bar: { borderRadius: 6, columnWidth: "35%" },
-      donut: { size: "75%" },
+      // A donut is a pie variant in ApexCharts — size lives under pie.donut.
+      pie: { donut: { size: "75%" } },
       radialBar: {
         hollow: { size: "65%" },
         dataLabels: {
@@ -135,14 +139,35 @@ export const AnalyticsChart = ({
               <CardDescription className="text-xs font-medium">{description}</CardDescription>
             )}
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" className="size-8 text-muted-foreground">
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              disabled
+              className="size-8 cursor-not-allowed text-slate-300"
+              aria-label="Download chart (coming soon)"
+              title="Coming soon"
+            >
               <Download className="size-4" />
             </Button>
-            <Button variant="ghost" size="icon" className="size-8 text-muted-foreground">
+            <Button
+              variant="ghost"
+              size="icon"
+              disabled
+              className="size-8 cursor-not-allowed text-slate-300"
+              aria-label="Expand chart (coming soon)"
+              title="Coming soon"
+            >
               <Maximize2 className="size-4" />
             </Button>
-            <Button variant="ghost" size="icon" className="size-8 text-muted-foreground">
+            <Button
+              variant="ghost"
+              size="icon"
+              disabled
+              className="size-8 cursor-not-allowed text-slate-300"
+              aria-label="More chart options (coming soon)"
+              title="Coming soon"
+            >
               <MoreHorizontal className="size-4" />
             </Button>
           </div>

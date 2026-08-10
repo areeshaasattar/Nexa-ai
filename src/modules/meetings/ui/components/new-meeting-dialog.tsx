@@ -42,7 +42,14 @@ export const NewMeetingDialog = ({
   defaultAgentId,
 }: NewMeetingDialogProps) => {
   const utils = trpc.useUtils();
-  const agentsQuery = trpc.agents.getMany.useQuery({ pageSize: 100 });
+  // Only fetch agents while the dialog is open — mounting this dialog shell-wide
+  // (shortcuts modal) used to fire this request on every dashboard page load.
+  const agentsQuery = trpc.agents.getMany.useQuery(
+    { pageSize: 100 },
+    { enabled: open, staleTime: 60_000 },
+  );
+  const agents = agentsQuery.data?.data;
+  const hasAgents = agentsQuery.isLoading || (agents ? agents.length > 0 : false);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(meetingsInsertSchema) as any,
@@ -110,29 +117,42 @@ export const NewMeetingDialog = ({
               <FieldLabel className="text-xs font-medium text-gray-500 mb-1.5">
                 Assign Agent
               </FieldLabel>
-              <Select
-                disabled={createMutation.isPending || agentsQuery.isLoading}
-                onValueChange={(value) => value && form.setValue("agentId", value)}
-                defaultValue={form.getValues("agentId")}
-              >
-                <SelectTrigger className="h-10 rounded-lg border border-[#a8c8a8] bg-gray-50 text-sm focus:bg-white focus:ring-[#3B6D11]/20 transition-all">
+              {hasAgents ? (
+                <Select
+                  disabled={createMutation.isPending || agentsQuery.isLoading}
+                  onValueChange={(value) =>
+                    value && form.setValue("agentId", value)
+                  }
+                  defaultValue={form.getValues("agentId")}
+                >
+                  <SelectTrigger className="h-10 rounded-lg border border-[#a8c8a8] bg-gray-50 text-sm focus:bg-white focus:ring-[#3B6D11]/20 transition-all">
+                    <div className="flex items-center gap-2">
+                      <BotIcon className="size-3.5 text-gray-400" />
+                      <SelectValue placeholder="Select an operative" />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl border-[#d4e0d4]">
+                    {(agents ?? []).map((agent) => (
+                      <SelectItem
+                        key={agent.id}
+                        value={agent.id}
+                        className="text-sm rounded-lg cursor-pointer"
+                      >
+                        {agent.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="flex items-center justify-between gap-3 rounded-lg border border-[#a8c8a8]/70 bg-gray-50 px-3 py-2.5">
                   <div className="flex items-center gap-2">
-                    <BotIcon className="size-3.5 text-gray-400" />
-                    <SelectValue placeholder="Select an operative" />
+                    <BotIcon className="size-3.5 text-gray-400 shrink-0" />
+                    <p className="text-xs font-medium text-gray-500">
+                      No AI agents yet. Create one before scheduling a meeting.
+                    </p>
                   </div>
-                </SelectTrigger>
-                <SelectContent className="rounded-xl border-[#d4e0d4]">
-                  {agentsQuery.data?.data.map((agent) => (
-                    <SelectItem
-                      key={agent.id}
-                      value={agent.id}
-                      className="text-sm rounded-lg cursor-pointer"
-                    >
-                      {agent.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                </div>
+              )}
               {form.formState.errors.agentId && (
                 <FieldError errors={[form.formState.errors.agentId]} />
               )}
@@ -194,10 +214,14 @@ export const NewMeetingDialog = ({
             <Button
               type="submit"
               size="sm"
-              className="rounded-lg bg-[#3B6D11] hover:bg-[#2f5a0d] text-white text-sm font-medium h-9 px-5 transition-colors"
-              disabled={createMutation.isPending}
+              className="rounded-lg bg-[#3B6D11] hover:bg-[#2f5a0d] text-white text-sm font-medium h-9 px-5 transition-colors disabled:opacity-40 disabled:hover:bg-[#3B6D11]"
+              disabled={createMutation.isPending || !hasAgents}
             >
-              {createMutation.isPending ? "Scheduling…" : "Schedule"}
+              {createMutation.isPending
+                ? "Scheduling…"
+                : hasAgents
+                  ? "Schedule"
+                  : "No agents available"}
             </Button>
           </DialogFooter>
         </form>

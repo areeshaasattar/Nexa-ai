@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { LucideIcon } from "lucide-react";
+import { LucideIcon, ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface QuickActionCardProps {
@@ -21,16 +21,22 @@ export const QuickActionCard = ({
 }: QuickActionCardProps) => {
   return (
     <motion.button
-      whileHover={{ scale: 1.02, y: -2 }}
-      whileTap={{ scale: 0.98 }}
+      whileHover={{ y: -2 }}
+      whileTap={{ scale: 0.99 }}
+      transition={{ duration: 0.2 }}
       onClick={onClick}
-      className="flex flex-col items-start p-5 rounded-2xl bg-white/50 backdrop-blur-xl border border-slate-100/50 shadow-sm hover:shadow-md hover:bg-white transition-all text-left w-full group"
+      className="group relative flex flex-col items-start rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition-all hover:border-slate-300 hover:shadow-md w-full"
     >
-      <div className={cn("p-3 rounded-xl mb-4 transition-transform group-hover:scale-110 duration-300", color)}>
-        <Icon className="size-5" />
+      <div className="mb-3 flex items-center justify-between w-full">
+        <div className={cn("flex size-10 items-center justify-center rounded-lg transition-transform duration-300 group-hover:scale-105", color)}>
+          <Icon className="size-5" />
+        </div>
+        <ArrowUpRight className="size-4 text-slate-300 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-hover:text-emerald-600" />
       </div>
-      <h4 className="font-bold text-slate-900 mb-1">{title}</h4>
-      <p className="text-xs font-medium text-slate-500 leading-relaxed">{description}</p>
+      <h4 className="text-sm font-semibold text-slate-900 mb-0.5">{title}</h4>
+      <p className="text-xs font-medium text-slate-500 leading-relaxed">
+        {description}
+      </p>
     </motion.button>
   );
 };
