@@ -26,7 +26,10 @@ function buildPasswordResetUrl(token: string): string {
 }
 
 export const auth = betterAuth({
-     trustedOrigins: ["https://broadways-disprove-embargo.ngrok-free.dev"],
+    trustedOrigins: [
+        "http://localhost:3000",
+        "https://nexa-ai-gold-xi.vercel.app",
+      ],
      socialProviders: {
         github: {
             clientId: process.env.GITHUB_CLIENT_ID as string,
