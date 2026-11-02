@@ -88,6 +88,23 @@ export async function POST(req: Request) {
       }),
     });
 
+    if (response.status === 429) {
+      const retryAfter = response.headers.get("Retry-After");
+      console.warn("Mistral rate limit reached while handling a chat request.");
+
+      return NextResponse.json(
+        {
+          error:
+            "The AI provider is temporarily rate-limiting requests. Please wait and try again. If this continues, check your Mistral usage and rate limits.",
+          code: "AI_PROVIDER_RATE_LIMITED",
+        },
+        {
+          status: 503,
+          headers: retryAfter ? { "Retry-After": retryAfter } : undefined,
+        },
+      );
+    }
+
     if (!response.ok) {
       const error = await response.json();
       throw new Error(`Mistral Error: ${JSON.stringify(error)}`);
@@ -97,8 +114,9 @@ export async function POST(req: Request) {
     const responseText = data.choices?.[0]?.message?.content || "No response from AI.";
 
     return NextResponse.json({ response: responseText });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Chat API Error:", error);
-    return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Internal Server Error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

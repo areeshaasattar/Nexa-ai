@@ -71,6 +71,13 @@ export async function generateMeetingSummary(meetingId: string): Promise<void> {
       }),
     });
 
+    if (response.status === 429) {
+      console.warn(
+        `Mistral rate limit prevented summary generation for meeting ${meetingId}.`,
+      );
+      return;
+    }
+
     if (!response.ok) {
       const error = await response.json();
       throw new Error(`Mistral Error: ${JSON.stringify(error)}`);

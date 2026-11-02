@@ -31,12 +31,16 @@ export const StreamCallProvider = ({ children, meetingId }: StreamCallProviderPr
   useEffect(() => {
     if (!token || !session?.user || !apiKey) return;
 
+    const userImage = /^data:/i.test(session.user.image ?? '')
+      ? undefined
+      : session.user.image ?? undefined;
+
     const client = StreamVideoClient.getOrCreateInstance({
       apiKey,
       user: {
         id: session.user.id,
         name: session.user.name ?? session.user.email,
-        image: session.user.image ?? undefined,
+        image: userImage,
       },
       token,
     });

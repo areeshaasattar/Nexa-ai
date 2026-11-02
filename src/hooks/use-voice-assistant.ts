@@ -145,6 +145,21 @@ export const useVoiceAssistant = ({ agentId, meetingId }: UseVoiceAssistantProps
         }
 
         const data = await response.json();
+        if (response.status === 503 && data.code === 'AI_PROVIDER_RATE_LIMITED') {
+          toast.error("AI service is temporarily rate-limited", {
+            description:
+              "Please wait before retrying. If this continues, check your Mistral account's usage and rate limits.",
+          });
+          setMessages((prev) => [
+            ...prev,
+            {
+              role: 'ai',
+              content: "The AI service is temporarily rate-limited. Please wait a moment and try again.",
+            },
+          ]);
+          return;
+        }
+
         if (data.response) {
           // Add the reply to the shared transcript and persist it. The agent
           // "speaks" the answer aloud for BOTH input modes so the call stays

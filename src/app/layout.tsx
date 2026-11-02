@@ -31,7 +31,10 @@ export default function RootLayout({
         lang="en"
         className={`${geistSans.variable} ${geistMono.variable} h-full antialiased bg-white`}
       >
-        <body className="min-h-full flex flex-col bg-white text-black">
+        <body
+          className="min-h-full flex flex-col bg-white text-black"
+          suppressHydrationWarning
+        >
           {children}
           <Toaster richColors closeButton position="top-right" />
         </body>
