@@ -83,7 +83,7 @@ Defined in `src/db/schema.ts` (PostgreSQL dialect). Migrations are managed with 
 | `meetings`           | Scheduled calls: `name`, `userId`, `agentId` (FK → agents), `instructions`, `status`, `startedAt`, `endedAt`, `transcriptUrl`, `summary`, `recordingUrl` |
 | `activities`         | Activity feed: `userId`, `type` (enum below), `title`, `description`, `metadata` (JSON string)                   |
 | `conversation_messages` | Chat history per meeting: `meetingId` (FK cascade), `role` (`user`/`ai`), `content`                            |
-| `voice_interactions` | Dashboard metrics per voice exchange: `meetingId`, `duration`, `accuracy`, `responseTime`                        |
+| `voice_interactions` | Dashboard metrics per voice exchange: `meetingId`, `duration`, `responseTime`                        |
 
 **Enums:**
 
@@ -98,11 +98,14 @@ dependent rows).
 
 ## 4. Implemented features — full inventory
 
-### 4.1 Authentication (`/sign-in`, `/sign-up`)
+### 4.1 Authentication (`/sign-in`, `/sign-up`, `/forgot-password`, `/reset-password`, `/verify-email`)
 - Email + password sign‑in and sign‑up (password hashed by Better‑Auth, min 8 chars, confirm‑password validation).
 - GitHub & Google **OAuth** social login.
 - Session persistence via cookies; server‑side session checks on protected pages.
 - Sign‑out from the user menu and command palette.
+- **Forgot / reset password** — `/forgot-password` requests a reset link (`authClient.requestPasswordReset`, 1‑hour single‑use token via Resend); `/reset-password` validates the token (Better‑Auth callback) and sets the new password (`authClient.resetPassword`), revoking all other sessions.
+- **Email verification** — `sendOnSignUp` emails a verification link (1‑hour expiry); sign‑in is blocked for unverified users (403) and the sign‑in view offers a resend; `/verify-email` handles the link, shows an expired‑token state with a resend form, and auto‑signs‑in after success.
+- **Email & password change** — available on the `/settings` page (see §4.13).
 
 ### 4.2 AI Agents module (`/agents`, `/agents/[agentId]`)
 - **Create** an agent (name + instruction) → `agents.create`.
@@ -157,18 +160,18 @@ Lives in the call sidebar (`src/app/call/ui/components/voice-assistant.tsx`), dr
 ### 4.8 Dashboard (`/`, `src/modules/home`)
 Powered by `homeRouter.getDashboardData` (one aggregated query) + `homeRouter.hello` + `homeRouter.getSystemHealth`, fetched by the `useDashboard` hook with polling:
 - **Hero section** — time‑of‑day greeting with the user's first name + 4 quick stats.
-- **Metric cards** — Total Meetings, Active AI Agents, Voice Interactions, Recording Storage (with per‑card sparklines & trend arrows).
+- **Metric cards** — Total Meetings, Active AI Agents, Voice Interactions, Recordings (counts + per-card sparkline where available; trend arrow on Total Meetings).
 - **Intelligence Hub chart** — tabbed *Activity* (meeting volume, last 7 days, area chart) and *Performance* (avg meeting duration, line chart). Uses `recharts`.
 - **Upcoming schedule** — list of scheduled meetings with agent, date & status.
 - **Quick launch** — New Agent / Schedule / Instant Call shortcut cards.
-- **AI Insights** — computed recommendations derived from metrics (e.g. "Meeting volume up X% this week").
-- **System status monitor** — live check of the DB (real ping) + simulated latency/status for Stream/OpenRouter/Gemini. Polled every 30 s.
+- **AI Insights** — client-side, rule-based recommendations derived from metrics (e.g. "Meeting volume up X% this week", most active agent, transcription count). Not LLM-generated.
+- **System status monitor** — live check of the Neon database (real ping + latency); only the database is probed. Polled every 30 s.
 - **Recent activity timeline** — last 10 activity entries.
 
 ### 4.9 Dashboard shell & UX
-- **Sidebar** (green‑950 theme) with Dashboard / Meetings / AI Agents navigation, logo, and a footer **user menu** (avatar, name, "Pro User" badge, profile/billing/security/settings menu items, **Sign Out**).
+- **Sidebar** (green‑950 theme) with Dashboard / Meetings / AI Agents navigation, logo, and a footer **user menu** (avatar, name; menu items: My Profile, Billing & Plan, Security, Account Settings, Sign Out).
 - **Top navbar** — sidebar toggle, "System Online" pill, **⌘K search bar** (opens command palette), and a **Feedback** dialog (sonner toast on submit).
-- **Command palette (`⌘K`)** — keyboard‑driven launcher with *Navigate*, *Actions* (New Meeting, Upgrade to Pro), *Settings*, and *Help* sections + Sign Out. Also opens via the search box click (custom `open-shortcuts` event).
+- **Command palette (`⌘K`)** — keyboard‑driven launcher with *Navigate* (Dashboard, Meetings, AI Agents), *Actions* (New Meeting), *Settings* (Profile, Billing, Security, Account Settings), and *Help* (Documentation, Sign Out). Also opens via the search box click (custom `open-shortcuts` event).
 - Mobile‑responsive (sidebar drawer, mobile search button, collapsible panels).
 
 ### 4.10 Data & list features
@@ -191,6 +194,13 @@ Powered by `homeRouter.getDashboardData` (one aggregated query) + `homeRouter.he
 | `/api/chat`              | POST   | Sends `{ prompt, agentId }` to Mistral using the agent's instruction as system prompt. |
 | `/api/webhooks/stream`   | POST   | Verifies signature, updates meeting status, triggers summarization.    |
 
+### 4.13 Settings & Account (`/settings`)
+Tabs: **Profile**, **Billing**, **Security**, **Account**.
+- **Profile** — edit display name + bio (`authClient.updateUser`), avatar upload, and change email via a verification link (`authClient.changeEmail`); shows verified/unverified badge.
+- **Billing** — UI-only "Pro Plan / Active" card; management not yet implemented ("coming soon").
+- **Security** — change password (`authClient.changePassword`, `revokeOtherSessions: true`) with a client-side strength meter; sign out.
+- **Account** — read-only display name, email, member-since date, role ("Owner").
+
 ---
 
 ## 5. Authentication system — how it works
@@ -201,7 +211,7 @@ Authentication uses **Better‑Auth v1.6** with the **Drizzle adapter** backed b
 ### 5.1 Server‑side setup — `src/lib/auth.ts`
 
 ```ts
-// Built from env only — BETTER_AUTH_URL + optional comma-separated TRUSTED_ORIGINS
+// Built entirely from env — no literal domains in code
 const trustedOrigins = [
   process.env.BETTER_AUTH_URL ?? "",
   ...(process.env.TRUSTED_ORIGINS ?? "").split(","),
@@ -212,20 +222,45 @@ const trustedOrigins = [
 export const auth = betterAuth({
   trustedOrigins,
   socialProviders: {
-    github: { clientId: ..., clientSecret: ... },
-    google: { clientId: ..., clientSecret: ... },
+    github: { clientId: process.env.GITHUB_CLIENT_ID, clientSecret: process.env.GITHUB_CLIENT_SECRET },
+    google: { clientId: process.env.GOOGLE_CLIENT_ID, clientSecret: process.env.GOOGLE_CLIENT_SECRET },
   },
-  emailAndPassword: { enabled: true },
+  account: {
+    accountLinking: {
+      enabled: true,
+      trustedProviders: ["google", "github"],
+      requireLocalEmailVerified: false,
+    },
+  },
+  emailVerification: {
+    sendVerificationEmail: async ({ user, url }) => { /* fire-and-forget via Resend */ },
+    sendOnSignUp: true,
+    autoSignInAfterVerification: true,
+    expiresIn: 3600,
+  },
+  user: {
+    changeEmail: { enabled: true },
+    additionalFields: { bio: { type: "string", defaultValue: "" } },
+  },
+  emailAndPassword: {
+    enabled: true,
+    requireEmailVerification: true,
+    sendResetPassword: async ({ user, token }) => { /* fire-and-forget via Resend */ },
+    resetPasswordTokenExpiresIn: 3600,
+    revokeSessionsOnPasswordReset: true,
+  },
   database: drizzleAdapter(db, { provider: "pg", schema: { ...schema } }),
 });
 ```
 
 Key points:
-- **`emailAndPassword.enabled: true`** → enables `/sign-in/email`, `/sign-up/email` and `/sign-out` endpoints.
-- **Social providers** → GitHub + Google OAuth configured from env vars.
-- **`trustedOrigins`** → built from env only: `BETTER_AUTH_URL` plus the optional comma-separated `TRUSTED_ORIGINS` list (empty entries filtered out). No literal domains in code.
-- **Drizzle adapter** → sessions/accounts are persisted in the Drizzle schema tables.
-- Required env vars: `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` (base URL, currently `http://localhost:3000`), plus `GITHUB_CLIENT_ID/SECRET`, `GOOGLE_CLIENT_ID/SECRET`, and `DATABASE_URL`.
+- **`emailAndPassword`**: enabled, `requireEmailVerification: true` (sign-in blocked until verified), reset token expires in 1 h, `revokeSessionsOnPasswordReset: true`.
+- **`emailVerification`**: `sendOnSignUp: true`, `autoSignInAfterVerification: true`, 1‑hour expiry; verification email sent fire-and-forget via Resend.
+- **`user.changeEmail`**: enabled (verification-gated).
+- **`account.accountLinking`**: enabled for Google/GitHub with `requireLocalEmailVerified: false` (see auth.ts comments).
+- **`trustedOrigins`** → built from env only: `BETTER_AUTH_URL` plus optional comma-separated `TRUSTED_ORIGINS`.
+- **Drizzle adapter** → sessions/accounts persisted in the Drizzle schema tables.
+- Required env vars: `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `DATABASE_URL`, plus `GITHUB_CLIENT_ID/SECRET`, `GOOGLE_CLIENT_ID/SECRET`, `RESEND_API_KEY`/`RESEND_FROM_EMAIL` (optional), `MISTRAL_API_KEY`.
 
 ### 5.2 Exposing the API — `src/app/api/auth/[...all]/route.ts`
 
@@ -275,30 +310,22 @@ Both views use **react‑hook-form + zod** validation and call the auth client:
 
 ### 5.5 Session checks & route protection
 
-Three layers protect the app:
+Four layers protect the app:
 
-1. **Page‑level (server)** — e.g. `src/app/(dashboard)/page.tsx`:
-   ```ts
-   const session = await auth.api.getSession({ headers: await headers() });
-   if (!session) return redirect("/sign-in");
-   ```
-   Any unauthenticated visit to the dashboard is redirected to `/sign-in`. (The meetings/agents
-   pages are inside the same `(dashboard)` route group, but only the home page performs this check —
-   see §8 note.)
+1. **Proxy (`src/proxy.ts`, Next.js 16 renamed middleware)** — optimistic cookie-presence guard. `getSessionCookie()` only checks that a `better-auth.session_token` cookie exists (no DB round-trip, no validation). Protected paths: `/`, `/agents` (and subpaths), `/meetings` (and subpaths), `/call` (and subpaths) → redirect to `/sign-in` when no cookie. Auth pages (`/sign-in`, `/sign-up`) redirect to `/` when a cookie exists. Matcher excludes `/api/*`, `/_next/*`, and static files. Real protection does NOT come from this layer.
 
-2. **tRPC context** — `src/trpc/init.ts`:
+2. **Server-side layouts** — `(dashboard)/layout.tsx` and `call/layout.tsx` both call `auth.api.getSession({ headers })` and `redirect("/sign-in")` when there is no session. This covers every page under those route groups, including `/settings`, `/agents`, `/meetings`, and `/call/[meetingId]`.
+
+3. **tRPC context** — `src/trpc/init.ts`:
    ```ts
    export const createTRPCContext = cache(async () => {
      const session = await auth.api.getSession({ headers: await headers() });
      return { userId: session?.user.id };
    });
    ```
-   The `userId` is threaded into every tRPC call. The **`protectedProcedure`** middleware throws
-   `TRPCError UNAUTHORIZED` when there's no `userId`, so every agents/meetings/dashboard procedure is
-   gated.
+   The `userId` is threaded into every tRPC call. The **`protectedProcedure`** middleware throws `TRPCError UNAUTHORIZED` when there's no `userId`, so every agents/meetings/dashboard procedure is gated.
 
-3. **Ownership scoping** — even when authenticated, every query/mutation filters on
-   `eq(<table>.userId, ctx.userId)`, so users can only see/modify their own data.
+4. **Ownership scoping** — even when authenticated, every query/mutation filters on `eq(<table>.userId, ctx.userId)`, so users can only see/modify their own data. `/api/chat` now also scopes the agent lookup by `userId`.
 
 ### 5.6 Sessions inside the app
 
@@ -319,6 +346,17 @@ Three layers protect the app:
 
 ---
 
+## 5.8 Security notes (owner-scoping & input validation)
+
+- All tRPC procedures (`agents.*`, `meetings.*`, `home.*`) are `protectedProcedure`-gated and filter
+  every query/mutation by `ctx.userId`; `meetings.saveMessage`, `logVoiceInteraction`,
+  `getRecordings`, `getTranscriptions`, and `endCall` verify meeting ownership before acting.
+- `/api/chat` validates its body with zod (prompt: trimmed, 1–2000 chars; agentId: 1–64 chars),
+  returns 400 on invalid input, checks the session (401 when absent), and scopes the agent lookup
+  to the caller (`agents.id` + `agents.userId`). It is rate-limited per user via Upstash.
+- `meetings.getSession` returns only minimal user fields (`id`, `name`, `email`, `image`) — no
+  session token or other sensitive fields.
+
 ## 6. Key flows
 
 ### 6.1 Create an agent → schedule a meeting → run a call
@@ -333,17 +371,19 @@ Three layers protect the app:
 - User clicks **Leave** in `CallControls` → `window.speechSynthesis.cancel()` → `endCall` mutation:
   - Marks meeting `completed`, sets `endedAt`, logs `meeting_completed` activity.
   - Fetches recording/transcription URLs from Stream (best‑effort, non‑blocking).
-  - Calls `generateMeetingSummary(id)` (fire‑and‑forget).
+  - Calls `generateMeetingSummary(id)` raced against a 15 s timeout so `endCall` never blocks on it.
 - Alternatively (or additionally) the **Stream webhook** `call.session_ended` performs the same
-  status update + summary trigger. Both are **idempotent**, so the first one to run wins.
-- The meeting detail page polls every 5 s until `summary` appears, then renders it under
-  "AI‑Generated Mission Summary" alongside "Watch Recording" / "Raw Transcript" buttons.
+  status update and triggers summary generation wrapped in Next.js `after()` so it runs after the
+  response is sent. Both are **idempotent**, so the first one to run wins.
+- The meeting detail page polls every 5 s while status is `completed` but `summary` is missing,
+  stopping after ~2 min, then shows a "Summary unavailable" state if none arrived.
 
 ### 6.3 Voice interaction metrics
 - After each user→AI exchange, the client estimates response time (`performance.now()`) and a
   speaking duration (word count ÷ 2.5 wps) and calls `logVoiceInteraction`.
-- `voice_interactions` rows feed the dashboard's **Voice Interactions** metric (accuracy hard‑coded
-  to `"95"` — a placeholder; see §8).
+- `voice_interactions` rows feed the dashboard's **Voice Interactions** metric (count + average
+  response time). Duration is estimated client-side (word count ÷ 2.5 wps); response time from
+  `performance.now()`.
 
 ---
 
@@ -402,44 +442,17 @@ nexa-ai/
 
 ---
 
-## 8. Notes & discrepancies found while reading the code
+## 8. Known limitations & roadmap
 
-> These are things worth knowing that aren't obvious from the README.
+1. **Billing is UI-only.** The `/settings` Billing tab shows a hardcoded "Pro Plan / Active" badge and states that billing management is coming soon; there is no payment provider integration, plan enforcement, or `/upgrade` route.
+2. **System health probes only the database.** `getSystemHealth` pings Neon (real latency) and reports a single "Neon Database" service; Stream/Mistral/Upstash are not monitored.
+3. **AI Insights are rule-based**, computed client-side from dashboard metrics (meeting trend, completed count, transcription count, most-used agent). They are not LLM-generated.
+4. **Voice interaction metrics are estimates.** `duration` is estimated client-side (word count ÷ 2.5 wps) and `responseTime` from `performance.now()`; no accuracy field is stored.
+5. **Terms & Privacy links are placeholders** (`href="#"`) in the auth views.
+6. **Summary generation is best-effort on serverless.** `endCall` races it against a 15 s timeout and the webhook wraps it in `after()`; the meeting page stops polling after ~2 min and shows "Summary unavailable" if none arrived. No retry queue.
+7. **Stream call access relies on an unguessable meetingId** with the default call type (no per-call authorization beyond the id).
+8. **`superjson` is installed but unused** — no tRPC transformer is configured (JSON over HTTP batch links).
+9. **Route protection at the proxy layer is optimistic** (cookie presence only); real validation happens in the server layouts and tRPC. `/settings` is not in the proxy's protected-path list but is guarded by the layout.
+10. **No committed migrations** — schema changes are applied via `npm run db:push` (drizzle-kit push); there is no migrations directory committed (drizzle-kit metadata only).
 
-1. **LLM provider is Mistral only.** The code (`/api/chat` and `meeting-summary.ts`) only talks to
-   `api.mistral.ai` using `MISTRAL_API_KEY` and `MODEL_NAME`. No OpenRouter/Gemini/Groq provider
-   support exists anywhere in the code (the old README/`AI_SETUP.md` provider‑agnostic claims were
-   inaccurate and have been removed; `AI_SETUP.md` now documents Mistral).
-
-2. **Stale migration — removed.** `drizzle/0000_orange_ink.sql` was an old example `users` table
-   (`id` integer identity, `name`, `age`, `email`) that did **not** match the current schema
-   (`src/db/schema.ts`) and has been deleted (along with its drizzle‑kit meta snapshot/journal
-   entry). The app relies on `npm run db:push` (drizzle‑kit push).
-
-3. **Route protection is inconsistent at the page level.** Only the dashboard home page
-   (`(dashboard)/page.tsx`) does a server‑side `getSession` + redirect. The meetings/agents pages
-   rely on tRPC `protectedProcedure` (which returns a UNAUTHORIZED error → the views render
-   `ErrorState` rather than redirecting to sign‑in). Better‑Auth does not currently wrap the whole
-   `(dashboard)` route group with a middleware guard.
-
-4. **Placeholder / mock data:**
-   - `voice_interactions.accuracy` is hard‑coded to `"95"` in `logVoiceInteraction`.
-   - Recording **storage GB** is computed as `count * 0.45` (mock).
-   - `getSystemHealth` returns real DB latency but simulated latency/status for Stream/OpenRouter/Gemini.
-   - The **User menu** items (Profile, Settings, Security) do lead to the `/settings` page
-     (email/password change); **Billing** and **Upgrade to Pro** remain UI placeholders (no routes
-     exist for `/upgrade` etc.). The forgot/reset password flow is fully implemented (see §5.4).
-
-5. **`bridge-server/` is removed** — the legacy WebSocket Gemini bridge referenced in the old
-   `AI_SETUP.md` no longer exists in the repo.
-
-6. **Two separate clients exist for tRPC**: a server‑side proxy (`trpc/server.tsx`, via
-   `@trpc/tanstack-react-query`) and a client provider (`trpc/client.tsx`, via `@trpc/react-query`,
-   `httpBatchLink` to `/api/trpc`). `useDashboard` and the modules use the **client** hooks
-   (`trpc.xxx.useQuery`).
-
-7. **Env / dev‑time setup.** No origins are hard-coded — they come from env vars:
-   `trustedOrigins` = `BETTER_AUTH_URL` + optional `TRUSTED_ORIGINS` (comma-separated),
-   `next.config.ts` `allowedDevOrigins` = optional `DEV_ALLOWED_ORIGINS` (comma-separated
-   hostnames), and the public tunnel URL itself lives in `NEXT_PUBLIC_APP_URL` — which is what
-   lets the Stream webhook reach the dev server. `BETTER_AUTH_URL` is currently `http://localhost:3000`.
+---

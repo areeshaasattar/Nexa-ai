@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { agents } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { checkChatRateLimit } from "@/lib/rate-limit";
+import { z } from "zod";
 
 export async function POST(req: Request) {
   try {
@@ -51,17 +52,24 @@ export async function POST(req: Request) {
       );
     }
 
-    const { prompt, agentId } = await req.json();
+    const body = await req.json().catch(() => null);
 
-    if (!prompt || !agentId) {
-      return NextResponse.json({ error: "Missing prompt or agentId" }, { status: 400 });
+    const chatInputSchema = z.object({
+      prompt: z.string().trim().min(1).max(2000),
+      agentId: z.string().min(1).max(64),
+    });
+
+    const parsed = chatInputSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid input" }, { status: 400 });
     }
+    const { prompt, agentId } = parsed.data;
 
     // Fetch agent instructions
     const [agent] = await db
       .select()
       .from(agents)
-      .where(eq(agents.id, agentId));
+      .where(and(eq(agents.id, agentId), eq(agents.userId, userId)));
 
     if (!agent) {
       return NextResponse.json({ error: "Agent not found" }, { status: 404 });

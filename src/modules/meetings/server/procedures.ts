@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { meetings, agents, activities, conversationMessages, voiceInteractions } from "@/db/schema";
+import { meetings, agents, activities, conversationMessages, voiceInteractions, user } from "@/db/schema";
 import { createTRPCRouter, protectedProcedure } from "@/trpc/init";
 import { TRPCError } from "@trpc/server";
 import { meetingsInsertSchema, meetingsUpdateSchema } from "../schemas";
@@ -14,11 +14,25 @@ import { headers } from "next/headers";
 import { generateMeetingSummary } from "@/lib/meeting-summary";
 
 export const meetingsRouter = createTRPCRouter({
-  getSession: protectedProcedure.query(async () => {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-    return session;
+  getSession: protectedProcedure.query(async ({ ctx }) => {
+    const [userData] = await db
+      .select({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        image: user.image,
+      })
+      .from(user)
+      .where(eq(user.id, ctx.userId));
+
+    if (!userData) {
+      throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "User not found.",
+      });
+    }
+
+    return { user: userData };
   }),
 
   getToken: protectedProcedure.query(async ({ ctx }) => {
@@ -85,7 +99,19 @@ export const meetingsRouter = createTRPCRouter({
 
   getRecordings: protectedProcedure
     .input(z.object({ id: z.string() }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
+      const [meeting] = await db
+        .select({ id: meetings.id })
+        .from(meetings)
+        .where(and(eq(meetings.id, input.id), eq(meetings.userId, ctx.userId)));
+
+      if (!meeting) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Meeting not found.",
+        });
+      }
+
       const call = streamVideo.video.call("default", input.id);
       const { recordings } = await call.listRecordings();
       return recordings;
@@ -93,7 +119,19 @@ export const meetingsRouter = createTRPCRouter({
 
   getTranscriptions: protectedProcedure
     .input(z.object({ id: z.string() }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
+      const [meeting] = await db
+        .select({ id: meetings.id })
+        .from(meetings)
+        .where(and(eq(meetings.id, input.id), eq(meetings.userId, ctx.userId)));
+
+      if (!meeting) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Meeting not found.",
+        });
+      }
+
       const call = streamVideo.video.call("default", input.id);
       const { transcriptions } = await call.listTranscriptions();
       return transcriptions;
@@ -260,6 +298,19 @@ export const meetingsRouter = createTRPCRouter({
       content: z.string(),
     }))
     .mutation(async ({ ctx, input }) => {
+      // Verify the meeting belongs to the caller before persisting.
+      const [meeting] = await db
+        .select({ id: meetings.id })
+        .from(meetings)
+        .where(and(eq(meetings.id, input.meetingId), eq(meetings.userId, ctx.userId)));
+
+      if (!meeting) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Meeting not found.",
+        });
+      }
+
       try {
         const [message] = await db
           .insert(conversationMessages)
@@ -296,6 +347,18 @@ export const meetingsRouter = createTRPCRouter({
       responseTime: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
+      const [meeting] = await db
+        .select({ id: meetings.id })
+        .from(meetings)
+        .where(and(eq(meetings.id, input.meetingId), eq(meetings.userId, ctx.userId)));
+
+      if (!meeting) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Meeting not found.",
+        });
+      }
+
       await db.insert(voiceInteractions).values({
         userId: ctx.userId,
         meetingId: input.meetingId,
@@ -340,7 +403,7 @@ export const meetingsRouter = createTRPCRouter({
           status: "completed",
           endedAt: new Date(),
         })
-        .where(eq(meetings.id, input.id))
+        .where(and(eq(meetings.id, input.id), eq(meetings.userId, ctx.userId)))
         .returning();
 
       // 4. Log activity (fire-and-forget, consistent with existing patterns)
@@ -377,7 +440,7 @@ export const meetingsRouter = createTRPCRouter({
               ...(recordingUrl && { recordingUrl }),
               ...(transcriptUrl && { transcriptUrl }),
             })
-            .where(eq(meetings.id, input.id));
+            .where(and(eq(meetings.id, input.id), eq(meetings.userId, ctx.userId)));
         }
       } catch {
         // Non-blocking — recording/transcription URLs may not be ready yet

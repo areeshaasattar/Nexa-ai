@@ -10,9 +10,10 @@ Nexa AI is a Next.js‑based platform that combines real‑time video conferenci
 - **Video calls** – powered by Stream Video SDK with automatic token generation.
 - **Voice interaction** – browser native SpeechRecognition + SpeechSynthesis.
 - **AI chat & summaries** – Mistral-powered `/api/chat` for the voice assistant and automatic meeting summaries.
-- **Secure authentication** – Better‑Auth with email/password + GitHub & Google OAuth.
+- **Secure authentication** – Better‑Auth with email/password + GitHub & Google OAuth, email verification, forgot/reset password, and account settings.
+- **Settings & account** – profile (name, bio, avatar, email change), security (password change), billing (UI-only), account details.
 - **Dashboard** – manage agents, schedule meetings, view meeting status, recordings, transcriptions.
-- **Database** – Drizzle ORM + Neon (PostgreSQL) with migrations.
+- **Database** – Drizzle ORM + Neon (PostgreSQL) with `db:push`.
 - **TypeScript + TailwindCSS** – fully typed, modern UI via shadcn/ui components.
 
 ## Tech Stack
@@ -146,12 +147,14 @@ Deploy to **Vercel** (or any Node.js host). Set all `process.env` variables in t
 src/
  ├─ app/                 – Next.js app router pages (auth, dashboard, call)
  ├─ components/          – UI primitives (buttons, dialogs, avatar)
- ├─ lib/                 – helpers (auth, stream‑video, env)
+ ├─ lib/                 – helpers (auth, stream‑video, env, rate-limit)
  ├─ db/                  – Drizzle schema & db client
  ├─ modules/
  │   ├─ agents/          – CRUD UI & tRPC router for AI agents
  │   ├─ meetings/        – CRUD UI & tRPC router for meetings
- │   └─ auth/            – Sign‑in / sign‑up views
+ │   ├─ auth/            – Sign‑in / sign‑up / forgot / reset / verify views
+ │   ├─ home/            – Dashboard views & components
+ │   └─ settings/        – Settings tabs (profile, billing, security, account)
  ├─ trpc/                – tRPC initialization & router export
  └─ constants.ts        – pagination defaults
 ```
