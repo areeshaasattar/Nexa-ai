@@ -1,11 +1,11 @@
-import React, { Suspense } from 'react'
-import { MeetingsView } from '@/modules/meetings/ui/views/meetings-view'
-import { dehydrate, HydrationBoundary } from '@tanstack/react-query'
-import { getQueryClient, trpc } from '@/trpc/server'
-import { DEFAULT_PAGE, DEFAULT_PAGE_SIZE } from '@/constants'
+import React from "react";
+import { MeetingsView } from "@/modules/meetings/ui/views/meetings-view";
+import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
+import { getQueryClient, trpc } from "@/trpc/server";
+import { DEFAULT_PAGE, DEFAULT_PAGE_SIZE } from "@/constants";
 
 interface PageProps {
-  searchParams: Promise<{ page?: string; pageSize?: string }>;
+  searchParams: Promise<{ page?: string; pageSize?: string; search?: string; status?: string; agentId?: string }>;
 }
 
 const Page = async ({ searchParams }: PageProps) => {
@@ -14,9 +14,15 @@ const Page = async ({ searchParams }: PageProps) => {
 
   const page = Number(params.page ?? DEFAULT_PAGE);
   const pageSize = Number(params.pageSize ?? DEFAULT_PAGE_SIZE);
+  const search = params.search ?? "";
+  const status = params.status ?? "";
+  const agentId = params.agentId ?? "";
 
   void queryClient.prefetchQuery(
     trpc.meetings.getMany.queryOptions({
+      search,
+      status,
+      agentId,
       page,
       pageSize,
     })
@@ -24,11 +30,9 @@ const Page = async ({ searchParams }: PageProps) => {
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
-      <Suspense fallback={<p className="text-sm text-gray-500 animate-pulse font-medium tracking-tight">Accessing mission logs...</p>}>
-        <MeetingsView />
-      </Suspense>
+      <MeetingsView />
     </HydrationBoundary>
-  )
-}
+  );
+};
 
-export default Page
+export default Page;

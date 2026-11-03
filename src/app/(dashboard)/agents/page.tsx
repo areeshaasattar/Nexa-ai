@@ -1,8 +1,8 @@
-import React, { Suspense } from 'react'
-import AgentsView from '@/modules/agents/ui/views/agents-view'
-import { dehydrate, HydrationBoundary } from '@tanstack/react-query'
-import { getQueryClient, trpc } from '@/trpc/server'
-import { DEFAULT_PAGE, DEFAULT_PAGE_SIZE } from '@/constants'
+import React from "react";
+import AgentsView from "@/modules/agents/ui/views/agents-view";
+import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
+import { getQueryClient, trpc } from "@/trpc/server";
+import { DEFAULT_PAGE, DEFAULT_PAGE_SIZE } from "@/constants";
 
 interface PageProps {
   searchParams: Promise<{ search?: string; page?: string; pageSize?: string }>;
@@ -26,11 +26,9 @@ const Page = async ({ searchParams }: PageProps) => {
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
-      <Suspense fallback={<p>Loading Fleet...</p>}>
-        <AgentsView />
-      </Suspense>
+      <AgentsView />
     </HydrationBoundary>
-  )
-}
+  );
+};
 
-export default Page
+export default Page;

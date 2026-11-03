@@ -6,9 +6,10 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 interface DataPaginationProps {
   total: number;
   totalPages: number;
+  noun?: string;
 }
 
-export const DataPagination = ({ total, totalPages }: DataPaginationProps) => {
+export const DataPagination = ({ total, totalPages, noun = "agent" }: DataPaginationProps) => {
   const [{ page }, setFilter] = useAgentsFilter();
 
   return (
@@ -16,7 +17,7 @@ export const DataPagination = ({ total, totalPages }: DataPaginationProps) => {
       <div className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">
         Page <span className="text-[#3B6D11]">{page}</span> of{" "}
         <span className="text-gray-900">{totalPages || 1}</span>
-        <span className="ml-2 text-gray-400 normal-case font-medium">({total} total agents)</span>
+        <span className="ml-2 text-gray-400 normal-case font-medium">({total} total {noun}{total === 1 ? "" : "s"})</span>
       </div>
 
       <div className="flex items-center gap-3">

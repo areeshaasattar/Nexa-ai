@@ -4,6 +4,7 @@ import { useState } from "react";
 import { trpc } from "@/trpc/client";
 import { LoadingState } from "@/components/loading-state";
 import { ErrorState } from "@/components/error-state";
+import { keepPreviousData } from "@tanstack/react-query";
 import MeetingsListHeader from "../components/meetings-list-header";
 import { NewMeetingDialog } from "../components/new-meeting-dialog";
 import { useMeetingsFilter } from "@/app/(dashboard)/meetings/hooks/use-meetings-filter";
@@ -62,13 +63,16 @@ export const MeetingsView = () => {
     useMeetingsFilter();
   const utils = trpc.useUtils();
 
-  const meetingsQuery = trpc.meetings.getMany.useQuery({
-    search,
-    status,
-    agentId,
-    page,
-    pageSize,
-  });
+  const meetingsQuery = trpc.meetings.getMany.useQuery(
+    {
+      search,
+      status,
+      agentId,
+      page,
+      pageSize,
+    },
+    { placeholderData: keepPreviousData },
+  );
 
   const deleteMutation = trpc.meetings.remove.useMutation({
     onSuccess: () => {
@@ -127,7 +131,7 @@ export const MeetingsView = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className={`bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden transition-opacity ${meetingsQuery.isFetching ? "opacity-60" : "opacity-100"}`}>
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -291,7 +295,7 @@ export const MeetingsView = () => {
             </table>
           </div>
           <div className="border-t border-gray-50 px-6">
-            <DataPagination total={total} totalPages={totalPages} />
+            <DataPagination total={total} totalPages={totalPages} noun="meeting" />
           </div>
         </div>
       </section>

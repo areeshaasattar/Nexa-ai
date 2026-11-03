@@ -7,6 +7,8 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { SearchIcon } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
@@ -87,6 +89,21 @@ export function DataTable<TData, TValue>({
     getCoreRowModel: getCoreRowModel(),
   });
 
+  const [inputValue, setInputValue] = useState(searchValue ?? "");
+  const debouncedValue = useDebouncedValue(inputValue, 350);
+
+  useEffect(() => {
+    setInputValue(searchValue ?? "");
+  }, [searchValue]);
+
+  useEffect(() => {
+    const trimmed = debouncedValue.trim();
+    const current = (searchValue ?? "").trim();
+    if (trimmed !== current) {
+      onSearchChange?.(trimmed);
+    }
+  }, [debouncedValue, searchValue, onSearchChange]);
+
   const hasRows = table.getRowModel().rows?.length > 0;
 
   return (
@@ -97,8 +114,8 @@ export function DataTable<TData, TValue>({
           <input
             type="text"
             placeholder="Search agents by name or instructions..."
-            value={searchValue}
-            onChange={(e) => onSearchChange?.(e.target.value)}
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
             className="w-full pl-9 pr-4 py-1.5 bg-gray-50 border border-gray-100 rounded-lg text-xs placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-[#3B6D11]/20 focus:border-[#3B6D11]/30 transition-all"
           />
         </div>

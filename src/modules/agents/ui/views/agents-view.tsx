@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { trpc } from "@/trpc/client";
 import { ErrorState } from "@/components/error-state";
+import { keepPreviousData } from "@tanstack/react-query";
 import AgentsListHeader from "../components/agents-list-header";
 import { NewAgentDialog } from "../components/new-agent-dialog";
 
@@ -19,11 +20,14 @@ export const AgentsView = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [{ search, page, pageSize }, setFilter] = useAgentsFilter();
 
-  const agentsQuery = trpc.agents.getMany.useQuery({
-    search,
-    page,
-    pageSize,
-  });
+  const agentsQuery = trpc.agents.getMany.useQuery(
+    {
+      search,
+      page,
+      pageSize,
+    },
+    { placeholderData: keepPreviousData },
+  );
 
   const tableData = (agentsQuery.data?.data ?? []) as unknown as Agent[];
   const total = agentsQuery.data?.total ?? 0;
@@ -53,7 +57,7 @@ export const AgentsView = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden transition-all hover:shadow-md">
+        <div className={`bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden transition-opacity ${agentsQuery.isFetching ? "opacity-60" : "opacity-100"}`}>
           {agentsQuery.isLoading ? (
             <div className="py-20 flex flex-col items-center justify-center gap-4">
               <div className="size-8 rounded-full border-2 border-[#3B6D11]/20 border-t-[#3B6D11] animate-spin" />

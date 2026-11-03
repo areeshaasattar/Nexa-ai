@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { PlusIcon, VideoIcon, SparklesIcon, SearchIcon, FilterIcon, BotIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,7 @@ import {
 import { useMeetingsFilter } from "@/app/(dashboard)/meetings/hooks/use-meetings-filter";
 import { trpc } from "@/trpc/client";
 import { meetingStatus } from "@/db/schema";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
 interface MeetingsListHeaderProps {
   onOpenDialog: () => void;
@@ -22,6 +23,23 @@ interface MeetingsListHeaderProps {
 const MeetingsListHeader = ({ onOpenDialog }: MeetingsListHeaderProps) => {
   const [{ search, status, agentId }, setFilter] = useMeetingsFilter();
   const agentsQuery = trpc.agents.getMany.useQuery({ pageSize: 100 });
+
+  // Local input state for instant typing; debounced push to URL.
+  const [inputValue, setInputValue] = useState(search);
+  const debouncedValue = useDebouncedValue(inputValue, 350);
+
+  // Sync if URL changes externally (e.g. clear filters).
+  useEffect(() => {
+    setInputValue(search);
+  }, [search]);
+
+  // Push debounced, trimmed value to URL filter state.
+  useEffect(() => {
+    const trimmed = debouncedValue.trim();
+    if (trimmed !== search.trim()) {
+      setFilter({ search: trimmed, page: 1 });
+    }
+  }, [debouncedValue, search, setFilter]);
 
   return (
     <div className="flex flex-col gap-8 pb-8 border-b border-gray-100">
@@ -75,8 +93,8 @@ const MeetingsListHeader = ({ onOpenDialog }: MeetingsListHeaderProps) => {
           <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
           <Input
             placeholder="Search sessions by name..."
-            value={search}
-            onChange={(e) => setFilter({ search: e.target.value, page: 1 })}
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
             className="pl-10 h-11 rounded-xl border-gray-100 bg-gray-50/50 focus:bg-white transition-all text-sm"
           />
         </div>
