@@ -354,7 +354,7 @@ const SignUpView = () => {
                 alt="Logo"
                 width={80}
                 height={80}
-                className="invert brightness-0"
+                className="invert brightness-0" style={{ height: "auto" }}
               />
             </div>
 

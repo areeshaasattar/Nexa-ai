@@ -16,7 +16,7 @@ const Page = async ({ searchParams }: PageProps) => {
   const page = Number(params.page ?? DEFAULT_PAGE);
   const pageSize = Number(params.pageSize ?? DEFAULT_PAGE_SIZE);
 
-  void queryClient.prefetchQuery(
+  await queryClient.prefetchQuery(
     trpc.agents.getMany.queryOptions({
       search,
       page,

@@ -302,7 +302,7 @@ export const HomeView = () => {
 
               {/* Chart area — fills remaining column height (no dead space) */}
               <div className="flex-1 p-4 min-h-[320px]">
-                <TabsContent value="activity" className="h-full mt-0 outline-none">
+                <TabsContent value="activity" keepMounted className="h-full mt-0 outline-none">
                   <AnalyticsChart
                     title="Meeting Activity"
                     description="Volume of meetings over the last 7 days."
@@ -316,7 +316,7 @@ export const HomeView = () => {
                   />
                 </TabsContent>
 
-                <TabsContent value="performance" className="h-full mt-0 outline-none">
+                <TabsContent value="performance" keepMounted className="h-full mt-0 outline-none">
                   <AnalyticsChart
                     title="Avg. Meeting Duration"
                     description="Tracking productivity and conversation length."

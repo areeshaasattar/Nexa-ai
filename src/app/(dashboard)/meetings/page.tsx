@@ -18,7 +18,7 @@ const Page = async ({ searchParams }: PageProps) => {
   const status = params.status ?? "";
   const agentId = params.agentId ?? "";
 
-  void queryClient.prefetchQuery(
+  await queryClient.prefetchQuery(
     trpc.meetings.getMany.queryOptions({
       search,
       status,

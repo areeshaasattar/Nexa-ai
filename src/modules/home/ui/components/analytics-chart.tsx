@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Download, Maximize2, MoreHorizontal } from "lucide-react";
 
@@ -33,6 +34,11 @@ export const AnalyticsChart = ({
   className,
   hideHeader = false,
 }: AnalyticsChartProps) => {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const options: ApexCharts.ApexOptions = {
     chart: {
       toolbar: { show: false },
@@ -114,6 +120,15 @@ export const AnalyticsChart = ({
       width="100%"
     />
   );
+
+  if (!mounted) {
+    return (
+      <div
+        className={cn("w-full", className)}
+        style={{ height: typeof height === "number" ? `${height}px` : height }}
+      />
+    );
+  }
 
   if (hideHeader) {
     return (

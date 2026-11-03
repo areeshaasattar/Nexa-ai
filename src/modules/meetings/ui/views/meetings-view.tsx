@@ -142,18 +142,18 @@ export const MeetingsView = () => {
         description={
           <>
             This will permanently delete{" "}
-            <span className="font-bold text-gray-900">{deleteTarget?.name}</span>{" "}
+            <span className="font-bold text-green-950 break-words">{deleteTarget?.name}</span>{" "}
             and its conversation history and summary. This cannot be undone.
-            {deleteTarget?.status === "ongoing" && (
-              <span className="mt-2 block text-amber-600 font-medium">
-                This call is still marked as ongoing.
-              </span>
-            )}
           </>
         }
         confirmLabel="Delete meeting"
         destructive
         pending={isDeleting}
+        warning={
+          deleteTarget?.status === "ongoing"
+            ? "This meeting is still marked as ongoing. Deleting it will not end an active call."
+            : undefined
+        }
         onConfirm={() => {
           if (deleteTarget) deleteMutation.mutate({ id: deleteTarget.id });
         }}
