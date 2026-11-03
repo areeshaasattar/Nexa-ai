@@ -5,7 +5,6 @@ import {
   LayoutDashboardIcon,
   VideoIcon,
   BotIcon,
-  StarIcon,
   SettingsIcon,
   LogOutIcon,
   PlusIcon,
@@ -140,14 +139,6 @@ export function ShortcutsModal() {
                   onSelect={() =>
                     runCommand(() => setNewMeetingOpen(true))
                   }
-                />
-                <CommandRow
-                  icon={<StarIcon className="h-4 w-4" />}
-                  iconBg="bg-amber-50 text-amber-500"
-                  label="Upgrade to Pro"
-                  badge="Pro"
-                  badgeColor="bg-amber-100 text-amber-600"
-                  onSelect={() => runCommand(() => router.push("/settings?tab=billing"))}
                 />
               </CommandSection>
 

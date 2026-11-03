@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { useForm } from "react-hook-form";
+import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { trpc } from "@/trpc/client";
 import { toast } from "sonner";
@@ -52,7 +52,7 @@ export const NewMeetingDialog = ({
   const hasAgents = agentsQuery.isLoading || (agents ? agents.length > 0 : false);
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(meetingsInsertSchema) as any,
+    resolver: zodResolver(meetingsInsertSchema) as unknown as Resolver<FormValues>,
     defaultValues: {
       name: "",
       agentId: defaultAgentId ?? "",

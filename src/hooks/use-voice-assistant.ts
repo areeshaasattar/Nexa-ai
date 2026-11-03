@@ -16,6 +16,36 @@ interface UseVoiceAssistantProps {
 
 type InputMode = 'voice' | 'text';
 
+/*
+ * Minimal typings for the Web Speech API (`SpeechRecognition` is not in all
+ * TS lib targets, and the vendor-prefixed `webkitSpeechRecognition` never is).
+ * Only the members this hook touches are declared.
+ */
+interface SpeechRecognitionResultLike {
+  [index: number]: { [index: number]: { transcript: string } };
+}
+interface SpeechRecognitionEventLike {
+  results: SpeechRecognitionResultLike;
+}
+interface SpeechRecognitionErrorEventLike {
+  error: string;
+}
+interface SpeechRecognitionLike {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
+  onend: (() => void) | null;
+  start(): void;
+  stop(): void;
+}
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
+type SpeechRecognitionWindow = Window & {
+  SpeechRecognition?: SpeechRecognitionConstructor;
+  webkitSpeechRecognition?: SpeechRecognitionConstructor;
+};
+
 // Strips markdown formatting and emojis so speechSynthesis doesn't read
 // out symbols like "hashtag", "asterisk", or emoji names.
 function sanitizeForSpeech(text: string): string {
@@ -51,7 +81,7 @@ export const useVoiceAssistant = ({ agentId, meetingId }: UseVoiceAssistantProps
   const saveMessageMutation = trpc.meetings.saveMessage.useMutation();
   const logInteractionMutation = trpc.meetings.logVoiceInteraction.useMutation();
 
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const processingStartRef = useRef<number>(0);
 
   // Fire-and-forget persist helper
@@ -206,14 +236,15 @@ export const useVoiceAssistant = ({ agentId, meetingId }: UseVoiceAssistantProps
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const speechWindow = window as SpeechRecognitionWindow;
+    const SpeechRecognition = speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition;
     if (SpeechRecognition) {
       recognitionRef.current = new SpeechRecognition();
       recognitionRef.current.continuous = false;
       recognitionRef.current.interimResults = false;
       recognitionRef.current.lang = 'en-US';
 
-      recognitionRef.current.onresult = async (event: any) => {
+      recognitionRef.current.onresult = async (event: SpeechRecognitionEventLike) => {
         const text = event.results[0][0].transcript;
         if (!text || !text.trim()) return;
         setTranscript(text);
@@ -223,7 +254,7 @@ export const useVoiceAssistant = ({ agentId, meetingId }: UseVoiceAssistantProps
         await requestRef.current(text, 'voice');
       };
 
-      recognitionRef.current.onerror = (event: any) => {
+      recognitionRef.current.onerror = (event: SpeechRecognitionErrorEventLike) => {
         console.error('Speech Recognition Error:', event.error);
         setIsListening(false);
       };

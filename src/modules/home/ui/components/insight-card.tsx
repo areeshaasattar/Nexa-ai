@@ -5,8 +5,10 @@ import { Sparkles, TrendingUp, AlertTriangle, Lightbulb } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 
+export type InsightCardType = "recommendation" | "warning" | "opportunity" | "tip";
+
 interface InsightCardProps {
-  type: "recommendation" | "warning" | "opportunity" | "tip";
+  type: InsightCardType;
   message: string;
   className?: string;
 }

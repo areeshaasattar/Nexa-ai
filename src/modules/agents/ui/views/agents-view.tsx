@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { trpc } from "@/trpc/client";
-import { LoadingState } from "@/components/loading-state";
 import { ErrorState } from "@/components/error-state";
 import AgentsListHeader from "../components/agents-list-header";
 import { NewAgentDialog } from "../components/new-agent-dialog";
@@ -120,11 +119,11 @@ export const AgentsView = () => {
                     {agent.name}
                   </h3>
                   <div className="relative">
-                    <span className="absolute -left-3 top-0 text-2xl text-green-100 font-serif leading-none italic">"</span>
+                    <span className="absolute -left-3 top-0 text-2xl text-green-100 font-serif leading-none italic">&quot;</span>
                     <p className="text-sm text-gray-600 leading-relaxed italic line-clamp-4 pl-1">
                       {agent.instruction}
                     </p>
-                    <span className="absolute -right-1 bottom-0 text-2xl text-green-100 font-serif leading-none italic">"</span>
+                    <span className="absolute -right-1 bottom-0 text-2xl text-green-100 font-serif leading-none italic">&quot;</span>
                   </div>
                 </div>
 

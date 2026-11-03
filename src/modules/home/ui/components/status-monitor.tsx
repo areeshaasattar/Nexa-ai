@@ -26,6 +26,10 @@ function statusIcon(name: string) {
 }
 
 export const StatusMonitor = ({ items }: { items: StatusItem[] }) => {
+  // Derived strictly from the real service statuses the server reports —
+  // never a hard-coded all-clear.
+  const allOnline = items.length > 0 && items.every((i) => i.status === "online");
+
   return (
     <Card className="h-full flex flex-col rounded-xl border border-slate-200 bg-white shadow-sm ring-0 overflow-hidden">
       <CardHeader className="pb-4">
@@ -34,12 +38,29 @@ export const StatusMonitor = ({ items }: { items: StatusItem[] }) => {
             <Activity className="size-4 text-emerald-500" />
             System Status
           </CardTitle>
-          <div className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-2 py-0.5">
-            <div className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-[10px] font-semibold text-emerald-700 uppercase tracking-wider">
-              All Systems Go
-            </span>
-          </div>
+          {items.length > 0 && (
+            <div
+              className={cn(
+                "flex items-center gap-1.5 rounded-full px-2 py-0.5",
+                allOnline ? "bg-emerald-50" : "bg-amber-50",
+              )}
+            >
+              <div
+                className={cn(
+                  "size-1.5 rounded-full animate-pulse",
+                  allOnline ? "bg-emerald-500" : "bg-amber-500",
+                )}
+              />
+              <span
+                className={cn(
+                  "text-[10px] font-semibold uppercase tracking-wider",
+                  allOnline ? "text-emerald-700" : "text-amber-700",
+                )}
+              >
+                {allOnline ? "All Systems Go" : "Issues Detected"}
+              </span>
+            </div>
+          )}
         </div>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col gap-2 px-4 pb-4">
@@ -61,9 +82,11 @@ export const StatusMonitor = ({ items }: { items: StatusItem[] }) => {
                 <p className="truncate text-xs font-semibold text-slate-900">
                   {item.name}
                 </p>
-                <p className="text-[10px] font-medium tabular-nums text-slate-400">
-                  {item.latency || "45ms"}
-                </p>
+                {item.latency && (
+                  <p className="text-[10px] font-medium tabular-nums text-slate-400">
+                    {item.latency}
+                  </p>
+                )}
               </div>
               <div className="ml-auto flex items-center gap-2">
                 <span

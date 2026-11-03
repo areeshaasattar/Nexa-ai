@@ -40,7 +40,7 @@ assistant**. A user can:
 | Layer        | Tech                                                                                                                |
 | ------------ | ------------------------------------------------------------------------------------------------------------------- |
 | Framework    | **Next.js 16.2.6** (App Router, React 19.2.4, TypeScript 5)                                                         |
-| RPC layer    | **tRPC v11** (`@trpc/server`, `@trpc/client`, `@trpc/react-query`, `@trpc/tanstack-react-query`) + `superjson`     |
+| RPC layer    | **tRPC v11** (`@trpc/server`, `@trpc/client`, `@trpc/react-query`, `@trpc/tanstack-react-query`) — no data transformer configured; JSON-RPC over HTTP batch links (A `superjson` transformer is planned but not wired up — the package is installed but unused)  |
 | Data fetching| **TanStack React Query v5** (server + client)                                                                        |
 | Database     | **Neon (PostgreSQL, serverless)** via `@neondatabase/serverless` + **Drizzle ORM 0.45** + drizzle‑kit migrations     |
 | Auth         | **Better‑Auth 1.6.11** (email/password + GitHub & Google OAuth, email verification, password reset, email‑change, account linking; Drizzle adapter) |
@@ -54,17 +54,17 @@ assistant**. A user can:
 | Routing      | **Next.js 16 `proxy.ts`** (renamed middleware) — optimistic cookie‑presence guard for the `(dashboard)` group          |
 | Misc         | `nanoid` (IDs), `date-fns`, `react-icons`, `next-themes`, `clsx`/`tailwind-merge`, `cmdk`                             |
 
-> **Note:** the README/`AI_SETUP.md` describe a *provider‑agnostic* LLM backend (OpenRouter / Gemini /
-> Groq). The **actual** current implementation in `src/app/api/chat/route.ts` and
-> `src/lib/meeting-summary.ts` only calls **Mistral** (`MISTRAL_API_KEY`). See
-> [§8 – Notes](#8-notes--discrepancies-found-while-reading-the-code).
+> **Note:** all documentation (README, `AI_SETUP.md`, this file) describes the Mistral backend:
+> `/api/chat` and `meeting-summary.ts` only call **Mistral** (`api.mistral.ai`,
+> `MISTRAL_API_KEY` + optional `MODEL_NAME`, default `mistral-small-latest`). There is no
+> OpenRouter/Gemini/Groq provider switching in the code.
 
 ---
 
 ## 3. Database schema
 
 Defined in `src/db/schema.ts` (PostgreSQL dialect). Migrations are managed with `npm run db:push`
-(drizzle‑kit push — see note in §8 about the stale `drizzle/` migration).
+(drizzle‑kit push — there is no committed migrations directory).
 
 ### Better‑Auth tables (managed by the auth adapter)
 
@@ -102,7 +102,7 @@ dependent rows).
 - Email + password sign‑in and sign‑up (password hashed by Better‑Auth, min 8 chars, confirm‑password validation).
 - GitHub & Google **OAuth** social login.
 - Session persistence via cookies; server‑side session checks on protected pages.
-- Sign‑out from the user menu, command palette, and URL‑based auto‑sign‑in (see §5).
+- Sign‑out from the user menu and command palette.
 
 ### 4.2 AI Agents module (`/agents`, `/agents/[agentId]`)
 - **Create** an agent (name + instruction) → `agents.create`.
@@ -201,8 +201,16 @@ Authentication uses **Better‑Auth v1.6** with the **Drizzle adapter** backed b
 ### 5.1 Server‑side setup — `src/lib/auth.ts`
 
 ```ts
+// Built from env only — BETTER_AUTH_URL + optional comma-separated TRUSTED_ORIGINS
+const trustedOrigins = [
+  process.env.BETTER_AUTH_URL ?? "",
+  ...(process.env.TRUSTED_ORIGINS ?? "").split(","),
+]
+  .map((origin) => origin.trim())
+  .filter((origin) => origin.length > 0);
+
 export const auth = betterAuth({
-  trustedOrigins: ["https://broadways-disprove-embargo.ngrok-free.dev"],
+  trustedOrigins,
   socialProviders: {
     github: { clientId: ..., clientSecret: ... },
     google: { clientId: ..., clientSecret: ... },
@@ -215,7 +223,7 @@ export const auth = betterAuth({
 Key points:
 - **`emailAndPassword.enabled: true`** → enables `/sign-in/email`, `/sign-up/email` and `/sign-out` endpoints.
 - **Social providers** → GitHub + Google OAuth configured from env vars.
-- **`trustedOrigins`** → allows the ngrok tunnel URL during development (a hosted origin that differs from `BETTER_AUTH_URL`).
+- **`trustedOrigins`** → built from env only: `BETTER_AUTH_URL` plus the optional comma-separated `TRUSTED_ORIGINS` list (empty entries filtered out). No literal domains in code.
 - **Drizzle adapter** → sessions/accounts are persisted in the Drizzle schema tables.
 - Required env vars: `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` (base URL, currently `http://localhost:3000`), plus `GITHUB_CLIENT_ID/SECRET`, `GOOGLE_CLIENT_ID/SECRET`, and `DATABASE_URL`.
 
@@ -248,12 +256,22 @@ A bare client (no extra plugins). It automatically:
 Both views use **react‑hook-form + zod** validation and call the auth client:
 
 - **`signIn.email({ email, password, callbackURL: "/" })`** → on success, `router.push("/")` + success toast.
-  - Also supports **URL auto‑sign‑in**: if `?email=` and `?password=` are present in the query string, it submits automatically on mount (used for deep‑link/dev flows).
 - **`signUp.email({ email, password, name, callbackURL: "/" })`** → creates the account, signs the user in, redirects to `/`.
   - Client‑side rules: name ≥ 2 chars, valid email, password ≥ 8 chars, password === confirm.
 - **`signIn.social({ provider: "google" | "github", callbackURL: "/" })`** → redirects to the provider's OAuth consent, then back to the app with an authenticated cookie.
 - Error handling via `onError` callbacks → `sonner` toasts ("Authentication Failed", "GitHub Error", etc.).
-- A **"Forgot password?"** link and Terms/Privacy links exist in the UI (currently non‑functional placeholders — no reset‑password flow wired up).
+- **Forgot password / reset password** — fully implemented: the "Forgot password?" link goes to
+  `/forgot-password` (`authClient.requestPasswordReset`), which emails a 1‑hour single‑use reset
+  link via Resend; the token is validated by Better‑Auth and redirects to `/reset-password`
+  (`authClient.resetPassword`) where the new password is set (all other sessions are revoked).
+- **Email verification** — `sendOnSignUp` emails a verification link (`emailVerification`, 1‑hour
+  expiry); sign‑in is blocked for unverified users (403) and the sign‑in view detects this and
+  offers a resend; `/verify-email` handles the link, shows an expired‑token state with a resend
+  form, and auto‑signs‑in after successful verification.
+- **Email & password change** — the `/settings` page lets users change their email
+  (`authClient.changeEmail`, confirmed via a verification email) and password
+  (`authClient.changePassword`).
+- Terms/Privacy links remain UI placeholders.
 
 ### 5.5 Session checks & route protection
 
@@ -374,12 +392,11 @@ nexa-ai/
 │   │   ├── routers/_app.ts          # appRouter root
 │   │   ├── server.tsx / client.tsx / query-client.ts
 │   └── constants.ts                 # pagination defaults
-├── drizzle/                         # migrations (note: stale — see §8)
-├── bridge-server/                   # empty (legacy WebSocket bridge, removed)
+├── drizzle/                         # drizzle-kit metadata (no committed migrations — db:push workflow)
 ├── scripts/drop_type.mjs
 ├── .env                             # runtime secrets (local)
 ├── drizzle.config.ts
-├── next.config.ts                   # allowedDevOrigins (ngrok)
+├── next.config.ts                   # allowedDevOrigins (DEV_ALLOWED_ORIGINS env)
 └── FEATURES.md                      # ← this file
 ```
 
@@ -389,16 +406,15 @@ nexa-ai/
 
 > These are things worth knowing that aren't obvious from the README.
 
-1. **LLM provider is currently Mistral only.** `AI_SETUP.md` and the README describe a
-   provider‑agnostic backend (OpenRouter / Gemini / Groq). The **actual** code (`/api/chat` and
-   `meeting-summary.ts`) only talks to `api.mistral.ai` using `MISTRAL_API_KEY` and `MODEL_NAME`
-   (`.env` sets `MODEL_NAME=mistral-small-latest`). No OpenRouter/Gemini/Groq keys are present in
-   `.env`.
+1. **LLM provider is Mistral only.** The code (`/api/chat` and `meeting-summary.ts`) only talks to
+   `api.mistral.ai` using `MISTRAL_API_KEY` and `MODEL_NAME`. No OpenRouter/Gemini/Groq provider
+   support exists anywhere in the code (the old README/`AI_SETUP.md` provider‑agnostic claims were
+   inaccurate and have been removed; `AI_SETUP.md` now documents Mistral).
 
-2. **Stale migration.** `drizzle/0000_orange_ink.sql` contains an old example `users` table
-   (`id` integer identity, `name`, `age`, `email`) that **does not match** the current schema
-   (`src/db/schema.ts`). The app relies on `npm run db:push` (drizzle‑kit push) rather than
-   applying this migration, so it's effectively dead weight.
+2. **Stale migration — removed.** `drizzle/0000_orange_ink.sql` was an old example `users` table
+   (`id` integer identity, `name`, `age`, `email`) that did **not** match the current schema
+   (`src/db/schema.ts`) and has been deleted (along with its drizzle‑kit meta snapshot/journal
+   entry). The app relies on `npm run db:push` (drizzle‑kit push).
 
 3. **Route protection is inconsistent at the page level.** Only the dashboard home page
    (`(dashboard)/page.tsx`) does a server‑side `getSession` + redirect. The meetings/agents pages
@@ -410,18 +426,20 @@ nexa-ai/
    - `voice_interactions.accuracy` is hard‑coded to `"95"` in `logVoiceInteraction`.
    - Recording **storage GB** is computed as `count * 0.45` (mock).
    - `getSystemHealth` returns real DB latency but simulated latency/status for Stream/OpenRouter/Gemini.
-   - The **User menu** items (Profile, Billing, Security, Settings), **Forgot password**, and
-     **Upgrade to Pro** are UI placeholders (no routes exist for `/settings`, `/upgrade`, etc.).
+   - The **User menu** items (Profile, Settings, Security) do lead to the `/settings` page
+     (email/password change); **Billing** and **Upgrade to Pro** remain UI placeholders (no routes
+     exist for `/upgrade` etc.). The forgot/reset password flow is fully implemented (see §5.4).
 
-5. **`bridge-server/` is empty** — the legacy WebSocket Gemini bridge referenced in `AI_SETUP.md`
-   was removed; only an empty directory remains.
+5. **`bridge-server/` is removed** — the legacy WebSocket Gemini bridge referenced in the old
+   `AI_SETUP.md` no longer exists in the repo.
 
 6. **Two separate clients exist for tRPC**: a server‑side proxy (`trpc/server.tsx`, via
    `@trpc/tanstack-react-query`) and a client provider (`trpc/client.tsx`, via `@trpc/react-query`,
    `httpBatchLink` to `/api/trpc`). `useDashboard` and the modules use the **client** hooks
    (`trpc.xxx.useQuery`).
 
-7. **Env / dev‑time setup.** The app is developed against a public **ngrok tunnel**
-   (`broadways-disprove-embargo.ngrok-free.dev`): it's in `NEXT_PUBLIC_APP_URL`, `trustedOrigins`,
-   `next.config.ts` `allowedDevOrigins`, and is what lets the Stream webhook reach the dev server.
-   `BETTER_AUTH_URL` is currently `http://localhost:3000`.
+7. **Env / dev‑time setup.** No origins are hard-coded — they come from env vars:
+   `trustedOrigins` = `BETTER_AUTH_URL` + optional `TRUSTED_ORIGINS` (comma-separated),
+   `next.config.ts` `allowedDevOrigins` = optional `DEV_ALLOWED_ORIGINS` (comma-separated
+   hostnames), and the public tunnel URL itself lives in `NEXT_PUBLIC_APP_URL` — which is what
+   lets the Stream webhook reach the dev server. `BETTER_AUTH_URL` is currently `http://localhost:3000`.

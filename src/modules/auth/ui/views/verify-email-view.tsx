@@ -30,7 +30,9 @@ const VerifyEmailView = () => {
 
   useEffect(() => {
     if (!token) {
-      setStatus("error");
+      // Deferred to a microtask so we don't call setState synchronously
+      // inside the effect body (react-hooks/set-state-in-effect).
+      queueMicrotask(() => setStatus("error"));
       return;
     }
 
@@ -84,7 +86,7 @@ const VerifyEmailView = () => {
       toast.success("Verification email sent!", {
         description: `Check ${resendEmail.trim()} for the link. It expires in 1 hour.`,
       });
-    } catch (error) {
+    } catch {
       setResending(false);
       toast.error("Unexpected Error", {
         description: "An unexpected error occurred. Please try again later.",

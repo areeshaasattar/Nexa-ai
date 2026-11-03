@@ -1,7 +1,6 @@
 // Redesigned HeroSection – personalized, data‑driven, minimal SaaS feel
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarIcon, Zap, ShieldCheck } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Zap } from "lucide-react";
 import Link from "next/link";
 
 interface HeroSectionProps {

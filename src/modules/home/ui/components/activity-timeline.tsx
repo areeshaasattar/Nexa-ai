@@ -13,15 +13,17 @@ import {
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
+export type ActivityType =
+  | "meeting_created"
+  | "meeting_completed"
+  | "agent_created"
+  | "recording_ready"
+  | "transcription_done"
+  | "voice_call";
+
 interface Activity {
   id: string;
-  type:
-    | "meeting_created"
-    | "meeting_completed"
-    | "agent_created"
-    | "recording_ready"
-    | "transcription_done"
-    | "voice_call";
+  type: ActivityType;
   title: string;
   user: {
     name: string;

@@ -19,13 +19,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+export type MeetingCardStatus = "scheduled" | "ongoing" | "completed";
+
 interface MeetingCardProps {
   title: string;
   agentName: string;
   time: string;
   date: string;
   participants: number;
-  status: "scheduled" | "ongoing" | "completed";
+  status: MeetingCardStatus;
   /** Meeting id — enables navigation links to the detail / call pages */
   id?: string;
   /** Override the detail link (defaults to `/meetings/{id}`) */

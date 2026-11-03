@@ -13,7 +13,8 @@ interface AnalyticsChartProps {
   title: string;
   description?: string;
   type: "line" | "area" | "bar" | "donut" | "radialBar";
-  series: any[];
+  /** Minimal series shape used in this app: named series with numeric data points (Apex axis-chart series). */
+  series: { name: string; data: (number | null)[] }[];
   categories?: string[];
   colors?: string[];
   height?: number | string;
@@ -104,7 +105,10 @@ export const AnalyticsChart = ({
   const chartEl = (
     <Chart
       options={options}
-      series={series}
+      // react-apexcharts declares `series?: ApexOptions["series"]` from the
+      // apexcharts typings; our callers pass a named-axis-series array, which
+      // is exactly what the library accepts at runtime.
+      series={series as unknown as ApexCharts.ApexOptions["series"]}
       type={type}
       height={height}
       width="100%"

@@ -95,7 +95,10 @@ function Carousel({
 
   React.useEffect(() => {
     if (!api) return
-    onSelect(api)
+    // Defer the first sync to a microtask — embla only emits "select" on
+    // changes, but the rules require setState to happen asynchronously
+    // (subscription callbacks), never synchronously in the effect body.
+    queueMicrotask(() => onSelect(api))
     api.on("reInit", onSelect)
     api.on("select", onSelect)
 

@@ -58,13 +58,13 @@ const StatusBadge = ({ status }: { status: string }) => {
 
 export const MeetingsView = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [{ search, status, agentId, page, pageSize }, setFilter] =
+  const [{ search, status, agentId, page, pageSize }] =
     useMeetingsFilter();
   const utils = trpc.useUtils();
 
   const meetingsQuery = trpc.meetings.getMany.useQuery({
     search,
-    status: status as any,
+    status,
     agentId,
     page,
     pageSize,

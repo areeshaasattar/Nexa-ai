@@ -57,7 +57,7 @@ const ForgotPasswordView = () => {
       // reveal account existence to the requester.
       setLoading(false);
       setSubmittedEmail(data.email);
-    } catch (error) {
+    } catch {
       setLoading(false);
       toast.error("Unexpected Error", {
         description: "An unexpected error occurred. Please try again later.",
@@ -95,7 +95,7 @@ const ForgotPasswordView = () => {
                   <span className="font-semibold text-gray-700">
                     {submittedEmail}
                   </span>
-                  , we've sent you a link to reset your password. It expires in
+                  , we&apos;ve sent you a link to reset your password. It expires in
                   1 hour.
                 </p>
               </div>

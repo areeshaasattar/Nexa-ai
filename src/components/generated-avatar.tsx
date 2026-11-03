@@ -37,7 +37,7 @@ interface GeneratedAvatarProps {
   /**
    * Optional style overrides for the DiceBear generation.
    */
-  options?: any;
+  options?: Record<string, string | string[] | number | boolean | null | undefined>;
 }
 
 /**
@@ -74,14 +74,17 @@ export function GeneratedAvatar({
   const avatarDataUri = useMemo(() => {
     if (!seed) return "";
     try {
-      return createAvatar(collection as any, {
-        seed,
-        ...(style === "initials" ? {
-          backgroundColor: ["22c55e", "166534", "14532d"],
-          textColor: ["ffffff"],
-        } : {}),
-        ...options,
-      }).toDataUri();
+      return createAvatar(
+        collection as Parameters<typeof createAvatar>[0],
+        {
+          seed,
+          ...(style === "initials" ? {
+            backgroundColor: ["22c55e", "166534", "14532d"],
+            textColor: ["ffffff"],
+          } : {}),
+          ...options,
+        } as Parameters<typeof createAvatar>[1]
+      ).toDataUri();
     } catch (error) {
       console.error("Error generating avatar:", error);
       return "";

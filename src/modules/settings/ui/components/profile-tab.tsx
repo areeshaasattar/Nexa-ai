@@ -261,8 +261,8 @@ export function ProfileTab({
                 {...emailForm.register("newEmail")}
               />
               <FieldDescription>
-                Changing your email requires verification — we'll email a
-                confirmation link to your new address. Your email won't change
+                Changing your email requires verification — we&apos;ll email a
+                confirmation link to your new address. Your email won&apos;t change
                 until you click it.
               </FieldDescription>
               <FieldError>

@@ -2,14 +2,14 @@
 
 ## Overview
 
-Nexa AI is a Next.js‑based platform that combines real‑time video conferencing with an AI voice assistant. Users can create custom AI "agents", schedule meetings, and interact with the assistant via speech‑to‑text and text‑to‑speech in the browser. The backend is provider‑agnostic – it can route requests to OpenRouter, Google Gemini, or Groq – and stores data in a Neon PostgreSQL database through Drizzle ORM.
+Nexa AI is a Next.js‑based platform that combines real‑time video conferencing with an AI voice assistant. Users can create custom AI "agents", schedule meetings, and interact with the assistant via speech‑to‑text and text‑to‑speech in the browser. The AI backend is the **Mistral API** (`api.mistral.ai`), and data is stored in a Neon PostgreSQL database through Drizzle ORM.
 
 ## Key Features
 
 - **Custom AI agents** – define name & instruction, stored per user.
 - **Video calls** – powered by Stream Video SDK with automatic token generation.
 - **Voice interaction** – browser native SpeechRecognition + SpeechSynthesis.
-- **Provider‑agnostic LLM** – switch between OpenRouter, Gemini, Groq without code changes.
+- **AI chat & summaries** – Mistral-powered `/api/chat` for the voice assistant and automatic meeting summaries.
 - **Secure authentication** – Better‑Auth with email/password + GitHub & Google OAuth.
 - **Dashboard** – manage agents, schedule meetings, view meeting status, recordings, transcriptions.
 - **Database** – Drizzle ORM + Neon (PostgreSQL) with migrations.
@@ -22,7 +22,7 @@ Nexa AI is a Next.js‑based platform that combines real‑time video conferenci
 | Frontend | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS, shadcn/ui |
 | API / RPC | tRPC, Next.js API routes |
 | Auth | Better‑Auth, GitHub/Google OAuth |
-| AI backend | OpenRouter, Gemini, Groq (configurable via env) |
+| AI backend | Mistral (`api.mistral.ai`), model configurable via `MODEL_NAME` |
 | Video | Stream Video React SDK |
 | Database | Neon PostgreSQL, Drizzle‑ORM (postgresql dialect) |
 | Migrations | drizzle‑kit |
@@ -35,10 +35,7 @@ Nexa AI is a Next.js‑based platform that combines real‑time video conferenci
 - **Node.js** ≥ 20 (LTS) and **npm** (or yarn/pnpm/bun)
 - A **Neon** project with a PostgreSQL connection string
 - **Stream Video** API keys (`NEXT_PUBLIC_STREAM_VIDEO_API_KEY` & `STREAM_VIDEO_SECRET_KEY`)
-- (Optional) API keys for the AI provider you plan to use:
-  - OpenRouter → `OPENROUTER_API_KEY`
-  - Gemini → `GEMINI_API_KEY`
-  - Groq → `GROQ_API_KEY`
+- **A Mistral API key** (`MISTRAL_API_KEY`) — the model is configurable via `MODEL_NAME` (default `mistral-small-latest`)
 - GitHub/Google OAuth credentials if you want social login (see `.env` section)
 
 ### Installation
@@ -62,44 +59,50 @@ Create a `.env` file at the project root and fill the values according to the ta
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `DATABASE_URL` | Neon Postgres connection string | `postgresql://user:pass@us-east-2.aws.neon.tech/neondb` |
-| `AI_PROVIDER` | Provider name (`"openrouter"`, `"gemini"`, or `"groq"`) | `"openrouter"` |
-| `MODEL_NAME` | Model to use for the selected provider | `deepseek/deepseek-r1:free` |
-| `OPENROUTER_API_KEY` | OpenRouter API key (if `AI_PROVIDER=openrouter`) | `sk-…` |
-| `GEMINI_API_KEY` | Gemini API key (if `AI_PROVIDER=gemini`) | `AIza…` |
-| `GROQ_API_KEY` | Groq API key (if `AI_PROVIDER=groq`) | `gsk_…` |
+| `BETTER_AUTH_SECRET` | Better‑Auth signing secret | random string |
+| `BETTER_AUTH_URL` | App base URL used by Better‑Auth | `http://localhost:3000` |
+| `MISTRAL_API_KEY` | Mistral API key (chat + summaries) | `…` |
+| `MODEL_NAME` | Mistral model to use | `mistral-small-latest` |
 | `NEXT_PUBLIC_STREAM_VIDEO_API_KEY` | Stream Video public API key | `xxxxx` |
 | `STREAM_VIDEO_SECRET_KEY` | Stream Video secret key | `xxxxx` |
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | GitHub OAuth (optional) | `Iv…` |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth (optional) | `…` |
+| `RESEND_API_KEY` / `RESEND_FROM_EMAIL` | Password‑reset & verification emails via Resend (optional; skipped if the key is missing) | `re_…` |
+| `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis, rate‑limits `/api/chat` | `…` |
+| `NEXT_PUBLIC_APP_URL` | Public app URL (webhooks, tRPC base, reset links) | `http://localhost:3000` |
 
 #### `.env.example` (for reference)
 
 ```env
 # --- Database ----------------------------------------------------
-DATABASE_URL=postgresql://<user>:<password>@<host>/<db>
+DATABASE_URL=your-postgres-database-url
 
-# --- AI Provider -------------------------------------------------
-AI_PROVIDER=openrouter
-MODEL_NAME=deepseek/deepseek-r1:free
-
-# OpenRouter
-OPENROUTER_API_KEY=your_openrouter_key
-
-# Gemini
-GEMINI_API_KEY=your_gemini_key
-
-# Groq
-GROQ_API_KEY=your_groq_key
-
-# --- Stream Video ------------------------------------------------
-NEXT_PUBLIC_STREAM_VIDEO_API_KEY=your_stream_video_api_key
-STREAM_VIDEO_SECRET_KEY=your_stream_video_secret_key
+# --- Auth ---------------------------------------------------------
+BETTER_AUTH_SECRET=your-better-auth-secret
+BETTER_AUTH_URL="http://localhost:3000"
 
 # --- OAuth (optional) --------------------------------------------
-GITHUB_CLIENT_ID=your_github_client_id
-GITHUB_CLIENT_SECRET=your_github_client_secret
-GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
+GITHUB_CLIENT_ID=your-github-client-id
+GITHUB_CLIENT_SECRET=your-github-client-secret
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+
+# --- Email (Resend) ----------------------------------------------
+RESEND_API_KEY=re_xxxxxxxxxxxx
+RESEND_FROM_EMAIL="Nexa AI <no-reply@yourdomain.com>"
+
+# --- App / Stream Video ------------------------------------------
+NEXT_PUBLIC_APP_URL=your-next-public-app-url
+NEXT_PUBLIC_STREAM_VIDEO_API_KEY=your-next-public-stream-video-api-key
+STREAM_VIDEO_SECRET_KEY=your-stream-video-secret-key
+
+# --- Rate limiting (Upstash) --------------------------------------
+UPSTASH_REDIS_REST_URL=your-upstash-rest-url
+UPSTASH_REDIS_REST_TOKEN=your-upstash-rest-token
+
+# --- AI (Mistral) ------------------------------------------------
+MODEL_NAME=mistral-small-latest
+MISTRAL_API_KEY=your-mistral-api-key
 ```
 
 ### Database setup
@@ -157,7 +160,7 @@ src/
 
 | Route | Method | Purpose |
 |-------|--------|---------|
-| `/api/chat` | POST | Forward user prompt to the configured LLM using the selected provider and return the assistant response. |
+| `/api/chat` | POST | Sends `{ prompt, agentId }` to Mistral using the agent's instruction as system prompt, with per-user Upstash rate limiting. |
 | `/api/webhooks/stream` | POST | Receive Stream Video webhook events (session start/end) and update meeting status. |
 | `/api/*` (tRPC) | – | All tRPC procedures under `/api/trpc` – agents, meetings, auth, etc. |
 
@@ -188,10 +191,10 @@ MIT © 2026 Nexa AI contributors.
 
 - **Stream Video** – real‑time video SDK.
 - **Better‑Auth** – authentication framework.
-- **OpenRouter**, **Google Gemini**, **Groq** – LLM providers.
+- **Mistral** – LLM provider.
 - **Neon** – serverless Postgres.
 - **shadcn/ui**, **lucide-react**, **TailwindCSS** – UI building blocks.
 
 ---
 
-Feel free to explore the `AI_SETUP.md` file for details on the provider‑agnostic voice‑assistant architecture. Happy hacking!
+Feel free to explore the `AI_SETUP.md` file for details on the voice‑assistant architecture. Happy hacking!

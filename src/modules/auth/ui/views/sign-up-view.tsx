@@ -6,7 +6,7 @@ import Link from "next/link";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, Controller } from "react-hook-form";
-import { ArrowRight, Loader2, MailCheck, User, Mail, Lock } from "lucide-react";
+import { ArrowRight, Loader2, MailCheck, User, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { FaGithub, FaGoogle } from "react-icons/fa";
 import { authClient } from "@/lib/auth-client";
@@ -28,6 +28,9 @@ type FormValues = z.infer<typeof formSchema>;
 const SignUpView = () => {
   const [loading, setLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState<string | null>(null);
+  // Toggles visibility for both password fields (eye icon), like the
+  // settings security tab.
+  const [showPassword, setShowPassword] = useState(false);
   // Set once signup succeeds — flips the view to a "check your email" screen.
   const [submittedEmail, setSubmittedEmail] = useState<string | null>(null);
 
@@ -75,7 +78,7 @@ const SignUpView = () => {
           },
         },
       );
-    } catch (error) {
+    } catch {
       setLoading(false);
       toast.error("Unexpected Error", {
         description: "An unexpected error occurred. Please try again later.",
@@ -106,7 +109,7 @@ const SignUpView = () => {
           },
         },
       );
-    } catch (error) {
+    } catch {
       setSocialLoading(null);
       toast.error("Connection Error", {
         description: `Failed to connect to ${provider}.`,
@@ -208,13 +211,27 @@ const SignUpView = () => {
                       <FieldLabel className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                         <Lock className="size-4 text-gray-400" /> Password
                       </FieldLabel>
-                      <Input
-                        {...field}
-                        disabled={loading || !!socialLoading}
-                        placeholder="••••••••"
-                        className="h-12 px-4 rounded-xl border-gray-200 focus:ring-2 focus:ring-green-900/10 focus:border-green-800 transition-all disabled:opacity-50"
-                        type="password"
-                      />
+                      <div className="relative">
+                        <Input
+                          {...field}
+                          disabled={loading || !!socialLoading}
+                          placeholder="••••••••"
+                          className="h-12 px-4 pr-11 rounded-xl border-gray-200 focus:ring-2 focus:ring-green-900/10 focus:border-green-800 transition-all disabled:opacity-50"
+                          type={showPassword ? "text" : "password"}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((v) => !v)}
+                          aria-label={showPassword ? "Hide password" : "Show password"}
+                          className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 transition-colors hover:text-gray-600"
+                        >
+                          {showPassword ? (
+                            <EyeOff className="size-4" aria-hidden />
+                          ) : (
+                            <Eye className="size-4" aria-hidden />
+                          )}
+                        </button>
+                      </div>
                       {fieldState.error && (
                         <FieldError errors={[fieldState.error]} />
                       )}
@@ -230,13 +247,27 @@ const SignUpView = () => {
                       <FieldLabel className="text-sm font-semibold text-gray-700 flex items-center gap-2">
                         <Lock className="size-4 text-gray-400" /> Confirm
                       </FieldLabel>
-                      <Input
-                        {...field}
-                        disabled={loading || !!socialLoading}
-                        placeholder="••••••••"
-                        className="h-12 px-4 rounded-xl border-gray-200 focus:ring-2 focus:ring-green-900/10 focus:border-green-800 transition-all disabled:opacity-50"
-                        type="password"
-                      />
+                      <div className="relative">
+                        <Input
+                          {...field}
+                          disabled={loading || !!socialLoading}
+                          placeholder="••••••••"
+                          className="h-12 px-4 pr-11 rounded-xl border-gray-200 focus:ring-2 focus:ring-green-900/10 focus:border-green-800 transition-all disabled:opacity-50"
+                          type={showPassword ? "text" : "password"}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((v) => !v)}
+                          aria-label={showPassword ? "Hide password" : "Show password"}
+                          className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 transition-colors hover:text-gray-600"
+                        >
+                          {showPassword ? (
+                            <EyeOff className="size-4" aria-hidden />
+                          ) : (
+                            <Eye className="size-4" aria-hidden />
+                          )}
+                        </button>
+                      </div>
                       {fieldState.error && (
                         <FieldError errors={[fieldState.error]} />
                       )}

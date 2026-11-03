@@ -32,12 +32,19 @@ export const useDashboard = () => {
   // Memoise combined data for consumer components – avoids re‑render loops
   const data = useMemo(() => {
     if (!dashboardQuery.data) return null;
-    const { metrics, upcomingMeetings, recentActivities, chartData } = dashboardQuery.data;
+    const {
+      metrics,
+      upcomingMeetings,
+      recentActivities,
+      chartData,
+      durationChart,
+    } = dashboardQuery.data;
     return {
       metrics,
       upcomingMeetings,
       recentActivities,
       chartData,
+      durationChart,
     };
   }, [dashboardQuery.data]);
 

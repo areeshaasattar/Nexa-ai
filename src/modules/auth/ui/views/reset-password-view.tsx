@@ -14,6 +14,8 @@ import {
   Loader2,
   Lock,
   ShieldAlert,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { toast } from "sonner";
 import { authClient } from "@/lib/auth-client";
@@ -33,6 +35,7 @@ const ResetPasswordView = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const token = searchParams.get("token");
   const error = searchParams.get("error");
@@ -79,7 +82,7 @@ const ResetPasswordView = () => {
         description: "You can now sign in with your new password.",
       });
       router.push("/sign-in");
-    } catch (error) {
+    } catch {
       setLoading(false);
       toast.error("Unexpected Error", {
         description: "An unexpected error occurred. Please try again later.",
@@ -145,10 +148,22 @@ const ResetPasswordView = () => {
                           {...field}
                           disabled={loading}
                           placeholder="••••••••"
-                          className="h-12 pl-11 pr-4 rounded-xl border-gray-200 focus:ring-2 focus:ring-green-900/10 focus:border-green-800 transition-all disabled:opacity-50"
-                          type="password"
+                          className="h-12 pl-11 pr-11 rounded-xl border-gray-200 focus:ring-2 focus:ring-green-900/10 focus:border-green-800 transition-all disabled:opacity-50"
+                          type={showPassword ? "text" : "password"}
                           autoComplete="new-password"
                         />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((v) => !v)}
+                          aria-label={showPassword ? "Hide password" : "Show password"}
+                          className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 transition-colors hover:text-gray-600"
+                        >
+                          {showPassword ? (
+                            <EyeOff className="size-4" aria-hidden />
+                          ) : (
+                            <Eye className="size-4" aria-hidden />
+                          )}
+                        </button>
                       </div>
                       {fieldState.error && (
                         <FieldError errors={[fieldState.error]} />
@@ -171,10 +186,22 @@ const ResetPasswordView = () => {
                           {...field}
                           disabled={loading}
                           placeholder="••••••••"
-                          className="h-12 pl-11 pr-4 rounded-xl border-gray-200 focus:ring-2 focus:ring-green-900/10 focus:border-green-800 transition-all disabled:opacity-50"
-                          type="password"
+                          className="h-12 pl-11 pr-11 rounded-xl border-gray-200 focus:ring-2 focus:ring-green-900/10 focus:border-green-800 transition-all disabled:opacity-50"
+                          type={showPassword ? "text" : "password"}
                           autoComplete="new-password"
                         />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((v) => !v)}
+                          aria-label={showPassword ? "Hide password" : "Show password"}
+                          className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 transition-colors hover:text-gray-600"
+                        >
+                          {showPassword ? (
+                            <EyeOff className="size-4" aria-hidden />
+                          ) : (
+                            <Eye className="size-4" aria-hidden />
+                          )}
+                        </button>
                       </div>
                       {fieldState.error && (
                         <FieldError errors={[fieldState.error]} />

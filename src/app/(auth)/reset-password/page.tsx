@@ -1,21 +1,19 @@
-import React from "react";
+import React, { Suspense } from "react";
+import { Loader2 } from "lucide-react";
 import ResetPasswordView from "@/modules/auth/ui/views/reset-password-view";
-import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
-import { redirect } from "next/navigation";
 
-const Page = async () => {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
-
-  if (!!session) {
-    return redirect("/");
-  }
-
+const Page = () => {
   return (
     <div>
-      <ResetPasswordView />
+      <Suspense
+        fallback={
+          <div className="min-h-screen w-full flex flex-col items-center justify-center bg-gray-50 p-4">
+            <Loader2 className="size-8 animate-spin text-gray-400" />
+          </div>
+        }
+      >
+        <ResetPasswordView />
+      </Suspense>
     </div>
   );
 };

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { trpc } from "@/trpc/client";
 import { LoadingState } from "@/components/loading-state";
 import { ErrorState } from "@/components/error-state";
@@ -12,7 +13,6 @@ import {
   FileTextIcon,
   PlayCircleIcon,
   ClipboardListIcon,
-  ExternalLinkIcon,
   CheckCircle2Icon ,
   AlertCircleIcon
 } from "lucide-react";
@@ -24,39 +24,48 @@ interface MeetingIdViewProps {
   meetingId: string;
 }
 
+interface StatusBadgeConfig {
+  label: string;
+  styles: string;
+  icon: React.ReactNode;
+}
+
+/** Lookup is over an arbitrary string key, so missing statuses fall back. */
+const statusConfig: Record<string, StatusBadgeConfig> = {
+  scheduled: {
+    label: "Upcoming",
+    styles: "bg-blue-50 text-blue-600 border-blue-100",
+    icon: <CalendarIcon className="size-3" />,
+  },
+  ongoing: {
+    label: "Active",
+    styles: "bg-green-50 text-green-600 border-green-100 animate-pulse",
+    icon: <PlayCircleIcon className="size-3" />,
+  },
+  processing: {
+    label: "Processing",
+    styles: "bg-amber-50 text-amber-600 border-amber-100 animate-pulse",
+    icon: <ClockIcon className="size-3" />,
+  },
+  completed: {
+    label: "Completed",
+    styles: "bg-[#f0f4f0] text-[#3B6D11] border-[#d4e0d4]",
+    icon: <CheckCircle2Icon className="size-3" />,
+  },
+  cancelled: {
+    label: "Cancelled",
+    styles: "bg-gray-50 text-gray-400 border-gray-100",
+    icon: <AlertCircleIcon className="size-3" />,
+  },
+  failed: {
+    label: "Failed",
+    styles: "bg-red-50 text-red-600 border-red-100",
+    icon: <AlertCircleIcon className="size-3" />,
+  },
+};
+
 const StatusBadge = ({ status }: { status: string }) => {
-  const config: { label: string; styles: string; icon: React.ReactNode } = ({
-    scheduled: {
-      label: "Upcoming",
-      styles: "bg-blue-50 text-blue-600 border-blue-100",
-      icon: <CalendarIcon className="size-3" />,
-    },
-    ongoing: {
-      label: "Active",
-      styles: "bg-green-50 text-green-600 border-green-100 animate-pulse",
-      icon: <PlayCircleIcon className="size-3" />,
-    },
-    processing: {
-      label: "Processing",
-      styles: "bg-amber-50 text-amber-600 border-amber-100 animate-pulse",
-      icon: <ClockIcon className="size-3" />,
-    },
-    completed: {
-      label: "Completed",
-      styles: "bg-[#f0f4f0] text-[#3B6D11] border-[#d4e0d4]",
-      icon: <CheckCircle2Icon className="size-3" />,
-    },
-    cancelled: {
-      label: "Cancelled",
-      styles: "bg-gray-50 text-gray-400 border-gray-100",
-      icon: <AlertCircleIcon className="size-3" />,
-    },
-    failed: {
-      label: "Failed",
-      styles: "bg-red-50 text-red-600 border-red-100",
-      icon: <AlertCircleIcon className="size-3" />,
-    },
-  } as any)[status] || {
+  const config = statusConfig[status] ?? {
     label: status,
     styles: "bg-gray-50 text-gray-600 border-gray-100",
     icon: <VideoIcon className="size-3" />,
@@ -70,18 +79,43 @@ const StatusBadge = ({ status }: { status: string }) => {
   );
 };
 
+/**
+ * How long the meeting page keeps polling for the summary after the call is
+ * completed but the summary hasn't arrived yet. After this, polling stops
+ * and the page shows a "Summary unavailable" state (summary stays null).
+ */
+const SUMMARY_POLL_TIMEOUT_MS = 2 * 60 * 1000;
+
 export const MeetingIdView = ({ meetingId }: MeetingIdViewProps) => {
   const meetingQuery = trpc.meetings.getOne.useQuery(
     { id: meetingId },
     {
-      // Poll every 5s while the call has completed but summary hasn't arrived yet
+      // Poll every 5s while the call has completed but summary hasn't arrived yet,
+      // stopping after ~2 minutes (see SUMMARY_POLL_TIMEOUT_MS) to avoid infinite
+      // polling when summary generation failed on serverless.
       refetchInterval: (query) => {
         const data = query.state.data;
-        if (data?.status === 'completed' && !data?.summary) return 5000;
+        if (data?.status === "completed" && !data?.summary && !summaryTimedOut) {
+          return 5000;
+        }
         return false;
       },
     }
   );
+
+  // Client-side guard: polling stops ~2 minutes after the call completes
+  // without a summary (works even when summary generation never succeeds,
+  // e.g. on serverless where the work was killed after the response).
+  const [summaryTimedOut, setSummaryTimedOut] = useState(false);
+  const waitingForSummary = meetingQuery.data?.status === "completed" && !meetingQuery.data?.summary;
+
+  useEffect(() => {
+    if (!waitingForSummary || summaryTimedOut) {
+      return;
+    }
+    const timer = setTimeout(() => setSummaryTimedOut(true), SUMMARY_POLL_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [waitingForSummary, summaryTimedOut]);
 
   if (meetingQuery.isLoading) {
     return (
@@ -228,13 +262,24 @@ export const MeetingIdView = ({ meetingId }: MeetingIdViewProps) => {
                 {meeting.summary}
               </div>
             ) : meeting.status === "completed" ? (
+              // Polling is still active (~2 min max) while waiting for the
+              // summary; after that it stops and we show "Summary unavailable".
               <div className="flex flex-col items-center justify-center py-20 text-center gap-4">
-                <div className="size-12 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-200">
+                <div className={`size-12 rounded-2xl flex items-center justify-center ${summaryTimedOut ? "bg-gray-50 text-gray-200" : "bg-[#f0f4f0] text-[#3B6D11] animate-pulse"}`}>
                   <ClipboardListIcon className="size-6" />
                 </div>
                 <div className="flex flex-col">
-                  <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">No Conversation Recorded</p>
-                  <p className="text-xs text-gray-400 max-w-[200px] mt-1">This meeting ended without any conversation data being captured.</p>
+                  {summaryTimedOut ? (
+                    <>
+                      <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">Summary unavailable</p>
+                      <p className="text-xs text-gray-400 max-w-[200px] mt-1">The summary generation timed out or failed. The meeting is completed but no summary is available.</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">Summary Pending</p>
+                      <p className="text-xs text-gray-400 max-w-[200px] mt-1">The AI is generating the mission summary from the conversation logs.</p>
+                    </>
+                  )}
                 </div>
               </div>
             ) : (

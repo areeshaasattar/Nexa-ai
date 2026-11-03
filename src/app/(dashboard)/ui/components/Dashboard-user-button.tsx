@@ -80,7 +80,7 @@ const DashboardUserButton = ({
           },
         },
       });
-    } catch (error) {
+    } catch {
       toast.error("Logout failed", {
         description: "Please try again later.",
       });
@@ -123,14 +123,6 @@ const DashboardUserButton = ({
                 )}
               >
                 {data.user.name}
-              </span>
-              <span
-                className={cn(
-                  "text-[10px] font-medium uppercase tracking-wider",
-                  isHeader ? "text-green-600/70" : "text-green-400",
-                )}
-              >
-                { "Pro User"}
               </span>
             </div>
             <div className="ml-auto">

@@ -20,9 +20,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MetricCard } from "../components/metric-card";
 import { AnalyticsChart } from "../components/analytics-chart";
 import { HeroSection } from "../components/hero-section";
-import { MeetingCard } from "../components/meeting-card";
-import { ActivityTimeline } from "../components/activity-timeline";
-import { InsightCard } from "../components/insight-card";
+import { MeetingCard, type MeetingCardStatus } from "../components/meeting-card";
+import { ActivityTimeline, type ActivityType } from "../components/activity-timeline";
+import { InsightCard, type InsightCardType as InsightType } from "../components/insight-card";
 import { StatusMonitor } from "../components/status-monitor";
 import { QuickActionCard } from "../components/quick-action-card";
 import { useMemo, useState } from "react";
@@ -114,29 +114,6 @@ function normalizeWeekly(
   return { labels: WEEK_LABELS, counts };
 }
 
-// Realistic demo curve shown when the real counts are too sparse to chart
-// (user requested sensible placeholder data rather than a broken flat line).
-const DEMO_WEEK = { labels: WEEK_LABELS, counts: [3, 5, 6, 9, 8, 12, 14] };
-
-const SPARK_FRACTIONS = [0.2, 0.35, 0.3, 0.5, 0.65, 0.6, 1];
-
-// Build a 7-point proportional sparkline that ends exactly at `total` with a
-// gentle uptrend — no more tiny-seeds-then-absolute-total vertical cliffs.
-function makeSparkline(total: number, offset = 0): number[] {
-  if (total <= 0) return [2, 2.5, 2, 3, 2.5, 3, 3.5]; // subtle flat baseline
-  return SPARK_FRACTIONS.map((f, i) => {
-    const jitter = ((i * 3 + offset * 7) % 5) * 0.02; // small, deterministic wobble
-    return Math.max(0, Math.round(total * (f + jitter)));
-  });
-}
-
-// Gentle weekday curve around a base value (used for avg. duration).
-const TREND_FRACTIONS = [0.75, 1.1, 0.82, 1.25, 1.05, 0.95, 1];
-function makeTrend(base: number): number[] {
-  if (base <= 0) return [30, 45, 32, 50, 42, 38, 42]; // demo durations
-  return TREND_FRACTIONS.map((f) => Math.round(base * f));
-}
-
 // ─── loading skeleton ─────────────────────────────────────────────────────────
 
 function DashboardSkeleton() {
@@ -171,18 +148,22 @@ export const HomeView = () => {
   const metrics = data?.metrics;
   const upcomingMeetings = data?.upcomingMeetings ?? [];
   const recentActivities = data?.recentActivities ?? [];
-  const chartData = data?.chartData ?? [];
 
-  // 7-day chart normalization + sparse-data fallback
-  const weekly = useMemo(() => normalizeWeekly(chartData), [chartData]);
-  const weeklyTotal = weekly.counts.reduce((a, b) => a + b, 0);
-  const chartSparse = weeklyTotal <= 1;
-  const chartLabels = chartSparse ? DEMO_WEEK.labels : weekly.labels;
-  const chartCounts = chartSparse ? DEMO_WEEK.counts : weekly.counts;
+  // 7-day normalization of the real server series (zero-filled Mon–Sun).
+  // Depend on the (structurally stable) server arrays directly so the memo
+  // doesn't recompute when a default empty array is re-created each render.
+  const weekly = useMemo(
+    () => normalizeWeekly(data?.chartData ?? []),
+    [data?.chartData]
+  );
+  const durationWeekly = useMemo(
+    () => normalizeWeekly(data?.durationChart ?? []),
+    [data?.durationChart]
+  );
 
   const insights = useMemo(() => {
     if (!metrics) return [];
-    const list: { type: string; message: string }[] = [];
+    const list: { type: InsightType; message: string }[] = [];
     if (metrics.meetings.trend > 0)
       list.push({
         type: "recommendation",
@@ -234,7 +215,7 @@ export const HomeView = () => {
         value: Math.abs(metrics?.meetings.trend ?? 0),
         isPositive: (metrics?.meetings.trend ?? 0) >= 0,
       },
-      chartData: chartCounts,
+      chartData: weekly.counts,
       chartColor: "#10b981",
     },
     {
@@ -242,24 +223,20 @@ export const HomeView = () => {
       value: metrics?.agents.total ?? 0,
       icon: Bot,
       description: `${metrics?.agents.mostUsed ?? "—"} is most active`,
-      chartData: makeSparkline(metrics?.agents.total ?? 0, 1),
       chartColor: "#8b5cf6",
     },
     {
       title: "Voice Interactions",
       value: metrics?.voice.totalConversations ?? 0,
       icon: Mic,
-      trend: { value: metrics?.voice.accuracy ?? 0, isPositive: true },
       description: `${metrics?.voice.responseTime ?? "—"}ms avg response`,
-      chartData: makeSparkline(metrics?.voice.totalConversations ?? 0, 2),
       chartColor: "#3b82f6",
     },
     {
-      title: "Recording Storage",
-      value: `${metrics?.recordings.storageGB ?? 0} GB`,
+      title: "Recordings",
+      value: metrics?.recordings.total ?? 0,
       icon: FileAudio,
-      description: `${metrics?.recordings.total ?? 0} recordings processed`,
-      chartData: makeSparkline(metrics?.recordings.storageGB ?? 0, 3),
+      description: `${metrics?.recordings.transcriptions ?? 0} transcriptions`,
       chartColor: "#f59e0b",
     },
   ];
@@ -330,8 +307,8 @@ export const HomeView = () => {
                     title="Meeting Activity"
                     description="Volume of meetings over the last 7 days."
                     type="area"
-                    series={[{ name: "Meetings", data: chartCounts }]}
-                    categories={chartLabels}
+                    series={[{ name: "Meetings", data: weekly.counts }]}
+                    categories={weekly.labels}
                     colors={["#10b981"]}
                     height="100%"
                     hideHeader
@@ -347,10 +324,10 @@ export const HomeView = () => {
                     series={[
                       {
                         name: "Duration (min)",
-                        data: makeTrend(metrics?.meetings.avgDuration ?? 0),
+                        data: durationWeekly.counts,
                       },
                     ]}
-                    categories={WEEK_LABELS}
+                    categories={durationWeekly.labels}
                     colors={["#8b5cf6"]}
                     height="100%"
                     hideHeader
@@ -468,7 +445,7 @@ export const HomeView = () => {
                         : "TBD"
                     }
                     participants={1}
-                    status={meeting.status as any}
+                    status={meeting.status as MeetingCardStatus}
                   />
                 ))}
               </div>
@@ -540,7 +517,7 @@ export const HomeView = () => {
                           : "TBD"
                       }
                       participants={1}
-                      status={meeting.status as any}
+                      status={meeting.status as MeetingCardStatus}
                     />
                   ))}
                 </div>
@@ -558,7 +535,7 @@ export const HomeView = () => {
                 {insights.map((insight, i) => (
                   <InsightCard
                     key={i}
-                    type={insight.type as any}
+                    type={insight.type}
                     message={insight.message}
                   />
                 ))}
@@ -599,7 +576,7 @@ export const HomeView = () => {
           <ActivityTimeline
             activities={recentActivities.map((a) => ({
               id: a.id,
-              type: a.type as any,
+              type: a.type as ActivityType,
               title: a.title,
               user: { name: "You" },
               time: new Date(a.createdAt).toLocaleTimeString([], {

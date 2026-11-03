@@ -4,7 +4,6 @@ import React from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { trpc } from "@/trpc/client";
-import { authClient } from "@/lib/auth-client";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -30,7 +29,6 @@ interface NewAgentDialogProps {
 }
 
 export const NewAgentDialog = ({ open, onOpenChange }: NewAgentDialogProps) => {
-  const { data: session } = authClient.useSession();
   const utils = trpc.useUtils();
 
   const form = useForm<FormValues>({

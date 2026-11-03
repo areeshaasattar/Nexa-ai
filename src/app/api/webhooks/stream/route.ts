@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { meetings } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { after } from "next/server";
 import { generateMeetingSummary } from "@/lib/meeting-summary";
 
 export async function POST(req: Request) {
@@ -39,7 +40,7 @@ export async function POST(req: Request) {
       return new NextResponse("Invalid signature", { status: 401 });
     }
 
-    // The payload is the event itself
+      // The payload is the event itself
     const event = body;
     if (!event || !event.type) {
         console.log("No event or event type in payload, ignoring.");
@@ -51,7 +52,7 @@ export async function POST(req: Request) {
     // Handle the event when a session starts
     if (event.type === "call.session_started") {
       const callCid = event.call_cid;
-      const [type, id] = callCid.split(":");
+      const [, id] = callCid.split(":");
 
       // 1. Find the meeting
       const [meeting] = await db
@@ -76,7 +77,7 @@ export async function POST(req: Request) {
     // Handle the event when a session ends
     if (event.type === "call.session_ended") {
       const callCid = event.call_cid;
-      const [type, id] = callCid.split(":");
+      const [, id] = callCid.split(":");
 
       await db
         .update(meetings)
@@ -88,10 +89,12 @@ export async function POST(req: Request) {
 
       console.log(`Meeting ${id} ended.`);
 
-      // Generate summary from persisted conversation messages (fire-and-forget)
-      // Note: generateMeetingSummary has its own internal try/catch, so errors
-      // are logged there and won't propagate.
-      generateMeetingSummary(id);
+      // Generate summary from persisted conversation messages
+      // Wrap in after() so it completes after the webhook response is sent
+      // (serverless platforms may kill the function after response)
+      after(() => {
+        generateMeetingSummary(id);
+      });
     }
 
     return NextResponse.json({ message: "Webhook processed" });

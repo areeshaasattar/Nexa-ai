@@ -6,10 +6,10 @@ import Link from "next/link";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, Controller } from "react-hook-form";
-import { ArrowRight, Loader2, MailCheck, RefreshCw } from "lucide-react";
+import { ArrowRight, Loader2, MailCheck, RefreshCw, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { FaGithub, FaGoogle } from "react-icons/fa";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -29,19 +29,20 @@ type FormValues = z.infer<typeof formSchema>;
 
 const SignInView = () => {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState<string | null>(null);
   // Set when sign-in returns 403 (email not verified) — flips on the
   // "verify your email" panel with a resend button.
   const [verifyEmail, setVerifyEmail] = useState<string | null>(null);
   const [resending, setResending] = useState(false);
+  // Toggles password visibility in the sign-in form (eye icon).
+  const [showPassword, setShowPassword] = useState(false);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      email: searchParams.get("email") || "",
-      password: searchParams.get("password") || "",
+      email: "",
+      password: "",
     },
   });
 
@@ -79,7 +80,7 @@ const SignInView = () => {
           },
         },
       );
-    } catch (error) {
+    } catch {
       setLoading(false);
       toast.error("Unexpected Error", {
         description: "An unexpected error occurred. Please try again later.",
@@ -108,7 +109,7 @@ const SignInView = () => {
       toast.success("Verification email sent!", {
         description: `Check ${verifyEmail} for the link. It expires in 1 hour.`,
       });
-    } catch (error) {
+    } catch {
       setResending(false);
       toast.error("Unexpected Error", {
         description: "An unexpected error occurred. Please try again later.",
@@ -117,19 +118,8 @@ const SignInView = () => {
   };
 
   useEffect(() => {
-    const email = searchParams.get("email");
-    const password = searchParams.get("password");
-
-    if (email && password) {
-      onSubmit({ email, password });
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!searchParams.get("email")) {
-      form.setFocus("email");
-    }
-  }, [form, searchParams]);
+    form.setFocus("email");
+  }, [form]);
 
   const handleSocialSignIn = async (provider: "google" | "github") => {
     setSocialLoading(provider);
@@ -153,7 +143,7 @@ const SignInView = () => {
           },
         },
       );
-    } catch (error) {
+    } catch {
       setSocialLoading(null);
       toast.error("Connection Error", {
         description: `Failed to connect to ${provider}.`,
@@ -215,14 +205,28 @@ const SignInView = () => {
                         Forgot password?
                       </Link>
                     </div>
-                    <Input
-                      {...field}
-                      disabled={loading || !!socialLoading}
-                      placeholder="••••••••"
-                      className="h-12 px-4 rounded-xl border-gray-200 focus:ring-2 focus:ring-green-900/10 focus:border-green-800 transition-all disabled:opacity-50"
-                      type="password"
-                      autoComplete="current-password"
-                    />
+                    <div className="relative">
+                      <Input
+                        {...field}
+                        disabled={loading || !!socialLoading}
+                        placeholder="••••••••"
+                        className="h-12 px-4 pr-11 rounded-xl border-gray-200 focus:ring-2 focus:ring-green-900/10 focus:border-green-800 transition-all disabled:opacity-50"
+                        type={showPassword ? "text" : "password"}
+                        autoComplete="current-password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((v) => !v)}
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                        className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 transition-colors hover:text-gray-600"
+                      >
+                        {showPassword ? (
+                          <EyeOff className="size-4" aria-hidden />
+                        ) : (
+                          <Eye className="size-4" aria-hidden />
+                        )}
+                      </button>
+                    </div>
                     {fieldState.error && (
                       <FieldError errors={[fieldState.error]} />
                     )}

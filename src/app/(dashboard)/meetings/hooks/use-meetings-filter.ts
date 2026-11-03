@@ -20,19 +20,39 @@ export const useMeetingsFilter = () => {
       const params = new URLSearchParams(searchParams.toString());
 
       if (updates.search !== undefined) {
-        updates.search ? params.set("search", updates.search) : params.delete("search");
+        if (updates.search) {
+          params.set("search", updates.search);
+        } else {
+          params.delete("search");
+        }
       }
       if (updates.status !== undefined) {
-        updates.status ? params.set("status", updates.status) : params.delete("status");
+        if (updates.status) {
+          params.set("status", updates.status);
+        } else {
+          params.delete("status");
+        }
       }
       if (updates.agentId !== undefined) {
-        updates.agentId ? params.set("agentId", updates.agentId) : params.delete("agentId");
+        if (updates.agentId) {
+          params.set("agentId", updates.agentId);
+        } else {
+          params.delete("agentId");
+        }
       }
       if (updates.page !== undefined) {
-        updates.page === DEFAULT_PAGE ? params.delete("page") : params.set("page", String(updates.page));
+        if (updates.page === DEFAULT_PAGE) {
+          params.delete("page");
+        } else {
+          params.set("page", String(updates.page));
+        }
       }
       if (updates.pageSize !== undefined) {
-        updates.pageSize === DEFAULT_PAGE_SIZE ? params.delete("pageSize") : params.set("pageSize", String(updates.pageSize));
+        if (updates.pageSize === DEFAULT_PAGE_SIZE) {
+          params.delete("pageSize");
+        } else {
+          params.set("pageSize", String(updates.pageSize));
+        }
       }
 
       router.push(`${pathname}?${params.toString()}`, { scroll: false });

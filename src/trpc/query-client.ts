@@ -2,7 +2,11 @@ import {
   defaultShouldDehydrateQuery,
   QueryClient,
 } from '@tanstack/react-query';
-import superjson from 'superjson';
+
+// NOTE: `superjson` is installed but currently unused — no transformer is
+// configured on the tRPC links or server initializer. Serialization parameters
+// (serialize/deserialize) are left commented below in case a transformer is
+// added later.
  
 export function makeQueryClient() {
   return new QueryClient({

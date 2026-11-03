@@ -237,7 +237,7 @@ export function SecurityTab() {
         description="End your session on this device."
       >
         <p className="mb-4 text-xs text-slate-500">
-          You'll be returned to the sign-in page. Your data stays safe on your
+          You&apos;ll be returned to the sign-in page. Your data stays safe on your
           account — you can sign back in anytime.
         </p>
         <Button

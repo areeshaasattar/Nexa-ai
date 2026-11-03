@@ -4,7 +4,7 @@ import { createTRPCRouter, protectedProcedure } from "@/trpc/init";
 import { TRPCError } from "@trpc/server";
 import { meetingsInsertSchema, meetingsUpdateSchema } from "../schemas";
 import { z } from "zod";
-import { eq, and, desc, count, or, ilike, sql } from "drizzle-orm";
+import { eq, and, desc, count, ilike, sql } from "drizzle-orm";
 import { DEFAULT_PAGE, DEFAULT_PAGE_SIZE } from "@/constants";
 import { meetingStatus as meetingStatusEnum } from "@/db/schema";
 import { streamVideo } from "@/lib/stream-video";
@@ -85,7 +85,7 @@ export const meetingsRouter = createTRPCRouter({
 
   getRecordings: protectedProcedure
     .input(z.object({ id: z.string() }))
-    .query(async ({ ctx, input }) => {
+    .query(async ({ input }) => {
       const call = streamVideo.video.call("default", input.id);
       const { recordings } = await call.listRecordings();
       return recordings;
@@ -93,7 +93,7 @@ export const meetingsRouter = createTRPCRouter({
 
   getTranscriptions: protectedProcedure
     .input(z.object({ id: z.string() }))
-    .query(async ({ ctx, input }) => {
+    .query(async ({ input }) => {
       const call = streamVideo.video.call("default", input.id);
       const { transcriptions } = await call.listTranscriptions();
       return transcriptions;
@@ -121,8 +121,10 @@ export const meetingsRouter = createTRPCRouter({
 
       if (status && status !== "" && status !== "all") {
         // Only apply status filter if it's one of the valid statuses
-        if (meetingStatusEnum.includes(status as any)) {
-          filters.push(eq(meetings.status, status as any));
+        if ((meetingStatusEnum as readonly string[]).includes(status)) {
+          filters.push(
+            eq(meetings.status, status as (typeof meetingStatusEnum)[number])
+          );
         }
       }
 
@@ -299,7 +301,6 @@ export const meetingsRouter = createTRPCRouter({
         meetingId: input.meetingId,
         duration: input.duration ?? null,
         responseTime: input.responseTime ?? null,
-        accuracy: "95", // placeholder — no real accuracy measurement available
       });
       return { success: true };
     }),
@@ -383,8 +384,22 @@ export const meetingsRouter = createTRPCRouter({
         console.log(`Stream artifacts not yet available for meeting ${input.id}.`);
       }
 
-      // 6. Trigger summary generation (fire-and-forget — has its own try/catch)
-      generateMeetingSummary(input.id);
+      // 6. Trigger summary generation with timeout guard to avoid blocking endCall
+      // Serverless may kill the function after response; await with timeout and
+      // catch so endCall never fails because of summary generation.
+      const summaryPromise = generateMeetingSummary(input.id);
+      const timeoutPromise = new Promise<void>((_, reject) =>
+        setTimeout(() => reject(new Error("Summary generation timeout")), 15000)
+      );
+      try {
+        await Promise.race([summaryPromise, timeoutPromise]);
+      } catch (error) {
+        // Log but don't throw - summary failure shouldn't break endCall
+        console.error(
+          `generateMeetingSummary timeout or error for meeting ${input.id}:`,
+          error
+        );
+      }
 
       return updatedMeeting;
     }),

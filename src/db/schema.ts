@@ -215,7 +215,6 @@ export const voiceInteractions = pgTable(
       .notNull()
       .references(() => meetings.id, { onDelete: "cascade" }),
     duration: text("duration"), // Duration in seconds
-    accuracy: text("accuracy"), // Accuracy score
     responseTime: text("response_time"), // in ms
     createdAt: timestamp("created_at")
       .$defaultFn(() => new Date())

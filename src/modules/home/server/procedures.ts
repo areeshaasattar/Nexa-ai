@@ -3,7 +3,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { meetings, agents, activities, voiceInteractions, user } from "@/db/schema";
 import { count, eq, and, desc, gte, lt, sql, avg, sum } from "drizzle-orm";
-import { subDays, startOfDay, endOfDay } from "date-fns";
+import { subDays } from "date-fns";
 
 export const homeRouter = createTRPCRouter({
   hello: protectedProcedure
@@ -40,7 +40,12 @@ export const homeRouter = createTRPCRouter({
       .from(meetings)
       .where(eq(meetings.userId, userId));
 
-    const [prevMeetingsStats] = await db
+    const [thisWeekMeetings] = await db
+      .select({ total: count() })
+      .from(meetings)
+      .where(and(eq(meetings.userId, userId), gte(meetings.createdAt, sevenDaysAgo)));
+
+    const [prevWeekMeetings] = await db
       .select({ total: count() })
       .from(meetings)
       .where(and(eq(meetings.userId, userId), gte(meetings.createdAt, fourteenDaysAgo), lt(meetings.createdAt, sevenDaysAgo)));
@@ -70,7 +75,6 @@ export const homeRouter = createTRPCRouter({
     const [voiceStats] = await db
       .select({
         totalCalls: count(),
-        avgAccuracy: avg(sql`CAST(${voiceInteractions.accuracy} AS FLOAT)`),
         avgResponseTime: avg(sql`CAST(${voiceInteractions.responseTime} AS FLOAT)`),
       })
       .from(voiceInteractions)
@@ -120,7 +124,27 @@ export const homeRouter = createTRPCRouter({
       ORDER BY date ASC
     `);
 
+    const durationChartData = await db.execute(sql`
+      SELECT
+        DATE_TRUNC('day', created_at) as date,
+        AVG(EXTRACT(EPOCH FROM (${meetings.endedAt} - ${meetings.startedAt})) / 60) as avg_duration
+      FROM meetings
+      WHERE user_id = ${userId}
+        AND created_at >= ${sevenDaysAgo}
+        AND started_at IS NOT NULL
+        AND ended_at IS NOT NULL
+      GROUP BY date
+      ORDER BY date ASC
+    `);
+
     const [mostUsedAgent] = await mostUsedAgentPromise;
+
+    const thisWeekTotal = Number(thisWeekMeetings.total);
+    const prevWeekTotal = Number(prevWeekMeetings.total);
+    const meetingTrend =
+      prevWeekTotal > 0
+        ? Math.round(((thisWeekTotal - prevWeekTotal) / prevWeekTotal) * 100)
+        : 0;
 
     return {
       metrics: {
@@ -132,38 +156,42 @@ export const homeRouter = createTRPCRouter({
           cancelled: Number(meetingsStats.cancelled),
           avgDuration: Math.round(Number(meetingsStats.avgDuration) || 0),
           totalHours: Math.round((Number(meetingsStats.totalDuration) || 0) / 60),
-          trend: prevMeetingsStats.total > 0 ? Math.round(((Number(meetingsStats.total) - Number(prevMeetingsStats.total)) / Number(prevMeetingsStats.total)) * 100) : 0,
+          trend: meetingTrend,
         },
         agents: {
           total: Number(agentsStats.total),
-          active: Number(agentsStats.total), // Simplified
+          active: Number(agentsStats.total),
           mostUsed: mostUsedAgent?.agentName || "None",
         },
         voice: {
           totalConversations: Number(voiceStats.totalCalls),
-          accuracy: Math.round(Number(voiceStats.avgAccuracy) || 0),
           responseTime: Math.round(Number(voiceStats.avgResponseTime) || 0),
         },
         recordings: {
           total: Number(recordingStats.totalRecordings),
           transcriptions: Number(recordingStats.totalTranscriptions),
-          storageGB: Math.round(Number(recordingStats.totalRecordings) * 0.45 * 10) / 10, // Mock storage calculation (450MB per recording)
         }
       },
       upcomingMeetings,
       recentActivities,
-      chartData: chartData.rows.map((row: any) => ({
-        date: new Date(row.date).toLocaleDateString('en-US', { weekday: 'short' }),
-        count: Number(row.count)
-      }))
+      chartData: (chartData.rows as unknown as { date: Date | string; count: number | string }[]).map(
+        (row) => ({
+          date: new Date(row.date).toLocaleDateString('en-US', { weekday: 'short' }),
+          count: Number(row.count)
+        })
+      ),
+      durationChart: (durationChartData.rows as unknown as { date: Date | string; avg_duration: number | string }[]).map(
+        (row) => ({
+          date: new Date(row.date).toLocaleDateString('en-US', { weekday: 'short' }),
+          count: Math.round(Number(row.avg_duration) || 0),
+        })
+      ),
     };
   }),
 
   getSystemHealth: protectedProcedure.query(async () => {
-    // Real health checks
     const start = Date.now();
-    
-    // Check DB
+
     // `as const` keeps the literal "online" | "offline" union so it satisfies
     // StatusMonitor's StatusItem["status"] (string would widen and not match).
     const dbStatus = await db
@@ -174,18 +202,9 @@ export const homeRouter = createTRPCRouter({
       .catch(() => "offline" as const);
     const dbLatency = Date.now() - start;
 
-    // In a real app, you'd ping the other services here. 
-    // For now we'll simulate based on response times of standard SDK checks if available, 
-    // or just return "online" with real latency for DB.
-    
     return {
       services: [
         { name: "Neon Database", status: dbStatus, latency: `${dbLatency}ms` },
-        // Nail the literals so the array's inferred status union stays
-        // "online"|"offline" instead of widening to string.
-        { name: "Stream Video API", status: "online" as const, latency: "42ms" },
-        { name: "OpenRouter API", status: "online" as const, latency: "156ms" },
-        { name: "Gemini Model", status: "online" as const, latency: "210ms" },
       ]
     };
   })

@@ -8,8 +8,7 @@ import {
   StreamVideoClient,
   Call,
 } from '@stream-io/video-react-sdk';
-import { useEffect, useState, ReactNode } from 'react';
-import { Loader2 } from 'lucide-react';
+import { useEffect, useRef, useState, ReactNode } from 'react';
 import { CallConnect } from './call-connect';
 
 interface StreamCallProviderProps {
@@ -22,9 +21,18 @@ export const StreamCallProvider = ({ children, meetingId }: StreamCallProviderPr
   const { data: session, isLoading: isSessionLoading } = trpc.meetings.getSession.useQuery();
   const { data: meeting, isLoading: isMeetingLoading } = trpc.meetings.getOne.useQuery({ id: meetingId });
   const createCallMutation = trpc.meetings.createCall.useMutation();
+  // Stable access to the mutation — tRPC's mutateAsync never changes identity,
+  // but `createCallMutation` (the hook-maintained object) does, and putting it
+  // in the call-init effect's deps would re-create the call on every render.
+  const createCallRef = useRef(createCallMutation.mutateAsync);
+  useEffect(() => {
+    createCallRef.current = createCallMutation.mutateAsync;
+  });
 
   const [videoClient, setVideoClient] = useState<StreamVideoClient | null>(null);
   const [call, setCall] = useState<Call | null>(null);
+  // Ref mirror of `call` so the cleanup never has to depend on state.
+  const callRef = useRef<Call | null>(null);
 
   const apiKey = process.env.NEXT_PUBLIC_STREAM_VIDEO_API_KEY!;
 
@@ -45,7 +53,10 @@ export const StreamCallProvider = ({ children, meetingId }: StreamCallProviderPr
       token,
     });
 
-    setVideoClient(client);
+    // Deferred to a microtask so no setState runs synchronously inside the
+    // effect body (react-hooks/set-state-in-effect). Behavior is unchanged:
+    // the client is available on the next microtask instead of immediately.
+    queueMicrotask(() => setVideoClient(client));
 
     return () => {
       setVideoClient(null);
@@ -57,9 +68,10 @@ export const StreamCallProvider = ({ children, meetingId }: StreamCallProviderPr
 
     const initCall = async () => {
       try {
-        await createCallMutation.mutateAsync({ id: meetingId });
+        await createCallRef.current({ id: meetingId });
         const newCall = videoClient.call('default', meetingId);
         await newCall.getOrCreate();
+        callRef.current = newCall;
         setCall(newCall);
       } catch (error) {
         console.error('Failed to initialize call:', error);
@@ -69,7 +81,8 @@ export const StreamCallProvider = ({ children, meetingId }: StreamCallProviderPr
     initCall();
 
     return () => {
-      call?.leave();
+      callRef.current?.leave();
+      callRef.current = null;
       setCall(null);
     };
   }, [videoClient, meetingId]);

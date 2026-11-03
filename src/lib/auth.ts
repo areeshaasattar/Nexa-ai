@@ -25,11 +25,26 @@ function buildPasswordResetUrl(token: string): string {
   return `${baseURL}/api/auth/reset-password/${token}?callbackURL=${callbackURL}`;
 }
 
+/**
+ * Origins Better-Auth should trust (origin/CSRF checks).
+ *
+ * Built entirely from env — no literal domains in code:
+ *   - `BETTER_AUTH_URL` — the canonical app origin (set in `.env`)
+ *   - `TRUSTED_ORIGINS` — optional comma-separated extra origins (dev
+ *     tunnels, preview/production hosts), e.g.
+ *     `TRUSTED_ORIGINS=https://my-tunnel.example.com,https://my-app.example.com`
+ *
+ * Entries are trimmed; empty / whitespace-only values are dropped.
+ */
+const trustedOrigins = [
+    process.env.BETTER_AUTH_URL ?? "",
+    ...(process.env.TRUSTED_ORIGINS ?? "").split(","),
+]
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0);
+
 export const auth = betterAuth({
-    trustedOrigins: [
-        "http://localhost:3000",
-        "https://nexa-ai-gold-xi.vercel.app",
-      ],
+    trustedOrigins,
      socialProviders: {
         github: {
             clientId: process.env.GITHUB_CLIENT_ID as string,

@@ -14,7 +14,6 @@ import {
 import { GeneratedAvatar } from "@/components/generated-avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProfileTab } from "../components/profile-tab";
 import { SecurityTab } from "../components/security-tab";
@@ -145,12 +144,6 @@ export const SettingsView = ({ defaultTab }: SettingsViewProps) => {
                 </p>
                 <p className="truncate text-xs text-slate-500">{user.email}</p>
               </div>
-              <Badge
-                variant="outline"
-                className="ml-auto shrink-0 rounded-full border-emerald-200 bg-emerald-50 text-emerald-700"
-              >
-                Pro User
-              </Badge>
             </div>
           </Card>
 

@@ -17,13 +17,25 @@ export const useAgentsFilter = () => {
       const params = new URLSearchParams(searchParams.toString());
 
       if (updates.search !== undefined) {
-        updates.search ? params.set("search", updates.search) : params.delete("search");
+        if (updates.search) {
+          params.set("search", updates.search);
+        } else {
+          params.delete("search");
+        }
       }
       if (updates.page !== undefined) {
-        updates.page === DEFAULT_PAGE ? params.delete("page") : params.set("page", String(updates.page));
+        if (updates.page === DEFAULT_PAGE) {
+          params.delete("page");
+        } else {
+          params.set("page", String(updates.page));
+        }
       }
       if (updates.pageSize !== undefined) {
-        updates.pageSize === DEFAULT_PAGE_SIZE ? params.delete("pageSize") : params.set("pageSize", String(updates.pageSize));
+        if (updates.pageSize === DEFAULT_PAGE_SIZE) {
+          params.delete("pageSize");
+        } else {
+          params.set("pageSize", String(updates.pageSize));
+        }
       }
 
       router.push(`${pathname}?${params.toString()}`, { scroll: false });
