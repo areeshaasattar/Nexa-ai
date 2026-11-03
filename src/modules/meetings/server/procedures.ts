@@ -291,51 +291,6 @@ export const meetingsRouter = createTRPCRouter({
       return deletedMeeting || null;
     }),
 
-  saveMessage: protectedProcedure
-    .input(z.object({
-      meetingId: z.string(),
-      role: z.enum(["user", "ai"]),
-      content: z.string(),
-    }))
-    .mutation(async ({ ctx, input }) => {
-      // Verify the meeting belongs to the caller before persisting.
-      const [meeting] = await db
-        .select({ id: meetings.id })
-        .from(meetings)
-        .where(and(eq(meetings.id, input.meetingId), eq(meetings.userId, ctx.userId)));
-
-      if (!meeting) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Meeting not found.",
-        });
-      }
-
-      try {
-        const [message] = await db
-          .insert(conversationMessages)
-          .values({
-            meetingId: input.meetingId,
-            role: input.role,
-            content: input.content,
-          })
-          .returning();
-        return message;
-      } catch (error) {
-        console.error("saveMessage mutation error:", {
-          error,
-          meetingId: input.meetingId,
-          role: input.role,
-          contentLength: input.content.length,
-          userId: ctx.userId,
-        });
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: `Failed to save message: ${error instanceof Error ? error.message : "Unknown error"}`,
-        });
-      }
-    }),
-
   /**
    * Log a voice interaction for the dashboard metrics.
    * Called from the client after each user→AI exchange completes.

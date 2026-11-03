@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { agents } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { agents, meetings, conversationMessages } from "@/db/schema";
+import { eq, and, desc } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { checkChatRateLimit } from "@/lib/rate-limit";
@@ -57,13 +57,14 @@ export async function POST(req: Request) {
     const chatInputSchema = z.object({
       prompt: z.string().trim().min(1).max(2000),
       agentId: z.string().min(1).max(64),
+      meetingId: z.string().min(1).max(64),
     });
 
     const parsed = chatInputSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid input" }, { status: 400 });
     }
-    const { prompt, agentId } = parsed.data;
+    const { prompt, agentId, meetingId } = parsed.data;
 
     // Fetch agent instructions
     const [agent] = await db
@@ -71,9 +72,48 @@ export async function POST(req: Request) {
       .from(agents)
       .where(and(eq(agents.id, agentId), eq(agents.userId, userId)));
 
-    if (!agent) {
+    // Verify the meeting belongs to the caller and is assigned to this agent.
+    // Same 404 for missing / foreign / mismatched to avoid an existence oracle.
+    const [meeting] = await db
+      .select()
+      .from(meetings)
+      .where(and(eq(meetings.id, meetingId), eq(meetings.userId, userId)));
+
+    if (!agent || !meeting || meeting.agentId !== agentId) {
       return NextResponse.json({ error: "Agent not found" }, { status: 404 });
     }
+
+    // Load recent conversation history for multi-turn memory.
+    const historyRows = await db
+      .select({
+        role: conversationMessages.role,
+        content: conversationMessages.content,
+      })
+      .from(conversationMessages)
+      .where(eq(conversationMessages.meetingId, meetingId))
+      .orderBy(desc(conversationMessages.createdAt))
+      .limit(12);
+
+    // Reverse to chronological order.
+    const chronological = [...historyRows].reverse();
+
+    // Apply a total character budget (~6000), dropping the oldest first.
+    const MAX_HISTORY_CHARS = 6000;
+    const selected: { role: "user" | "ai"; content: string }[] = [];
+    let totalChars = 0;
+    for (let i = chronological.length - 1; i >= 0; i--) {
+      const msg = chronological[i];
+      if (totalChars + msg.content.length > MAX_HISTORY_CHARS && selected.length > 0) {
+        break;
+      }
+      selected.unshift(msg);
+      totalChars += msg.content.length;
+    }
+
+    const historyMessages = selected.map((m) => ({
+      role: m.role === "ai" ? "assistant" : "user",
+      content: m.content,
+    }));
 
     if (!process.env.MISTRAL_API_KEY) {
       throw new Error("Missing MISTRAL_API_KEY in environment variables.");
@@ -91,6 +131,7 @@ export async function POST(req: Request) {
         model,
         messages: [
           { role: "system", content: agent.instruction },
+          ...historyMessages,
           { role: "user", content: prompt },
         ],
       }),
@@ -120,6 +161,18 @@ export async function POST(req: Request) {
 
     const data = await response.json();
     const responseText = data.choices?.[0]?.message?.content || "No response from AI.";
+
+    // Persist conversation (user first, then ai) only after a successful LLM response.
+    await db.insert(conversationMessages).values({
+      meetingId,
+      role: "user",
+      content: prompt,
+    });
+    await db.insert(conversationMessages).values({
+      meetingId,
+      role: "ai",
+      content: responseText,
+    });
 
     return NextResponse.json({ response: responseText });
   } catch (error) {

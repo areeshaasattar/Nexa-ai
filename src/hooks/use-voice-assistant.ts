@@ -78,17 +78,10 @@ export const useVoiceAssistant = ({ agentId, meetingId }: UseVoiceAssistantProps
   const [transcript, setTranscript] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
 
-  const saveMessageMutation = trpc.meetings.saveMessage.useMutation();
   const logInteractionMutation = trpc.meetings.logVoiceInteraction.useMutation();
 
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const processingStartRef = useRef<number>(0);
-
-  // Fire-and-forget persist helper
-  const persistMessage = useCallback((role: 'user' | 'ai', content: string) => {
-    if (!meetingId) return;
-    saveMessageMutation.mutate({ meetingId, role, content });
-  }, [meetingId, saveMessageMutation]);
 
   // Fire-and-forget interaction logging helper
   const logInteraction = useCallback((duration: number, responseTime: number) => {
@@ -149,7 +142,6 @@ export const useVoiceAssistant = ({ agentId, meetingId }: UseVoiceAssistantProps
       setTranscript('');
       setIsProcessing(true);
       setMessages((prev) => [...prev, { role: 'user', content: text }]);
-      persistMessage('user', text);
       // Record when processing starts — used to compute responseTime
       processingStartRef.current = performance.now();
 
@@ -157,7 +149,7 @@ export const useVoiceAssistant = ({ agentId, meetingId }: UseVoiceAssistantProps
         const response = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt: text, agentId }),
+          body: JSON.stringify({ prompt: text, agentId, meetingId }),
         });
 
         // 429 = Upstash rate limit hit (sending too fast). This is an expected
@@ -195,7 +187,6 @@ export const useVoiceAssistant = ({ agentId, meetingId }: UseVoiceAssistantProps
           // "speaks" the answer aloud for BOTH input modes so the call stays
           // live even when the question was typed.
           setMessages((prev) => [...prev, { role: 'ai', content: data.response }]);
-          persistMessage('ai', data.response);
           speak(data.response);
 
           const responseTime = performance.now() - processingStartRef.current;
@@ -222,7 +213,7 @@ export const useVoiceAssistant = ({ agentId, meetingId }: UseVoiceAssistantProps
         setIsProcessing(false);
       }
     },
-    [isProcessing, agentId, persistMessage, logInteraction, speak],
+    [isProcessing, agentId, logInteraction, speak],
   );
 
   // Latest-ref: the SpeechRecognition effect is registered once ([] deps) but we
