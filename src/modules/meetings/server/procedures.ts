@@ -181,7 +181,7 @@ export const meetingsRouter = createTRPCRouter({
           status: meetings.status,
           startedAt: meetings.startedAt,
           endedAt: meetings.endedAt,
-          duration: sql<number>`EXTRACT(EPOCH FROM (${meetings.endedAt} - ${meetings.startedAt})) / 60`,
+          duration: sql<number | null>`CASE WHEN ${meetings.endedAt} IS NOT NULL AND ${meetings.startedAt} IS NOT NULL AND ${meetings.endedAt} >= ${meetings.startedAt} THEN EXTRACT(EPOCH FROM (${meetings.endedAt} - ${meetings.startedAt})) / 60 ELSE NULL END`,
           createdAt: meetings.createdAt,
         })
         .from(meetings)
@@ -225,7 +225,7 @@ export const meetingsRouter = createTRPCRouter({
           status: meetings.status,
           startedAt: meetings.startedAt,
           endedAt: meetings.endedAt,
-          duration: sql<number>`EXTRACT(EPOCH FROM (${meetings.endedAt} - ${meetings.startedAt})) / 60`,
+          duration: sql<number | null>`CASE WHEN ${meetings.endedAt} IS NOT NULL AND ${meetings.startedAt} IS NOT NULL AND ${meetings.endedAt} >= ${meetings.startedAt} THEN EXTRACT(EPOCH FROM (${meetings.endedAt} - ${meetings.startedAt})) / 60 ELSE NULL END`,
           transcriptUrl: meetings.transcriptUrl,
           summary: meetings.summary,
           recordingUrl: meetings.recordingUrl,

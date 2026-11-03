@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { trpc } from "@/trpc/client";
 import { LoadingState } from "@/components/loading-state";
 import { ErrorState } from "@/components/error-state";
@@ -28,6 +29,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { DataPagination } from "@/modules/agents/ui/components/data-pagination";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -59,8 +61,15 @@ const StatusBadge = ({ status }: { status: string }) => {
 };
 
 export const MeetingsView = () => {
+  const router = useRouter();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [{ search, status, agentId, page, pageSize }] =
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string;
+    name: string;
+    status: string;
+  } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [{ search, status, agentId, page, pageSize }, setFilter] =
     useMeetingsFilter();
   const utils = trpc.useUtils();
 
@@ -76,12 +85,22 @@ export const MeetingsView = () => {
   );
 
   const deleteMutation = trpc.meetings.remove.useMutation({
+    onMutate: () => setIsDeleting(true),
     onSuccess: () => {
-      toast.success("Meeting cancelled.");
+      setIsDeleting(false);
+      const wasLastRow =
+        (meetingsQuery.data?.data?.length ?? 0) <= 1;
+      setDeleteTarget(null);
+      toast.success("Meeting deleted");
       utils.meetings.getMany.invalidate();
+      utils.getDashboardData.invalidate();
+      if (wasLastRow && page > 1) {
+        setFilter({ page: page - 1 });
+      }
     },
     onError: (error) => {
-      toast.error(error.message);
+      setIsDeleting(false);
+      toast.error(error.message || "Failed to delete meeting");
     },
   });
 
@@ -113,6 +132,32 @@ export const MeetingsView = () => {
       <MeetingsListHeader onOpenDialog={() => setIsDialogOpen(true)} />
 
       <NewMeetingDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} />
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        title="Delete this meeting?"
+        description={
+          <>
+            This will permanently delete{" "}
+            <span className="font-bold text-gray-900">{deleteTarget?.name}</span>{" "}
+            and its conversation history and summary. This cannot be undone.
+            {deleteTarget?.status === "ongoing" && (
+              <span className="mt-2 block text-amber-600 font-medium">
+                This call is still marked as ongoing.
+              </span>
+            )}
+          </>
+        }
+        confirmLabel="Delete meeting"
+        destructive
+        pending={isDeleting}
+        onConfirm={() => {
+          if (deleteTarget) deleteMutation.mutate({ id: deleteTarget.id });
+        }}
+      />
 
       <section>
         <div className="flex items-center justify-between mb-4 px-1">
@@ -186,12 +231,20 @@ export const MeetingsView = () => {
                       ? new Date(meeting.endedAt)
                       : null;
                     const durationMins =
-                      startedAt && endedAt
-                        ? Math.round(
-                            (endedAt.getTime() - startedAt.getTime()) /
-                              (1000 * 60),
-                          )
+                      startedAt && endedAt && endedAt >= startedAt
+                        ? (endedAt.getTime() - startedAt.getTime()) / (1000 * 60)
                         : null;
+
+                    const formatDuration = (mins: number | null) => {
+                      if (mins === null) return "—";
+                      const totalSeconds = Math.round(mins * 60);
+                      if (totalSeconds < 60) return `${totalSeconds}s`;
+                      if (totalSeconds < 3600)
+                        return `${Math.floor(totalSeconds / 60)}m`;
+                      const h = Math.floor(totalSeconds / 3600);
+                      const m = Math.floor((totalSeconds % 3600) / 60);
+                      return `${h}h ${String(m).padStart(2, "0")}m`;
+                    };
 
                     return (
                       <tr
@@ -248,7 +301,9 @@ export const MeetingsView = () => {
                         </td>
                         <td className="px-6 py-4">
                           <span className="text-xs font-bold text-gray-600 bg-gray-100/50 px-2 py-1 rounded-md">
-                            {durationMins !== null ? `${durationMins}m` : "--"}
+                            {meeting.status === "ongoing"
+                              ? "Live"
+                              : formatDuration(durationMins)}
                           </span>
                         </td>
                         <td className="px-6 py-4">
@@ -271,7 +326,10 @@ export const MeetingsView = () => {
                               align="end"
                               className="rounded-xl border-[#d4e0d4] shadow-lg p-1"
                             >
-                              <DropdownMenuItem className="text-xs font-bold text-gray-600 rounded-lg cursor-pointer flex items-center gap-2.5">
+                              <DropdownMenuItem
+                                className="text-xs font-bold text-gray-600 rounded-lg cursor-pointer flex items-center gap-2.5"
+                                onClick={() => router.push(`/meetings/${meeting.id}`)}
+                              >
                                 <EyeIcon className="size-4" />
                                 View Details
                               </DropdownMenuItem>
@@ -279,9 +337,11 @@ export const MeetingsView = () => {
                                 variant="destructive"
                                 className="text-xs font-bold rounded-lg cursor-pointer flex items-center gap-2.5"
                                 onClick={() => {
-                                  if (confirm("Delete this meeting session?")) {
-                                    deleteMutation.mutate({ id: meeting.id });
-                                  }
+                                  setDeleteTarget({
+                                    id: meeting.id,
+                                    name: meeting.name,
+                                    status: meeting.status,
+                                  });
                                 }}
                               >
                                 <Trash2Icon className="size-4" />

@@ -141,9 +141,19 @@ export const MeetingIdView = ({ meetingId }: MeetingIdViewProps) => {
   const meeting = meetingQuery.data;
   const startedAt = meeting.startedAt ? new Date(meeting.startedAt) : null;
   const endedAt = meeting.endedAt ? new Date(meeting.endedAt) : null;
-  const durationMins = startedAt && endedAt 
-    ? Math.round((endedAt.getTime() - startedAt.getTime()) / (1000 * 60))
+  const durationMins = startedAt && endedAt && endedAt >= startedAt
+    ? (endedAt.getTime() - startedAt.getTime()) / (1000 * 60)
     : null;
+
+  const formatDuration = (mins: number | null) => {
+    if (mins === null) return "—";
+    const totalSeconds = Math.round(mins * 60);
+    if (totalSeconds < 60) return `${totalSeconds}s`;
+    if (totalSeconds < 3600) return `${Math.floor(totalSeconds / 60)}m`;
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    return `${h}h ${String(m).padStart(2, "0")}m`;
+  };
 
   return (
     <div className="flex flex-col gap-8 max-w-6xl mx-auto">
@@ -314,7 +324,11 @@ export const MeetingIdView = ({ meetingId }: MeetingIdViewProps) => {
                   <span className="text-[10px] font-bold text-green-400 uppercase tracking-widest">
                     {meeting.status === "completed" ? "Actual Duration" : "Duration"}
                   </span>
-                  <span className="text-sm font-bold text-green-50">{durationMins ? `${durationMins} minutes` : "--"}</span>
+                  <span className="text-sm font-bold text-green-50">
+                    {meeting.status === "ongoing"
+                      ? "Live"
+                      : formatDuration(durationMins)}
+                  </span>
                 </div>
               </div>
             </div>

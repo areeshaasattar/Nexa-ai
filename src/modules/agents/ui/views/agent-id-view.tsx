@@ -25,18 +25,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EditAgentDialog } from "../components/edit-agent-dialog";
 import { NewMeetingDialog } from "@/modules/meetings/ui/components/new-meeting-dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 
 interface AgentIdViewProps {
   agentId: string;
@@ -48,16 +39,21 @@ export const AgentIdView = ({ agentId }: AgentIdViewProps) => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isNewMeetingDialogOpen, setIsNewMeetingDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const agentQuery = trpc.agents.getOne.useQuery({ id: agentId });
 
   const deleteMutation = trpc.agents.remove.useMutation({
+    onMutate: () => setIsDeleting(true),
     onSuccess: () => {
+      setIsDeleting(false);
+      setIsDeleteDialogOpen(false);
       toast.success("Agent deleted successfully.");
       utils.agents.getMany.invalidate();
       router.push("/agents");
     },
     onError: (error) => {
-      toast.error(error.message);
+      setIsDeleting(false);
+      toast.error(error.message || "Failed to delete agent");
     },
   });
 
@@ -88,10 +84,6 @@ export const AgentIdView = ({ agentId }: AgentIdViewProps) => {
     setIsEditDialogOpen(true);
   };
 
-  const handleDelete = () => {
-    deleteMutation.mutate({ id: agent.id });
-  };
-
   return (
     <div className="flex flex-col gap-4 max-w-4xl mx-auto">
       <EditAgentDialog 
@@ -110,34 +102,22 @@ export const AgentIdView = ({ agentId }: AgentIdViewProps) => {
         defaultAgentId={agent.id}
       />
 
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent className="rounded-2xl border border-gray-100 bg-white shadow-xl max-w-[420px] p-6">
-          <AlertDialogHeader className="flex-row items-center gap-4 space-y-0">
-            <div className="size-10 rounded-xl bg-[#f0f4f0] border border-[#d4e0d4] flex items-center justify-center shrink-0">
-              <Trash2Icon className="size-5 text-[#3B6D11]" />
-            </div>
-            <div className="flex flex-col gap-1">
-              <AlertDialogTitle className="text-base font-bold text-gray-900 leading-none">
-                Delete Agent
-              </AlertDialogTitle>
-              <AlertDialogDescription className="text-xs text-gray-500 leading-tight">
-                Remove <span className="font-semibold text-gray-700">{agent.name}</span> from your fleet.
-              </AlertDialogDescription>
-            </div>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="mt-6 gap-2">
-            <AlertDialogCancel className="rounded-lg border-gray-100 text-gray-500 font-bold hover:bg-gray-50 h-9 px-4 text-xs mt-0">
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              className="rounded-lg bg-[#3B6D11] hover:bg-[#2f5a0d] text-white font-bold h-9 px-4 text-xs shadow-none transition-colors"
-            >
-              Confirm
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+        title="Delete this agent?"
+        description={
+          <>
+            This will permanently delete{" "}
+            <span className="font-bold text-gray-900">{agent.name}</span> from
+            your fleet. This cannot be undone.
+          </>
+        }
+        confirmLabel="Delete agent"
+        destructive
+        pending={isDeleting}
+        onConfirm={() => deleteMutation.mutate({ id: agent.id })}
+      />
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
