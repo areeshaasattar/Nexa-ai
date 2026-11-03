@@ -1,7 +1,7 @@
 'use client';
 
 import type { Message } from "@/hooks/use-voice-assistant";
-import { Mic, MicOff, Loader2, MessageSquare, Send, X, Bot, User } from "lucide-react";
+import { Mic, MicOff, Loader2, Send, X, Bot, User, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useState, useEffect, useRef, type KeyboardEvent } from "react";
@@ -27,6 +27,7 @@ interface VoiceAssistantProps {
   onStartListening: () => void;
   onStopListening: () => void;
   onSendText: (text: string) => void;
+  onClose?: () => void;
 }
 
 export const VoiceAssistant = ({
@@ -36,8 +37,8 @@ export const VoiceAssistant = ({
   onStartListening,
   onStopListening,
   onSendText,
+  onClose,
 }: VoiceAssistantProps) => {
-  const [isOpen, setIsOpen] = useState(true);
   const [draft, setDraft] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -73,21 +74,8 @@ export const VoiceAssistant = ({
   };
 
   return (
-    <div className={cn(
-      "h-full flex flex-col transition-all duration-300 ease-in-out relative",
-      isOpen ? 'w-64 sm:w-80' : 'w-0 overflow-hidden'
-    )}>
-      {/* Toggle button (visible when panel is hidden) */}
-      {!isOpen && (
-        <Button 
-          variant="secondary" 
-          size="icon" 
-          className="absolute -left-12 top-4 rounded-full shadow-lg border border-slate-200 bg-white text-emerald-600 hover:bg-slate-50 z-10"
-          onClick={() => setIsOpen(true)}
-        >
-          <MessageSquare className="size-4" />
-        </Button>
-      )}
+    <div className="h-full flex flex-col transition-all duration-300 ease-in-out relative">
+      {/* Toggle button removed; controlled by parent */}
 
       <div className="flex-1 bg-white border-l border-slate-200 flex flex-col overflow-hidden shadow-2xl min-h-0">
         {/* ---- Header ---- */}
@@ -106,7 +94,7 @@ export const VoiceAssistant = ({
               variant="ghost" 
               size="icon" 
               className="size-6 text-slate-400 hover:text-slate-600"
-              onClick={() => setIsOpen(false)}
+              onClick={onClose}
             >
               <X className="size-3" />
             </Button>

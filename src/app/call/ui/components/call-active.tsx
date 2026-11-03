@@ -12,6 +12,10 @@ import { GeneratedAvatar } from '@/components/generated-avatar';
 import { useVoiceAssistant } from '@/hooks/use-voice-assistant';
 import { trpc } from '@/trpc/client';
 import { cn } from '@/lib/utils';
+import { useState, useEffect, useRef } from 'react';
+import { MessageSquare, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
 
 // Waveform bars that animate when the AI is speaking
 const Waveform = () => (
@@ -46,6 +50,60 @@ export const CallActive = () => {
 
   const isAgentSpeaking = isProcessing;
   const isAgentListening = isListening && !isProcessing;
+
+  // --- Assistant sidebar open state (lifted) ---
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const [hasUnread, setHasUnread] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    try {
+      const stored = window.localStorage.getItem("nexa.assistant.open");
+      const defaultOpen = window.innerWidth >= 1024;
+      setAssistantOpen(stored === null ? defaultOpen : stored === "true");
+    } catch {
+      setAssistantOpen(window.innerWidth >= 1024);
+    }
+  }, []);
+
+  // Stop speech recognition when the sidebar closes.
+  useEffect(() => {
+    if (!assistantOpen && isListening) {
+      stopListening();
+    }
+  }, [assistantOpen, isListening, stopListening]);
+
+  // Track unread AI messages while closed.
+  const prevMsgCount = useRef(messages.length);
+  useEffect(() => {
+    if (messages.length > prevMsgCount.current && !assistantOpen) {
+      setHasUnread(true);
+    }
+    prevMsgCount.current = messages.length;
+  }, [messages, assistantOpen]);
+
+  const toggleAssistant = () => {
+    setAssistantOpen((prev) => {
+      const next = !prev;
+      if (typeof window !== "undefined" && window.innerWidth >= 1024) {
+        try {
+          window.localStorage.setItem("nexa.assistant.open", String(next));
+        } catch {
+          // ignore
+        }
+      }
+      if (next) setHasUnread(false);
+      return next;
+    });
+  };
+
+  const openAssistant = () => {
+    setAssistantOpen(true);
+    setHasUnread(false);
+  };
+
+  const closeAssistant = () => setAssistantOpen(false);
 
   return (
     <div className="flex h-screen w-full bg-white text-slate-900 overflow-hidden">
@@ -134,7 +192,7 @@ export const CallActive = () => {
 
         {/* Call controls (centered at bottom of video area) */}
         <div className="flex justify-center pb-4 shrink-0">
-          <div className="p-2 bg-slate-100/80 backdrop-blur-md rounded-2xl border border-slate-200 shadow-xl">
+          <div className="flex items-center gap-2 p-2 bg-slate-100/80 backdrop-blur-md rounded-2xl border border-slate-200 shadow-xl">
             <CallControls onLeave={() => {
             // 1. Immediately stop any AI speech from continuing after the call ends
             window.speechSynthesis.cancel();
@@ -148,19 +206,71 @@ export const CallActive = () => {
             //    so the summary will appear shortly without a manual refresh.
             endCallMutation.mutate({ id: meetingId });
           }} />
+            <button
+              type="button"
+              onClick={toggleAssistant}
+              aria-label={assistantOpen ? "Close assistant" : "Open assistant"}
+              aria-pressed={assistantOpen}
+              title={assistantOpen ? "Close assistant" : "Open assistant"}
+              className="relative inline-flex items-center justify-center size-10 rounded-full border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            >
+              <MessageSquare className="size-4" />
+              {hasUnread && !assistantOpen && (
+                <span className="absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-green-500 ring-2 ring-white" />
+              )}
+            </button>
           </div>
         </div>
       </div>
 
-      {/* ---- Right: Voice Assistant Sidebar ---- */}
-      <VoiceAssistant
-        messages={messages}
-        isListening={isListening}
-        isProcessing={isProcessing}
-        onStartListening={startListening}
-        onStopListening={stopListening}
-        onSendText={sendTextMessage}
-      />
+      {/* ---- Right: Voice Assistant Sidebar (desktop, always mounted) ---- */}
+      <div
+        className={cn(
+          "hidden lg:flex h-full transition-all duration-300 ease-in-out overflow-hidden",
+          assistantOpen ? "w-64 sm:w-80" : "w-0"
+        )}
+        aria-hidden={!assistantOpen}
+        inert={!assistantOpen ? true : undefined}
+      >
+        <VoiceAssistant
+          messages={messages}
+          isListening={isListening}
+          isProcessing={isProcessing}
+          onStartListening={startListening}
+          onStopListening={stopListening}
+          onSendText={sendTextMessage}
+          onClose={closeAssistant}
+        />
+      </div>
+
+      {/* ---- Mobile: floating reopen button + drawer ---- */}
+      <button
+        type="button"
+        onClick={openAssistant}
+        aria-label="Open assistant"
+        className="lg:hidden fixed bottom-20 right-4 z-30 inline-flex items-center justify-center size-12 rounded-full bg-emerald-600 text-white shadow-lg shadow-emerald-600/30 hover:bg-emerald-700 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500"
+      >
+        <MessageSquare className="size-5" />
+        {hasUnread && (
+          <span className="absolute -top-0.5 -right-0.5 size-3 rounded-full bg-green-400 ring-2 ring-white" />
+        )}
+      </button>
+
+      <div className="lg:hidden">
+        <Sheet open={assistantOpen} onOpenChange={setAssistantOpen}>
+          <SheetContent side="right" className="w-80 sm:max-w-sm p-0">
+            <VoiceAssistant
+              messages={messages}
+              isListening={isListening}
+              isProcessing={isProcessing}
+              onStartListening={startListening}
+              onStopListening={stopListening}
+              onSendText={sendTextMessage}
+              onClose={closeAssistant}
+            />
+          </SheetContent>
+        </Sheet>
+      </div>
     </div>
   );
 };

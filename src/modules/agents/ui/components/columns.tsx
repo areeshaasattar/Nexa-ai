@@ -92,27 +92,47 @@ export const columns: ColumnDef<Agent>[] = [
   {
     id: "status",
     header: "Status",
-    cell: () => (
-      <div className="flex items-center gap-2">
-        <div className="size-1.5 rounded-full bg-[#3B6D11]" />
-        <span className="text-xs text-[#3B6D11] font-medium">Active</span>
-      </div>
-    ),
+    cell: ({ row }) => {
+      const count = row.original.meetingCount;
+      const inUse = count > 0;
+      return (
+        <div className="flex items-center gap-2">
+          <div
+            className={`size-1.5 rounded-full ${
+              inUse ? "bg-[#3B6D11]" : "bg-gray-300"
+            }`}
+          />
+          <span
+            className={`text-xs font-medium ${
+              inUse ? "text-[#3B6D11]" : "text-gray-400"
+            }`}
+          >
+            {inUse ? "In use" : "Unused"}
+          </span>
+        </div>
+      );
+    },
   },
   {
     id: "actions",
     header: "",
-    cell: () => (
-      <div className="flex justify-end">
-        <Button
-          size="sm"
-          variant="outline"
-          className="h-8 px-3 text-xs font-medium rounded-lg border-[#a8c8a8] text-[#3B6D11] hover:bg-[#e2ede2] hover:border-[#3B6D11] transition-colors gap-1.5"
-        >
-          <VideoIcon className="size-3" />
-          Meet
-        </Button>
-      </div>
-    ),
+    cell: ({ row }) => {
+      const agentId = row.original.id;
+      return (
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            variant="outline"
+            asChild
+            className="h-8 px-3 text-xs font-medium rounded-lg border-[#a8c8a8] text-[#3B6D11] hover:bg-[#e2ede2] hover:border-[#3B6D11] transition-colors gap-1.5"
+          >
+            <Link href={`/meetings?agentId=${agentId}`}>
+              <VideoIcon className="size-3" />
+              Meet
+            </Link>
+          </Button>
+        </div>
+      );
+    },
   },
 ];

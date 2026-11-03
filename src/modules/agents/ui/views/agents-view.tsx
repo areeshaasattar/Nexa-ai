@@ -52,7 +52,9 @@ export const AgentsView = () => {
           <div className="flex items-center gap-2 px-3 py-1 bg-gray-50 rounded-full border border-gray-100">
             <span className="size-1.5 rounded-full bg-green-500 animate-pulse"></span>
             <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">
-              {agentsQuery.isLoading ? "..." : total} Active
+              {agentsQuery.isLoading
+                ? "..."
+                : `${total} agent${total === 1 ? "" : "s"}`}
             </span>
           </div>
         </div>
