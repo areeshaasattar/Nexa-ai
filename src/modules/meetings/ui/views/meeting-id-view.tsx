@@ -295,27 +295,24 @@ export const MeetingIdView = ({ meetingId }: MeetingIdViewProps) => {
             )}
           </div>
 
-          <div className="bg-gray-900 rounded-3xl p-8 text-white relative overflow-hidden shadow-xl">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-[#3B6D11]/20 rounded-full blur-3xl -mr-32 -mt-32"></div>
+          <div className="bg-green-950 rounded-3xl p-8 text-green-50 relative overflow-hidden shadow-xl">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-green-400/20 rounded-full blur-3xl -mr-32 -mt-32"></div>
             <div className="relative z-10">
               <div className="flex items-center gap-3 mb-4">
                 <div className="size-8 rounded-lg bg-white/10 flex items-center justify-center backdrop-blur-sm">
-                  <FileTextIcon className="size-4 text-[#3B6D11]" />
+                  <FileTextIcon className="size-4 text-green-400" />
                 </div>
                 <h3 className="text-lg font-bold">Mission Protocols</h3>
               </div>
-              <p className="text-sm text-gray-400 mb-6 max-w-lg leading-relaxed italic">
+              <p className="text-sm text-green-100 mb-6 max-w-lg leading-relaxed italic">
                 {meeting.instructions || "No session-specific instructions provided."}
               </p>
               <div className="flex items-center gap-4">
                 <div className="flex flex-col">
-                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Duration</span>
-                  <span className="text-sm font-bold">{durationMins ? `${durationMins} minutes` : "--"}</span>
-                </div>
-                <div className="w-px h-8 bg-white/10 mx-2" />
-                <div className="flex flex-col">
-                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Relay Status</span>
-                  <span className="text-sm font-bold text-green-400">Encrypted</span>
+                  <span className="text-[10px] font-bold text-green-400 uppercase tracking-widest">
+                    {meeting.status === "completed" ? "Actual Duration" : "Duration"}
+                  </span>
+                  <span className="text-sm font-bold text-green-50">{durationMins ? `${durationMins} minutes` : "--"}</span>
                 </div>
               </div>
             </div>
