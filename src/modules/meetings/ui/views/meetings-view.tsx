@@ -19,6 +19,7 @@ import {
   CheckCircle2Icon,
   AlertCircleIcon,
   PlayCircleIcon,
+  EyeIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -270,19 +271,21 @@ export const MeetingsView = () => {
                               align="end"
                               className="rounded-xl border-[#d4e0d4] shadow-lg p-1"
                             >
-                              <DropdownMenuItem className="text-xs font-bold text-gray-600 rounded-lg cursor-pointer">
+                              <DropdownMenuItem className="text-xs font-bold text-gray-600 rounded-lg cursor-pointer flex items-center gap-2.5">
+                                <EyeIcon className="size-4" />
                                 View Details
                               </DropdownMenuItem>
                               <DropdownMenuItem
-                                className="text-xs font-bold text-red-600 hover:bg-red-50 focus:bg-red-50 focus:text-red-600 rounded-lg cursor-pointer"
+                                variant="destructive"
+                                className="text-xs font-bold rounded-lg cursor-pointer flex items-center gap-2.5"
                                 onClick={() => {
-                                  if (confirm("Cancel this meeting session?")) {
+                                  if (confirm("Delete this meeting session?")) {
                                     deleteMutation.mutate({ id: meeting.id });
                                   }
                                 }}
                               >
-                                <Trash2Icon className="size-3.5 mr-2" />
-                                Cancel Meeting
+                                <Trash2Icon className="size-4" />
+                                Delete Meeting
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>

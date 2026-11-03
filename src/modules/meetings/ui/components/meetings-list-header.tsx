@@ -107,7 +107,11 @@ const MeetingsListHeader = ({ onOpenDialog }: MeetingsListHeaderProps) => {
             <SelectTrigger className="w-[160px] h-11 rounded-xl border-gray-100 bg-gray-50/50 focus:bg-white text-xs font-semibold text-gray-600">
               <div className="flex items-center gap-2">
                 <FilterIcon className="size-3.5 text-gray-400" />
-                <SelectValue placeholder="All Statuses" />
+                <SelectValue placeholder="All Statuses">
+                {status
+                  ? status.charAt(0).toUpperCase() + status.slice(1)
+                  : "All Statuses"}
+              </SelectValue>
               </div>
             </SelectTrigger>
             <SelectContent className="rounded-xl border-gray-100 shadow-xl bg-white">
@@ -127,7 +131,12 @@ const MeetingsListHeader = ({ onOpenDialog }: MeetingsListHeaderProps) => {
             <SelectTrigger className="w-[180px] h-11 rounded-xl border-gray-100 bg-gray-50/50 focus:bg-white text-xs font-semibold text-gray-600">
               <div className="flex items-center gap-2">
                 <BotIcon className="size-3.5 text-gray-400" />
-                <SelectValue placeholder="All Agents" />
+                <SelectValue placeholder="All Agents">
+                {agentId
+                  ? agentsQuery.data?.data.find((a) => a.id === agentId)?.name ||
+                    "All Agents"
+                  : "All Agents"}
+              </SelectValue>
               </div>
             </SelectTrigger>
             <SelectContent className="rounded-xl border-gray-100 shadow-xl bg-white">

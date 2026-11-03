@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { trpc } from "@/trpc/client";
 import { LoadingState } from "@/components/loading-state";
 import { ErrorState } from "@/components/error-state";
-import { 
+import {
   VideoIcon, 
   ArrowLeftIcon, 
   CalendarIcon, 
@@ -14,7 +14,9 @@ import {
   PlayCircleIcon,
   ClipboardListIcon,
   CheckCircle2Icon ,
-  AlertCircleIcon
+  AlertCircleIcon,
+  EyeIcon,
+  Trash2Icon,
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
