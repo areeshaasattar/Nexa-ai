@@ -5,6 +5,7 @@ import { Mic, MicOff, Loader2, MessageSquare, Send, X, Bot, User } from "lucide-
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useState, useEffect, useRef, type KeyboardEvent } from "react";
+import { MarkdownMessage } from "@/components/markdown-message";
 import { cn } from "@/lib/utils";
 
 // Three-dot typing indicator component
@@ -114,7 +115,7 @@ export const VoiceAssistant = ({
 
         {/* ---- Messages (scrollable) ---- */}
         <ScrollArea ref={scrollRef} className="flex-1 min-h-0 bg-white">
-          <div className="flex flex-col gap-3 p-4">
+          <div className="flex flex-col gap-3 p-4 min-w-0">
             {/* Empty state */}
             {messages.length === 0 && (
               <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -130,7 +131,7 @@ export const VoiceAssistant = ({
             {/* Message bubbles */}
             {messages.map((m, i) => (
               <div key={i} className={cn(
-                'flex flex-col gap-1',
+                'flex flex-col gap-1 min-w-0',
                 m.role === 'user' ? 'items-end' : 'items-start'
               )}>
                 {/* Label */}
@@ -144,12 +145,16 @@ export const VoiceAssistant = ({
                 </span>
                 {/* Bubble */}
                 <div className={cn(
-                  'max-w-[85%] rounded-2xl px-3 py-2 text-sm leading-relaxed',
+                  'max-w-[85%] min-w-0 max-w-full rounded-2xl px-3 py-2 text-sm leading-relaxed break-words',
                   m.role === 'user' 
-                    ? 'bg-emerald-600 text-white rounded-tr-none shadow-md shadow-emerald-200' 
+                    ? 'bg-emerald-600 text-white rounded-tr-none shadow-md shadow-emerald-200 whitespace-pre-wrap' 
                     : 'bg-slate-100 text-slate-700 rounded-tl-none border border-slate-200/50'
                 )}>
-                  {m.content}
+                  {m.role === 'ai' ? (
+                    <MarkdownMessage content={m.content} />
+                  ) : (
+                    m.content
+                  )}
                 </div>
               </div>
             ))}

@@ -50,25 +50,26 @@ type SpeechRecognitionWindow = Window & {
 // out symbols like "hashtag", "asterisk", or emoji names.
 function sanitizeForSpeech(text: string): string {
   return text
+    // remove fenced code blocks entirely (code is shown on screen, not spoken)
+    .replace(/```[\s\S]*?```/g, "")
+    // convert markdown links to their label text: [label](url) -> label
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
     // remove markdown headings (###, ##, #)
-    .replace(/#{1,6}\s?/g, '')
+    .replace(/#{1,6}\s?/g, "")
     // remove bold/italic markers (**text**, *text*, __text__, _text_)
-    .replace(/(\*\*|__)(.*?)\1/g, '$2')
-    .replace(/(\*|_)(.*?)\1/g, '$2')
-    // remove markdown links, keep the label: [text](url)
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-    // remove inline code / code blocks
-    .replace(/```[\s\S]*?```/g, '')
-    .replace(/`([^`]+)`/g, '$1')
+    .replace(/(\*\*|__)(.*?)\1/g, "$2")
+    .replace(/(\*|_)(.*?)\1/g, "$2")
+    // remove inline code backticks
+    .replace(/`([^`]+)`/g, "$1")
     // remove bullet/list markers
-    .replace(/^\s*[-*+]\s+/gm, '')
-    .replace(/^\s*\d+\.\s+/gm, '')
+    .replace(/^\s*[-*+]\s+/gm, "")
+    .replace(/^\s*\d+\.\s+/gm, "")
     // remove emojis (covers most common ranges)
-    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F1E6}-\u{1F1FF}]/gu, '')
+    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F1E6}-\u{1F1FF}]/gu, "")
     // collapse extra whitespace/newlines left behind
-    .replace(/\n{2,}/g, '. ')
-    .replace(/\n/g, ' ')
-    .replace(/\s{2,}/g, ' ')
+    .replace(/\n{2,}/g, ". ")
+    .replace(/\n/g, " ")
+    .replace(/\s{2,}/g, " ")
     .trim();
 }
 
