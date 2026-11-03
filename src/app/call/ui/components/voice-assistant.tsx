@@ -1,7 +1,7 @@
 'use client';
 
 import type { Message } from "@/hooks/use-voice-assistant";
-import { Mic, MicOff, Loader2, Send, X, Bot, User, MessageSquare } from "lucide-react";
+import { Mic, MicOff, Loader2, Send, X, Bot, User, MessageSquare, Volume2, VolumeX, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useState, useEffect, useRef, type KeyboardEvent } from "react";
@@ -28,6 +28,12 @@ interface VoiceAssistantProps {
   onStopListening: () => void;
   onSendText: (text: string) => void;
   onClose?: () => void;
+  voiceEnabled: boolean;
+  onToggleVoice: () => void;
+  speakingMessageId: string | null;
+  speechSupported: boolean;
+  onSpeakMessage: (id: string, text: string) => void;
+  onStopSpeaking: () => void;
 }
 
 export const VoiceAssistant = ({
@@ -38,6 +44,12 @@ export const VoiceAssistant = ({
   onStopListening,
   onSendText,
   onClose,
+  voiceEnabled,
+  onToggleVoice,
+  speakingMessageId,
+  speechSupported,
+  onSpeakMessage,
+  onStopSpeaking,
 }: VoiceAssistantProps) => {
   const [draft, setDraft] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -89,6 +101,23 @@ export const VoiceAssistant = ({
             </h3>
           </div>
           <div className="flex items-center gap-2">
+            {speechSupported && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-6 text-slate-400 hover:text-slate-600"
+                onClick={onToggleVoice}
+                aria-pressed={voiceEnabled}
+                aria-label={voiceEnabled ? "Mute voice replies" : "Unmute voice replies"}
+                title={voiceEnabled ? "Mute voice replies" : "Unmute voice replies"}
+              >
+                {voiceEnabled ? (
+                  <Volume2 className="size-3.5" />
+                ) : (
+                  <VolumeX className="size-3.5" />
+                )}
+              </Button>
+            )}
             {isProcessing && <Loader2 className="size-3 animate-spin text-emerald-600" />}
             <Button 
               variant="ghost" 
@@ -139,7 +168,33 @@ export const VoiceAssistant = ({
                     : 'bg-slate-100 text-slate-700 rounded-tl-none border border-slate-200/50'
                 )}>
                   {m.role === 'ai' ? (
-                    <MarkdownMessage content={m.content} />
+                    <div className="flex flex-col gap-2">
+                      <MarkdownMessage content={m.content} />
+                      {speechSupported && m.id && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (speakingMessageId === m.id) {
+                              onStopSpeaking();
+                            } else {
+                              onSpeakMessage(m.id!, m.content);
+                            }
+                          }}
+                          aria-label={
+                            speakingMessageId === m.id
+                              ? "Stop listening"
+                              : "Listen to this reply"
+                          }
+                          className="self-end inline-flex items-center justify-center size-9 rounded-lg text-slate-400 opacity-70 transition-opacity hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 hover:text-green-700 focus:text-green-700 focus:outline-none focus:ring-1 focus:ring-green-500"
+                        >
+                          {speakingMessageId === m.id ? (
+                            <Square className="size-3.5" />
+                          ) : (
+                            <Volume2 className="size-3.5" />
+                          )}
+                        </button>
+                      )}
+                    </div>
                   ) : (
                     m.content
                   )}

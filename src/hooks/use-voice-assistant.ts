@@ -7,6 +7,7 @@ import { toast } from "sonner";
 export interface Message {
   role: 'user' | 'ai';
   content: string;
+  id?: string;
 }
 
 interface UseVoiceAssistantProps {
@@ -79,6 +80,10 @@ export const useVoiceAssistant = ({ agentId, meetingId }: UseVoiceAssistantProps
   const [transcript, setTranscript] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
 
+  const [voiceEnabled, setVoiceEnabledState] = useState(true);
+  const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
+  const [speechSupported, setSpeechSupported] = useState(false);
+
   const logInteractionMutation = trpc.meetings.logVoiceInteraction.useMutation();
 
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
@@ -94,27 +99,57 @@ export const useVoiceAssistant = ({ agentId, meetingId }: UseVoiceAssistantProps
     });
   }, [meetingId, logInteractionMutation]);
 
-  // Memoized so it's a stable dep for requestAssistant — otherwise its identity
-  // changes every render and the pipeline callback re-created on each render.
-  const speak = useCallback((text: string) => {
-    if (typeof window === 'undefined') return;
+  // Speech helpers (single place that calls speechSynthesis.speak)
+  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
-    // Cancel any ongoing speech
-    window.speechSynthesis.cancel();
-
-    const cleanText = sanitizeForSpeech(text);
-    if (!cleanText) return;
-
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-
-    // Optional: customize voice
-    const voices = window.speechSynthesis.getVoices();
-    if (voices.length > 0) {
-        // Try to find a nice female voice or just use default
-        utterance.voice = voices.find(v => v.name.includes('Google') || v.name.includes('Female')) || voices[0];
+  const stopSpeaking = useCallback(() => {
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
     }
+    utteranceRef.current = null;
+    setSpeakingMessageId(null);
+  }, []);
 
+  const speakMessage = useCallback((id: string, text: string) => {
+    if (typeof window === "undefined" || !window.speechSynthesis) return;
+    const clean = sanitizeForSpeech(text);
+    if (!clean) {
+      setSpeakingMessageId(null);
+      return;
+    }
+    // cancel any current speech first
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(clean);
+    utteranceRef.current = utterance;
+    setSpeakingMessageId(id);
+    utterance.onstart = () => setSpeakingMessageId(id);
+    utterance.onend = () => setSpeakingMessageId(null);
+    utterance.onerror = () => setSpeakingMessageId(null);
     window.speechSynthesis.speak(utterance);
+  }, []);
+
+  const setVoiceEnabled = useCallback(
+    (value: boolean) => {
+      setVoiceEnabledState(value);
+      if (!value) stopSpeaking();
+      try {
+        localStorage.setItem("nexa.assistant.voice", String(value));
+      } catch {
+        // ignore
+      }
+    },
+    [stopSpeaking],
+  );
+
+  // Read persisted voice preference after mount (default ON).
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("nexa.assistant.voice");
+      if (stored !== null) setVoiceEnabledState(stored === "true");
+    } catch {
+      // ignore
+    }
+    setSpeechSupported(typeof window !== "undefined" && "speechSynthesis" in window);
   }, []);
 
   // Gracefully stop an open mic. Used when the user starts typing so voice and
@@ -143,6 +178,7 @@ export const useVoiceAssistant = ({ agentId, meetingId }: UseVoiceAssistantProps
       setTranscript('');
       setIsProcessing(true);
       setMessages((prev) => [...prev, { role: 'user', content: text }]);
+      stopSpeaking();
       // Record when processing starts — used to compute responseTime
       processingStartRef.current = performance.now();
 
@@ -184,11 +220,20 @@ export const useVoiceAssistant = ({ agentId, meetingId }: UseVoiceAssistantProps
         }
 
         if (data.response) {
-          // Add the reply to the shared transcript and persist it. The agent
-          // "speaks" the answer aloud for BOTH input modes so the call stays
-          // live even when the question was typed.
-          setMessages((prev) => [...prev, { role: 'ai', content: data.response }]);
-          speak(data.response);
+          const aiId =
+            typeof crypto !== "undefined" && crypto.randomUUID
+              ? crypto.randomUUID()
+              : `${Date.now()}-${Math.random()}`;
+          // Add the reply to the shared transcript. The agent "speaks" the
+          // answer aloud for BOTH input modes so the call stays live even when
+          // the question was typed (only when voice is enabled).
+          setMessages((prev) => [
+            ...prev,
+            { role: 'ai', content: data.response, id: aiId },
+          ]);
+          if (voiceEnabled) {
+            speakMessage(aiId, data.response);
+          }
 
           const responseTime = performance.now() - processingStartRef.current;
           if (mode === 'voice') {
@@ -214,7 +259,7 @@ export const useVoiceAssistant = ({ agentId, meetingId }: UseVoiceAssistantProps
         setIsProcessing(false);
       }
     },
-    [isProcessing, agentId, logInteraction, speak],
+    [isProcessing, agentId, logInteraction, voiceEnabled, speakMessage, stopSpeaking],
   );
 
   // Latest-ref: the SpeechRecognition effect is registered once ([] deps) but we
@@ -271,6 +316,8 @@ export const useVoiceAssistant = ({ agentId, meetingId }: UseVoiceAssistantProps
 
   const startListening = useCallback(() => {
     if (recognitionRef.current && !isListening && !isProcessing) {
+      // Stop any AI speech before capturing mic input.
+      stopSpeaking();
       // Stop synthesis if it's speaking
       window.speechSynthesis.cancel();
 
@@ -309,6 +356,11 @@ export const useVoiceAssistant = ({ agentId, meetingId }: UseVoiceAssistantProps
     startListening,
     stopListening,
     sendTextMessage,
-    speak,
+    voiceEnabled,
+    setVoiceEnabled,
+    speakingMessageId,
+    speakMessage,
+    stopSpeaking,
+    speechSupported,
   };
 };

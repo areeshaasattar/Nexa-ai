@@ -42,13 +42,13 @@ export const CallActive = () => {
   // --- Single source of truth for voice state ---
   const { data: meeting } = trpc.meetings.getOne.useQuery({ id: meetingId });
   const voice = useVoiceAssistant({ agentId: meeting?.agentId, meetingId });
-  const { isListening, isProcessing, messages, startListening, stopListening, sendTextMessage } = voice;
+  const { isListening, isProcessing, messages, startListening, stopListening, sendTextMessage, voiceEnabled, setVoiceEnabled, speakingMessageId, speakMessage, stopSpeaking, speechSupported } = voice;
 
   // Fire-and-forget mutation: end the call on the server so summary is generated
   // even when the Stream webhook can't reach localhost.
   const endCallMutation = trpc.meetings.endCall.useMutation();
 
-  const isAgentSpeaking = isProcessing;
+  const isAgentSpeaking = speakingMessageId !== null;
   const isAgentListening = isListening && !isProcessing;
 
   // --- Assistant sidebar open state (lifted) ---
@@ -240,6 +240,12 @@ export const CallActive = () => {
           onStopListening={stopListening}
           onSendText={sendTextMessage}
           onClose={closeAssistant}
+          voiceEnabled={voiceEnabled}
+          onToggleVoice={() => setVoiceEnabled(!voiceEnabled)}
+          speakingMessageId={speakingMessageId}
+          speechSupported={speechSupported}
+          onSpeakMessage={speakMessage}
+          onStopSpeaking={stopSpeaking}
         />
       </div>
 
@@ -267,6 +273,12 @@ export const CallActive = () => {
               onStopListening={stopListening}
               onSendText={sendTextMessage}
               onClose={closeAssistant}
+              voiceEnabled={voiceEnabled}
+              onToggleVoice={() => setVoiceEnabled(!voiceEnabled)}
+              speakingMessageId={speakingMessageId}
+              speechSupported={speechSupported}
+              onSpeakMessage={speakMessage}
+              onStopSpeaking={stopSpeaking}
             />
           </SheetContent>
         </Sheet>
