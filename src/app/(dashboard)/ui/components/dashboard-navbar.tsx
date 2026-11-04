@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { trpc } from "@/trpc/client";
+import { usePathname } from "next/navigation";
 import DashboardUserButton from "./Dashboard-user-button";
 
 const openShortcuts = () => {
@@ -21,18 +23,33 @@ const openShortcuts = () => {
 };
 
 export const DashboardNavbar = () => {
+  const pathname = usePathname();
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackType, setFeedbackType] = useState<"bug" | "idea" | "other">("idea");
   const [feedbackText, setFeedbackText] = useState("");
+  const [feedbackRating, setFeedbackRating] = useState<number | undefined>(undefined);
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
 
-  const handleSubmitFeedback = () => {
-    setFeedbackSubmitted(true);
-    setFeedbackOpen(false);
-    toast.success("Thanks for your feedback!");
-    setTimeout(() => {
+  const submitMutation = trpc.feedback.create.useMutation({
+    onSuccess: () => {
+      toast.success("Thanks for your feedback!");
+      setFeedbackOpen(false);
       setFeedbackText("");
-      setFeedbackSubmitted(false);
-    }, 300);
+      setFeedbackRating(undefined);
+      setFeedbackType("idea");
+    },
+    onError: (err) => {
+      toast.error(err.message || "Failed to submit feedback");
+    },
+  });
+
+  const handleSubmitFeedback = () => {
+    submitMutation.mutate({
+      type: feedbackType,
+      message: feedbackText,
+      rating: feedbackRating,
+      pageUrl: pathname ?? undefined,
+    });
   };
   return (
     <header
@@ -104,12 +121,45 @@ export const DashboardNavbar = () => {
               </DialogHeader>
             </div>
             <div className="px-6 pt-4 pb-6 space-y-4">
+              <div className="flex gap-2">
+                {(["bug", "idea", "other"] as const).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setFeedbackType(t)}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-medium border ${
+                      feedbackType === t
+                        ? "bg-green-600 text-white border-green-600"
+                        : "bg-gray-50 text-gray-600 border-gray-200"
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
               <Textarea
                 placeholder="Tell us what's on your mind..."
                 value={feedbackText}
                 onChange={(e) => setFeedbackText(e.target.value)}
                 className="min-h-[120px] rounded-xl border-gray-200 bg-gray-50 text-sm focus:bg-white resize-none"
               />
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500">Rating (optional):</span>
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setFeedbackRating(n)}
+                    className={`size-7 rounded-md text-xs border ${
+                      feedbackRating === n
+                        ? "bg-green-600 text-white border-green-600"
+                        : "bg-gray-50 text-gray-600 border-gray-200"
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
             </div>
             <DialogFooter className="px-6 pb-6 border-t border-gray-100 pt-4 flex flex-row items-center justify-end gap-2">
               <Button
@@ -123,7 +173,7 @@ export const DashboardNavbar = () => {
               <Button
                 size="sm"
                 onClick={handleSubmitFeedback}
-                disabled={!feedbackText.trim() || feedbackSubmitted}
+                disabled={!feedbackText.trim() || submitMutation.isPending}
                 className="rounded-lg bg-green-600 hover:bg-green-700 text-white h-9 px-5 text-xs font-medium"
               >
                 {feedbackSubmitted ? "Sending…" : "Submit"}

@@ -84,6 +84,7 @@ Defined in `src/db/schema.ts` (PostgreSQL dialect). Migrations are managed with 
 | `activities`         | Activity feed: `userId`, `type` (enum below), `title`, `description`, `metadata` (JSON string)                   |
 | `conversation_messages` | Chat history per meeting: `meetingId` (FK cascade), `role` (`user`/`ai`), `content`                            |
 | `voice_interactions` | Dashboard metrics per voice exchange: `meetingId`, `duration`, `responseTime`                        |
+| `feedback`           | User feedback: `id`, `userId` (FK -> user, cascade, indexed), `type` (bug/idea/other), `message`, `rating` (1-5, nullable), `pageUrl`, `status` (new/reviewed/resolved), `createdAt` |
 
 **Enums:**
 
@@ -580,3 +581,11 @@ nexa-ai/
 - **Why it's better:** Consistent SSR/CSR rendering; no hydration errors.
 - **How it was tested:** `npx tsc --noEmit` and `npm run build` pass.
 - **Follow-ups / caveats:** None.
+
+### [Feedback] Real feedback storage - 2026-11-04
+- **Status:** Fixed
+- **Problem:** The Feedback dialog only showed a toast and stored nothing.
+- **What I changed:** Added `feedback` table (`src/db/schema.ts`) with migration `drizzle/0001_noisy_famine.sql`; created `src/modules/feedback/server/procedures.ts` with `create` (protectedProcedure, zod-validated) and admin-only `list`/`updateStatus`; registered `feedback` router in `src/trpc/routers/_app.ts`; rewrote the Feedback dialog in `src/app/(dashboard)/ui/components/dashboard-navbar.tsx` (type selector, message, optional rating, loading state, success/error toasts, captures pathname); added `/admin/feedback` page with server-side admin check against `ADMIN_EMAILS` and a status dropdown; added `ADMIN_EMAILS` to `.env.example`.
+- **Why it's better:** Feedback is persisted and reviewable; admin-only access enforced on both client and server.
+- **How it was tested:** `npx tsc --noEmit` and `npm run build` pass; `npm run db:migrate` applied the feedback migration. Manual tests: submit as user -> DB row created; non-admin visiting /admin/feedback gets 404; non-admin calling updateStatus gets error; empty/10000-char messages rejected by zod (min 5, max 1000).
+- **Follow-ups / caveats:** Admin check uses ADMIN_EMAILS env var; no automated tests yet. Message content is never logged.
