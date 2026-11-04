@@ -122,6 +122,8 @@ export const meetings = pgTable(
     endedAt: timestamp("ended_at"),
     transcriptUrl: text("transcript_url"),
     summary: text("summary"),
+    summaryError: text("summary_error"),
+    summarySource: text("summary_source"),
     recordingUrl: text("recording_url"),
     createdAt: timestamp("created_at")
       .$defaultFn(() => new Date())

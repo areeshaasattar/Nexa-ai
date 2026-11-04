@@ -17,7 +17,7 @@ interface StreamCallProviderProps {
 }
 
 export const StreamCallProvider = ({ children, meetingId }: StreamCallProviderProps) => {
-  const { data: token, isLoading: isTokenLoading } = trpc.meetings.getToken.useQuery();
+  const { data: token, isLoading: isTokenLoading } = trpc.meetings.getToken.useQuery({ id: meetingId });
   const { data: session, isLoading: isSessionLoading } = trpc.meetings.getSession.useQuery();
   const { data: meeting, isLoading: isMeetingLoading } = trpc.meetings.getOne.useQuery({ id: meetingId });
   const createCallMutation = trpc.meetings.createCall.useMutation();

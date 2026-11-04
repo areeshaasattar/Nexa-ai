@@ -3,6 +3,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db } from "@/db"
 import * as schema from "@/db/schema"
 import { sendPasswordResetEmail, sendVerificationEmail } from "@/lib/email"
+import { after } from "next/server"
 
 /**
  * Build the password-reset link that goes in the email.
@@ -89,7 +90,7 @@ export const auth = betterAuth({
              * emails, and consider an interstitial "approve this link" page.
              */
             trustedProviders: ["google", "github"],
-            requireLocalEmailVerified: false,
+            requireLocalEmailVerified: true,
         },
     },
     emailVerification: {
@@ -101,11 +102,14 @@ export const auth = betterAuth({
          */
         sendVerificationEmail: async ({ user, url }) => {
             if (!user.email) return;
-            sendVerificationEmail({ to: user.email, url }).catch((error) => {
-                console.error(
-                    `[auth] Failed to send verification email to ${user.email}:`,
-                    error,
-                );
+            const to = user.email;
+            after(() => {
+                sendVerificationEmail({ to, url }).catch((error) => {
+                    console.error(
+                        `[auth] Failed to send verification email to ${to}:`,
+                        error,
+                    );
+                });
             });
         },
         sendOnSignUp: true,
@@ -152,13 +156,17 @@ export const auth = betterAuth({
             if (!user.email) return;
 
             const url = buildPasswordResetUrl(token);
+            const to = user.email;
 
-            // Fire-and-forget: don't block the auth response on email delivery.
-            sendPasswordResetEmail({ to: user.email, url }).catch((error) => {
-                console.error(
-                    `[auth] Failed to send password reset email to ${user.email}:`,
-                    error,
-                );
+            // Run after the response is sent so email delivery doesn't block or
+            // reveal timing, while staying alive on serverless runtimes.
+            after(() => {
+                sendPasswordResetEmail({ to, url }).catch((error) => {
+                    console.error(
+                        `[auth] Failed to send password reset email to ${to}:`,
+                        error,
+                    );
+                });
             });
         },
         // Token is valid for 1 hour (3600s). Short enough to limit a stolen

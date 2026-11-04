@@ -10,6 +10,7 @@ import { meetingStatus as meetingStatusEnum } from "@/db/schema";
 import { streamVideo } from "@/lib/stream-video";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
+import { after } from "next/server";
 
 import { generateMeetingSummary } from "@/lib/meeting-summary";
 
@@ -35,15 +36,34 @@ export const meetingsRouter = createTRPCRouter({
     return { user: userData };
   }),
 
-  getToken: protectedProcedure.query(async ({ ctx }) => {
-    const expiration = Math.floor(Date.now() / 1000) + 3600; // 1 hour
-    const issuedAt = Math.floor(Date.now() / 1000) - 60; // 1 minute ago
-    return streamVideo.generateUserToken({
-      user_id: ctx.userId,
-      exp: expiration,
-      iat: issuedAt,
-    });
-  }),
+  getToken: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ ctx, input }) => {
+      // Verify the meeting belongs to the caller before issuing a call-scoped
+      // token. Return NOT_FOUND (not FORBIDDEN) so meeting IDs can't be probed.
+      const [meeting] = await db
+        .select({ id: meetings.id })
+        .from(meetings)
+        .where(and(eq(meetings.id, input.id), eq(meetings.userId, ctx.userId)));
+
+      if (!meeting) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Meeting not found.",
+        });
+      }
+
+      const expiration = Math.floor(Date.now() / 1000) + 3600; // 1 hour
+      const issuedAt = Math.floor(Date.now() / 1000) - 60; // 1 minute ago
+      // Issue a call-scoped token restricted to this meeting's call cid, so a
+      // token leaked for one meeting cannot be used to join another.
+      return streamVideo.generateCallToken({
+        user_id: ctx.userId,
+        call_cids: [`default:${input.id}`],
+        exp: expiration,
+        iat: issuedAt,
+      });
+    }),
 
   createCall: protectedProcedure
     .input(z.object({ id: z.string() }))
@@ -62,6 +82,9 @@ export const meetingsRouter = createTRPCRouter({
       await call.getOrCreate({
         data: {
           created_by_id: ctx.userId,
+          // Explicitly scope the call to its owner so other authenticated users
+          // cannot join even if they know the meeting id.
+          members: [{ user_id: ctx.userId, role: "admin" }],
           settings_override: {
             recording: {
               mode: "available",
@@ -228,6 +251,8 @@ export const meetingsRouter = createTRPCRouter({
           duration: sql<number | null>`CASE WHEN ${meetings.endedAt} IS NOT NULL AND ${meetings.startedAt} IS NOT NULL AND ${meetings.endedAt} >= ${meetings.startedAt} THEN EXTRACT(EPOCH FROM (${meetings.endedAt} - ${meetings.startedAt})) / 60 ELSE NULL END`,
           transcriptUrl: meetings.transcriptUrl,
           summary: meetings.summary,
+          summaryError: meetings.summaryError,
+          summarySource: meetings.summarySource,
           recordingUrl: meetings.recordingUrl,
           createdAt: meetings.createdAt,
         })
@@ -402,23 +427,42 @@ export const meetingsRouter = createTRPCRouter({
         console.log(`Stream artifacts not yet available for meeting ${input.id}.`);
       }
 
-      // 6. Trigger summary generation with timeout guard to avoid blocking endCall
-      // Serverless may kill the function after response; await with timeout and
-      // catch so endCall never fails because of summary generation.
-      const summaryPromise = generateMeetingSummary(input.id);
-      const timeoutPromise = new Promise<void>((_, reject) =>
-        setTimeout(() => reject(new Error("Summary generation timeout")), 15000)
-      );
-      try {
-        await Promise.race([summaryPromise, timeoutPromise]);
-      } catch (error) {
-        // Log but don't throw - summary failure shouldn't break endCall
-        console.error(
-          `generateMeetingSummary timeout or error for meeting ${input.id}:`,
-          error
-        );
-      }
+      // 6. Trigger summary generation after the response is sent so it doesn't
+      // block endCall, while keeping the work alive on serverless runtimes.
+      after(() => {
+        generateMeetingSummary(input.id).catch((error) => {
+          console.error(`generateMeetingSummary failed for meeting ${input.id}:`, error);
+        });
+      });
 
       return updatedMeeting;
+    }),
+
+  /**
+   * Manually retry summary generation for a completed meeting. Owner-scoped.
+   * Clears any previous error before attempting again.
+   */
+  retrySummary: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const [meeting] = await db
+        .select()
+        .from(meetings)
+        .where(and(eq(meetings.id, input.id), eq(meetings.userId, ctx.userId)));
+
+      if (!meeting) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Meeting not found.",
+        });
+      }
+
+      await db
+        .update(meetings)
+        .set({ summaryError: null })
+        .where(and(eq(meetings.id, input.id), eq(meetings.userId, ctx.userId)));
+
+      await generateMeetingSummary(input.id);
+      return { success: true };
     }),
 });

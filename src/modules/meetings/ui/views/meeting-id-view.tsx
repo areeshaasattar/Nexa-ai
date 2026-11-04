@@ -92,9 +92,6 @@ export const MeetingIdView = ({ meetingId }: MeetingIdViewProps) => {
   const meetingQuery = trpc.meetings.getOne.useQuery(
     { id: meetingId },
     {
-      // Poll every 5s while the call has completed but summary hasn't arrived yet,
-      // stopping after ~2 minutes (see SUMMARY_POLL_TIMEOUT_MS) to avoid infinite
-      // polling when summary generation failed on serverless.
       refetchInterval: (query) => {
         const data = query.state.data;
         if (data?.status === "completed" && !data?.summary && !summaryTimedOut) {
@@ -104,6 +101,10 @@ export const MeetingIdView = ({ meetingId }: MeetingIdViewProps) => {
       },
     }
   );
+
+  const retrySummaryMutation = trpc.meetings.retrySummary.useMutation({
+    onSuccess: () => meetingQuery.refetch(),
+  });
 
   // Client-side guard: polling stops ~2 minutes after the call completes
   // without a summary (works even when summary generation never succeeds,
@@ -281,10 +282,31 @@ export const MeetingIdView = ({ meetingId }: MeetingIdViewProps) => {
                   <ClipboardListIcon className="size-6" />
                 </div>
                 <div className="flex flex-col">
-                  {summaryTimedOut ? (
+                  {meeting.summaryError ? (
+                    <>
+                      <p className="text-sm font-bold text-red-500 uppercase tracking-widest">Summary failed</p>
+                      <p className="text-xs text-gray-400 max-w-[240px] mt-1">{meeting.summaryError}</p>
+                      <Button
+                        size="sm"
+                        className="mt-3 rounded-lg text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                        onClick={() => retrySummaryMutation.mutate({ id: meeting.id })}
+                        disabled={retrySummaryMutation.isPending}
+                      >
+                        {retrySummaryMutation.isPending ? "Retrying..." : "Retry summary"}
+                      </Button>
+                    </>
+                  ) : summaryTimedOut ? (
                     <>
                       <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">Summary unavailable</p>
-                      <p className="text-xs text-gray-400 max-w-[200px] mt-1">The summary generation timed out or failed. The meeting is completed but no summary is available.</p>
+                      <p className="text-xs text-gray-400 max-w-[200px] mt-1">The summary generation timed out or failed.</p>
+                      <Button
+                        size="sm"
+                        className="mt-3 rounded-lg text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                        onClick={() => retrySummaryMutation.mutate({ id: meeting.id })}
+                        disabled={retrySummaryMutation.isPending}
+                      >
+                        {retrySummaryMutation.isPending ? "Retrying..." : "Retry summary"}
+                      </Button>
                     </>
                   ) : (
                     <>

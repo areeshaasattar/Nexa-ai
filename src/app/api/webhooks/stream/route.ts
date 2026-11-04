@@ -1,6 +1,6 @@
 import { streamVideo } from "@/lib/stream-video";
 import { db } from "@/db";
-import { meetings } from "@/db/schema";
+import { meetings, activities } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { after } from "next/server";
@@ -9,92 +9,116 @@ import { generateMeetingSummary } from "@/lib/meeting-summary";
 export async function POST(req: Request) {
   try {
     const rawBody = await req.text();
-    console.log("Raw webhook body:", rawBody);
     if (!rawBody) {
-      console.log("Empty body received");
       return new NextResponse("Empty body", { status: 400 });
     }
-    
+
     let body;
     try {
-        body = JSON.parse(rawBody);
+      body = JSON.parse(rawBody);
     } catch (e) {
-        console.log("Failed to parse JSON:", e);
-        return new NextResponse("Invalid JSON", { status: 400 });
+      return new NextResponse("Invalid JSON", { status: 400 });
     }
-    
-    const signature = req.headers.get("x-signature");
-    console.log("Signature header:", signature);
 
+    const signature = req.headers.get("x-signature");
     if (!signature) {
-      console.log("No signature header");
       return new NextResponse("No signature", { status: 400 });
     }
 
-    // Verify webhook signature using Stream's built-in HMAC-SHA256 verification.
-    // Previously this was hardcoded to `const valid = true` — now it actually checks
-    // the signature Stream sends in the `x-signature` header against the shared secret.
     const valid = streamVideo.verifyWebhook(rawBody, signature);
     if (!valid) {
-      console.log("Webhook signature verification failed.");
       return new NextResponse("Invalid signature", { status: 401 });
     }
 
-      // The payload is the event itself
     const event = body;
     if (!event || !event.type) {
-        console.log("No event or event type in payload, ignoring.");
-        return NextResponse.json({ message: "Payload ignored" });
+      return NextResponse.json({ message: "Payload ignored" });
     }
-    
-    console.log("Received webhook event:", event.type);
 
-    // Handle the event when a session starts
+    const callCid = event.call_cid as string | undefined;
+    const [, id] = (callCid ?? "").split(":");
+
+    // Handle session start
     if (event.type === "call.session_started") {
-      const callCid = event.call_cid;
-      const [, id] = callCid.split(":");
-
-      // 1. Find the meeting
-      const [meeting] = await db
-        .select()
-        .from(meetings)
-        .where(eq(meetings.id, id));
-
-      if (!meeting) return NextResponse.json({ message: "Meeting not found" });
-
-      // Update meeting status
-      await db
-        .update(meetings)
-        .set({ 
-          status: "ongoing",
-          startedAt: new Date()
-        })
-        .where(eq(meetings.id, id));
-
-      console.log(`Meeting ${id} started.`);
+      if (id) {
+        await db
+          .update(meetings)
+          .set({ status: "ongoing", startedAt: new Date() })
+          .where(eq(meetings.id, id));
+      }
     }
 
-    // Handle the event when a session ends
+    // Handle session end
     if (event.type === "call.session_ended") {
-      const callCid = event.call_cid;
-      const [, id] = callCid.split(":");
+      if (id) {
+        await db
+          .update(meetings)
+          .set({ status: "completed", endedAt: new Date() })
+          .where(eq(meetings.id, id));
 
-      await db
-        .update(meetings)
-        .set({ 
-          status: "completed",
-          endedAt: new Date()
-        })
-        .where(eq(meetings.id, id));
+        after(() => {
+          generateMeetingSummary(id).catch((error) => {
+            console.error(`generateMeetingSummary failed for meeting ${id}:`, error);
+          });
+        });
+      }
+    }
 
-      console.log(`Meeting ${id} ended.`);
+    // Handle recording ready
+    if (event.type === "call.recording_ready") {
+      const recording = event.call_recording as { url?: string } | undefined;
+      const url = recording?.url;
+      if (id && url) {
+        await db
+          .update(meetings)
+          .set({ recordingUrl: url })
+          .where(eq(meetings.id, id));
 
-      // Generate summary from persisted conversation messages
-      // Wrap in after() so it completes after the webhook response is sent
-      // (serverless platforms may kill the function after response)
-      after(() => {
-        generateMeetingSummary(id);
-      });
+        const [meeting] = await db
+          .select({ userId: meetings.userId, name: meetings.name })
+          .from(meetings)
+          .where(eq(meetings.id, id));
+        if (meeting) {
+          await db.insert(activities).values({
+            userId: meeting.userId,
+            type: "recording_ready",
+            title: `Recording Ready: ${meeting.name}`,
+            description: `Recording is available for "${meeting.name}".`,
+          });
+        }
+      }
+    }
+
+    // Handle transcription ready
+    if (event.type === "call.transcription_ready") {
+      const transcription = event.call_transcription as { url?: string } | undefined;
+      const url = transcription?.url;
+      if (id && url) {
+        await db
+          .update(meetings)
+          .set({ transcriptUrl: url })
+          .where(eq(meetings.id, id));
+
+        const [meeting] = await db
+          .select({ userId: meetings.userId, name: meetings.name })
+          .from(meetings)
+          .where(eq(meetings.id, id));
+        if (meeting) {
+          await db.insert(activities).values({
+            userId: meeting.userId,
+            type: "transcription_done",
+            title: `Transcription Ready: ${meeting.name}`,
+            description: `Transcription is available for "${meeting.name}".`,
+          });
+        }
+
+        // Regenerate summary now that the transcript is available.
+        after(() => {
+          generateMeetingSummary(id).catch((error) => {
+            console.error(`generateMeetingSummary failed for meeting ${id}:`, error);
+          });
+        });
+      }
     }
 
     return NextResponse.json({ message: "Webhook processed" });
