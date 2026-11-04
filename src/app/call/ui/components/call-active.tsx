@@ -52,20 +52,17 @@ export const CallActive = () => {
   const isAgentListening = isListening && !isProcessing;
 
   // --- Assistant sidebar open state (lifted) ---
-  const [assistantOpen, setAssistantOpen] = useState(false);
-  const [hasUnread, setHasUnread] = useState(false);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
+  const [assistantOpen, setAssistantOpen] = useState(() => {
+    if (typeof window === "undefined") return false;
     try {
       const stored = window.localStorage.getItem("nexa.assistant.open");
       const defaultOpen = window.innerWidth >= 1024;
-      setAssistantOpen(stored === null ? defaultOpen : stored === "true");
+      return stored === null ? defaultOpen : stored === "true";
     } catch {
-      setAssistantOpen(window.innerWidth >= 1024);
+      return window.innerWidth >= 1024;
     }
-  }, []);
+  });
+  const [hasUnread, setHasUnread] = useState(false);
 
   // Stop speech recognition when the sidebar closes.
   useEffect(() => {

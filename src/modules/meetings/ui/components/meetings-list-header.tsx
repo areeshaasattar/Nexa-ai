@@ -26,12 +26,12 @@ const MeetingsListHeader = ({ onOpenDialog }: MeetingsListHeaderProps) => {
 
   // Local input state for instant typing; debounced push to URL.
   const [inputValue, setInputValue] = useState(search);
-  const debouncedValue = useDebouncedValue(inputValue, 350);
-
-  // Sync if URL changes externally (e.g. clear filters).
-  useEffect(() => {
+  const [prevSearch, setPrevSearch] = useState(search);
+  if (search !== prevSearch) {
+    setPrevSearch(search);
     setInputValue(search);
-  }, [search]);
+  }
+  const debouncedValue = useDebouncedValue(inputValue, 350);
 
   // Push debounced, trimmed value to URL filter state.
   useEffect(() => {

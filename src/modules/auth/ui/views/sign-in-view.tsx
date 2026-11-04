@@ -373,14 +373,14 @@ const SignInView = () => {
       <footer className="mt-8 text-center text-gray-400 text-xs max-w-sm px-4">
         By clicking continue, you agree to our{" "}
         <Link
-          href="#"
+          href="/terms"
           className="underline underline-offset-4 hover:text-gray-600 transition-colors"
         >
           Terms & Conditions
         </Link>{" "}
         and{" "}
         <Link
-          href="#"
+          href="/privacy"
           className="underline underline-offset-4 hover:text-gray-600 transition-colors"
         >
           Privacy Policy

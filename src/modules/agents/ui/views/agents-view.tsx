@@ -137,7 +137,7 @@ export const AgentsView = () => {
                   <div className="flex flex-col">
                     <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">Deployment</span>
                     <span className="text-[11px] font-medium text-gray-600">
-                      {new Date(agent.createdAt).toLocaleDateString()}
+                      {new Date(agent.createdAt).toLocaleDateString("en-US")}
                     </span>
                   </div>
                   <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50/50 rounded-lg group-hover:bg-green-50 transition-colors">

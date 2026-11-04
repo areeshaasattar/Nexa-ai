@@ -7,7 +7,6 @@ import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import {
   UserIcon,
-  CreditCardIcon,
   ShieldCheckIcon,
   SettingsIcon,
 } from "lucide-react";
@@ -17,14 +16,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProfileTab } from "../components/profile-tab";
 import { SecurityTab } from "../components/security-tab";
-import { BillingTab } from "../components/billing-tab";
 import { AccountTab } from "../components/account-tab";
 
-type TabKey = "profile" | "billing" | "security" | "account";
+type TabKey = "profile" | "security" | "account";
 
 const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
   { key: "profile", label: "Profile", icon: <UserIcon className="size-4" /> },
-  { key: "billing", label: "Billing", icon: <CreditCardIcon className="size-4" /> },
   { key: "security", label: "Security", icon: <ShieldCheckIcon className="size-4" /> },
   { key: "account", label: "Account", icon: <SettingsIcon className="size-4" /> },
 ];
@@ -151,7 +148,6 @@ export const SettingsView = ({ defaultTab }: SettingsViewProps) => {
             <ProfileTab user={user} onSessionRefetch={refetch} />
           )}
           {tab === "security" && <SecurityTab />}
-          {tab === "billing" && <BillingTab />}
           {tab === "account" && <AccountTab user={user} />}
         </>
       )}

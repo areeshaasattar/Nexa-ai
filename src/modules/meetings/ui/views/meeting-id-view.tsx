@@ -44,25 +44,10 @@ const statusConfig: Record<string, StatusBadgeConfig> = {
     styles: "bg-green-50 text-green-600 border-green-100 animate-pulse",
     icon: <PlayCircleIcon className="size-3" />,
   },
-  processing: {
-    label: "Processing",
-    styles: "bg-amber-50 text-amber-600 border-amber-100 animate-pulse",
-    icon: <ClockIcon className="size-3" />,
-  },
   completed: {
     label: "Completed",
     styles: "bg-[#f0f4f0] text-[#3B6D11] border-[#d4e0d4]",
     icon: <CheckCircle2Icon className="size-3" />,
-  },
-  cancelled: {
-    label: "Cancelled",
-    styles: "bg-gray-50 text-gray-400 border-gray-100",
-    icon: <AlertCircleIcon className="size-3" />,
-  },
-  failed: {
-    label: "Failed",
-    styles: "bg-red-50 text-red-600 border-red-100",
-    icon: <AlertCircleIcon className="size-3" />,
   },
 };
 
@@ -222,7 +207,7 @@ export const MeetingIdView = ({ meetingId }: MeetingIdViewProps) => {
                 <div className="flex flex-col">
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Start Time</span>
                   <span className="text-sm font-semibold text-gray-700">
-                    {startedAt ? startedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "--:--"}
+                    {startedAt ? startedAt.toLocaleTimeString("en-US", { hour: '2-digit', minute: '2-digit' }) : "--:--"}
                   </span>
                 </div>
               </div>

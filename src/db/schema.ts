@@ -101,7 +101,7 @@ export const agents = pgTable(
   (table) => [index("agents_userId_idx").on(table.userId)],
 );
 
-export const meetingStatus = ["scheduled", "ongoing", "completed", "failed", "cancelled", "processing"] as const;
+export const meetingStatus = ["scheduled", "ongoing", "completed"] as const;
 
 export const meetings = pgTable(
   "meetings",

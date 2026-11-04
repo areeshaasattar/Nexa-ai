@@ -11,7 +11,7 @@ Nexa AI is a Next.js‑based platform that combines real‑time video conferenci
 - **Voice interaction** – browser native SpeechRecognition + SpeechSynthesis.
 - **AI chat & summaries** – Mistral-powered `/api/chat` for the voice assistant and automatic meeting summaries.
 - **Secure authentication** – Better‑Auth with email/password + GitHub & Google OAuth, email verification, forgot/reset password, and account settings.
-- **Settings & account** – profile (name, bio, avatar, email change), security (password change), billing (UI-only), account details.
+- **Settings & account** – profile (name, bio, avatar, email change), security (password change), account details.
 - **Dashboard** – manage agents, schedule meetings, view meeting status, recordings, transcriptions.
 - **Database** – Drizzle ORM + Neon (PostgreSQL) with `db:push`.
 - **TypeScript + TailwindCSS** – fully typed, modern UI via shadcn/ui components.
@@ -154,7 +154,7 @@ src/
  │   ├─ meetings/        – CRUD UI & tRPC router for meetings
  │   ├─ auth/            – Sign‑in / sign‑up / forgot / reset / verify views
  │   ├─ home/            – Dashboard views & components
- │   └─ settings/        – Settings tabs (profile, billing, security, account)
+ │   └─ settings/        – Settings tabs (profile, security, account)
  ├─ trpc/                – tRPC initialization & router export
  └─ constants.ts        – pagination defaults
 ```

@@ -16,7 +16,6 @@ import {
   LogOutIcon,
   SettingsIcon,
   UserIcon,
-  CreditCardIcon,
   ShieldCheckIcon,
   ChevronDownIcon,
   ChevronUpIcon,
@@ -173,14 +172,6 @@ const DashboardUserButton = ({
           >
             <UserIcon className="mr-3 h-4 w-4 text-green-600 group-hover:scale-110 transition-transform" />
             <span className="font-medium">My Profile</span>
-          </DropdownMenuItem>
-
-          <DropdownMenuItem
-            onClick={() => router.push("/settings?tab=billing")}
-            className="p-2.5 rounded-xl cursor-pointer focus:bg-green-50 focus:text-green-900 transition-colors group"
-          >
-            <CreditCardIcon className="mr-3 h-4 w-4 text-green-600 group-hover:scale-110 transition-transform" />
-            <span className="font-medium">Billing & Plan</span>
           </DropdownMenuItem>
 
           <DropdownMenuItem

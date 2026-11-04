@@ -433,12 +433,12 @@ export const HomeView = () => {
                     agentName={meeting.agentName}
                     date={
                       meeting.startedAt
-                        ? new Date(meeting.startedAt).toLocaleDateString()
+                        ? new Date(meeting.startedAt).toLocaleDateString("en-US")
                         : "TBD"
                     }
                     time={
                       meeting.startedAt
-                        ? new Date(meeting.startedAt).toLocaleTimeString([], {
+                        ? new Date(meeting.startedAt).toLocaleTimeString("en-US", {
                             hour: "2-digit",
                             minute: "2-digit",
                           })
@@ -505,12 +505,12 @@ export const HomeView = () => {
                       agentName={meeting.agentName}
                       date={
                         meeting.startedAt
-                          ? new Date(meeting.startedAt).toLocaleDateString()
+                          ? new Date(meeting.startedAt).toLocaleDateString("en-US")
                           : "TBD"
                       }
                       time={
                         meeting.startedAt
-                          ? new Date(meeting.startedAt).toLocaleTimeString([], {
+                          ? new Date(meeting.startedAt).toLocaleTimeString("en-US", {
                               hour: "2-digit",
                               minute: "2-digit",
                             })
@@ -579,7 +579,7 @@ export const HomeView = () => {
               type: a.type as ActivityType,
               title: a.title,
               user: { name: "You" },
-              time: new Date(a.createdAt).toLocaleTimeString([], {
+              time: new Date(a.createdAt).toLocaleTimeString("en-US", {
                 hour: "2-digit",
                 minute: "2-digit",
               }),

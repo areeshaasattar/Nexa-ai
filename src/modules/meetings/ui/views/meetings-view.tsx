@@ -291,7 +291,7 @@ export const MeetingsView = () => {
                             <div className="flex items-center gap-1.5 text-[10px] text-gray-400 mt-1">
                               <ClockIcon className="size-3" />
                               {startedAt
-                                ? startedAt.toLocaleTimeString([], {
+                                ? startedAt.toLocaleTimeString("en-US", {
                                     hour: "2-digit",
                                     minute: "2-digit",
                                   })

@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { LucideIcon, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import dynamic from "next/dynamic";
 
 const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
@@ -43,12 +43,13 @@ export const MetricCard = ({
   chartColor = "#10b981",
   className,
 }: MetricCardProps) => {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
 
-  // ApexCharts options – sparkline, no toolbar, subtle fill
+  // ApexCharts options - sparkline, no toolbar, subtle fill
   const chartOptions: ApexCharts.ApexOptions = {
     chart: {
       type: "area",

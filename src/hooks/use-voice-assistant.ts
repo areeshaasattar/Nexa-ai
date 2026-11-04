@@ -80,9 +80,19 @@ export const useVoiceAssistant = ({ agentId, meetingId }: UseVoiceAssistantProps
   const [transcript, setTranscript] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
 
-  const [voiceEnabled, setVoiceEnabledState] = useState(true);
+  const [voiceEnabled, setVoiceEnabledState] = useState(() => {
+    if (typeof window === "undefined") return true;
+    try {
+      const stored = localStorage.getItem("nexa.assistant.voice");
+      return stored === null ? true : stored === "true";
+    } catch {
+      return true;
+    }
+  });
   const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
-  const [speechSupported, setSpeechSupported] = useState(false);
+  const [speechSupported] = useState(
+    () => typeof window !== "undefined" && "speechSynthesis" in window,
+  );
 
   const logInteractionMutation = trpc.meetings.logVoiceInteraction.useMutation();
 
@@ -140,17 +150,6 @@ export const useVoiceAssistant = ({ agentId, meetingId }: UseVoiceAssistantProps
     },
     [stopSpeaking],
   );
-
-  // Read persisted voice preference after mount (default ON).
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem("nexa.assistant.voice");
-      if (stored !== null) setVoiceEnabledState(stored === "true");
-    } catch {
-      // ignore
-    }
-    setSpeechSupported(typeof window !== "undefined" && "speechSynthesis" in window);
-  }, []);
 
   // Gracefully stop an open mic. Used when the user starts typing so voice and
   // typed input never fire at the same time.
