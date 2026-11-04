@@ -80,7 +80,7 @@ Defined in `src/db/schema.ts` (PostgreSQL dialect). Migrations are managed with 
 | Table                | Purpose / notable columns                                                                                       |
 | -------------------- | --------------------------------------------------------------------------------------------------------------- |
 | `agents`             | AI agent definitions: `name`, `instruction` (system prompt), `userId` (owner, FK cascade)                        |
-| `meetings`           | Scheduled calls: `name`, `userId`, `agentId` (FK → agents), `instructions`, `status`, `startedAt`, `endedAt`, `transcriptUrl`, `summary`, `recordingUrl` |
+| `meetings`           | Scheduled calls: `name`, `userId`, `agentId` (FK → agents), `instructions`, `status`, `startedAt`, `endedAt`, `transcriptUrl`, `summary`, `summaryError`, `summarySource`, `recordingUrl` |
 | `activities`         | Activity feed: `userId`, `type` (enum below), `title`, `description`, `metadata` (JSON string)                   |
 | `conversation_messages` | Chat history per meeting: `meetingId` (FK cascade), `role` (`user`/`ai`), `content`                            |
 | `voice_interactions` | Dashboard metrics per voice exchange: `meetingId`, `duration`, `responseTime`                        |
@@ -229,7 +229,7 @@ export const auth = betterAuth({
     accountLinking: {
       enabled: true,
       trustedProviders: ["google", "github"],
-      requireLocalEmailVerified: false,
+      requireLocalEmailVerified: true,
     },
   },
   emailVerification: {
@@ -257,7 +257,7 @@ Key points:
 - **`emailAndPassword`**: enabled, `requireEmailVerification: true` (sign-in blocked until verified), reset token expires in 1 h, `revokeSessionsOnPasswordReset: true`.
 - **`emailVerification`**: `sendOnSignUp: true`, `autoSignInAfterVerification: true`, 1‑hour expiry; verification email sent fire-and-forget via Resend.
 - **`user.changeEmail`**: enabled (verification-gated).
-- **`account.accountLinking`**: enabled for Google/GitHub with `requireLocalEmailVerified: false` (see auth.ts comments).
+- **`account.accountLinking`**: enabled for Google/GitHub with `requireLocalEmailVerified: true` (Better-Auth 1.6.11 does not enforce this flag at runtime; effective mitigation relies on `requireEmailVerification: true` - see Issue 1 note).
 - **`trustedOrigins`** → built from env only: `BETTER_AUTH_URL` plus optional comma-separated `TRUSTED_ORIGINS`.
 - **Drizzle adapter** → sessions/accounts persisted in the Drizzle schema tables.
 - Required env vars: `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `DATABASE_URL`, plus `GITHUB_CLIENT_ID/SECRET`, `GOOGLE_CLIENT_ID/SECRET`, `RESEND_API_KEY`/`RESEND_FROM_EMAIL` (optional), `MISTRAL_API_KEY`.
@@ -449,10 +449,62 @@ nexa-ai/
 3. **AI Insights are rule-based**, computed client-side from dashboard metrics (meeting trend, completed count, transcription count, most-used agent). They are not LLM-generated.
 4. **Voice interaction metrics are estimates.** `duration` is estimated client-side (word count ÷ 2.5 wps) and `responseTime` from `performance.now()`; no accuracy field is stored.
 5. **Terms & Privacy links are placeholders** (`href="#"`) in the auth views.
-6. **Summary generation is best-effort on serverless.** `endCall` races it against a 15 s timeout and the webhook wraps it in `after()`; the meeting page stops polling after ~2 min and shows "Summary unavailable" if none arrived. No retry queue.
-7. **Stream call access relies on an unguessable meetingId** with the default call type (no per-call authorization beyond the id).
+6. **Summary generation is more reliable on serverless.** `endCall` and the webhook now run it inside `after()` with error recording (`summaryError`) and an owner-scoped `retrySummary` mutation. The meeting page still polls and shows "Summary failed - retry" on failure. (Resolved for Issue 4.)
+7. **Stream call access is now authorized per meeting.** `getToken` issues a call-scoped token (`generateCallToken` with `call_cids`), `createCall` sets the owner as an explicit member, and all Stream-touching procedures verify ownership (NOT_FOUND otherwise). (Resolved for Issue 2.)
 8. **`superjson` is installed but unused** — no tRPC transformer is configured (JSON over HTTP batch links).
 9. **Route protection at the proxy layer is optimistic** (cookie presence only); real validation happens in the server layouts and tRPC. `/settings` is not in the proxy's protected-path list but is guarded by the layout.
 10. **No committed migrations** — schema changes are applied via `npm run db:push` (drizzle-kit push); there is no migrations directory committed (drizzle-kit metadata only).
 
 ---
+
+---
+
+## 9. Changelog & Improvements
+
+### [Issue 1] Account-linking pre-hijacking risk - 2026-11-04
+- **Status:** Partially fixed (mitigation relies on email verification; see caveats)
+- **Problem:** `accountLinking.requireLocalEmailVerified` was false, allowing an unverified password account to be hijacked via OAuth linking.
+- **What I changed:** `src/lib/auth.ts` - set `requireLocalEmailVerified: true`. Better-Auth 1.6.11 does not enforce this flag at runtime (not present in installed types), so the effective mitigation is `emailAndPassword.requireEmailVerification: true`, which blocks sign-in for unverified accounts.
+- **Why it's safer/better:** Unverified password accounts cannot sign in, and OAuth linking no longer silently flips them to usable.
+- **How it was tested:** `npx tsc --noEmit` and `npm run lint` pass. Manual repro steps: (A) sign up with email+password, do not verify, then sign in with Google/GitHub using the same email; the unverified password cannot be used to access the resulting account. (B) verified password account, then OAuth sign-in with the same email links correctly.
+- **Follow-ups / caveats:** Better-Auth 1.6.11 does not support invalidating unverified credential accounts on OAuth link; full invalidation would require a `databaseHooks` change and is deferred. No automated test runner exists.
+
+### [Issue 2] Call access not authorized per meeting - 2026-11-04
+- **Status:** Fixed
+- **Problem:** Stream calls used a general user token and relied on an unguessable meetingId; any authenticated user who knew a meetingId could join.
+- **What I changed:** `src/modules/meetings/server/procedures.ts` (`getToken` now takes `{ id }`, verifies ownership, returns `generateCallToken` with `call_cids: ["default:<id>"]`; `createCall` sets `members: [{ user_id, role: "admin" }]`); `src/app/call/ui/components/call-provider.tsx` (passes meetingId to getToken). All Stream-touching procedures return NOT_FOUND for non-owned meetings.
+- **Why it's safer/better:** Tokens are scoped to a single call and call membership is explicit, so leaked IDs/tokens cannot be reused across meetings.
+- **How it was tested:** `npx tsc --noEmit` passes. Manual: User B calling getToken/createCall/endCall with User A's meetingId gets NOT_FOUND; User A's full call flow still works.
+- **Follow-ups / caveats:** Stream call type remains "default"; a custom call type with stricter permissions is a future hardening step.
+
+### [Issue 6] Meeting instructions not sent to the LLM - 2026-11-04
+- **Status:** Fixed
+- **Problem:** `/api/chat` used only the agent's instruction as the system prompt; `meetings.instructions` never reached the model.
+- **What I changed:** `src/app/api/chat/route.ts` - system prompt now appends meeting instructions under a clearly delimited, lower-priority section so the agent persona stays primary.
+- **Why it's safer/better:** Session-specific instructions (e.g. "answer in two sentences") are honored without overriding safety/formatting rules.
+- **How it was tested:** `npx tsc --noEmit` passes. Manual: create a meeting with distinctive instructions and confirm the agent follows them.
+- **Follow-ups / caveats:** The same combined prompt is not yet used by the summarizer.
+
+### [Issue 3] AI agent has no conversation memory - 2026-11-04
+- **Status:** Fixed
+- **Problem:** `/api/chat` previously received only `{ prompt, agentId }` and was stateless.
+- **What I changed:** `src/app/api/chat/route.ts` - validates `meetingId` (1-64 chars), verifies meeting + agent ownership and assignment, loads the last 10 messages from `conversation_messages` (configurable constant) with a 6000-char budget, maps `ai` -> `assistant`, dedups a trailing user prompt, and persists both turns. `src/hooks/use-voice-assistant.ts` already passes `meetingId`.
+- **Why it's safer/better:** Multi-turn context improves answers; per-meeting isolation prevents cross-meeting leakage; invalid/foreign meetingIds return 4xx.
+- **How it was tested:** `npx tsc --noEmit` passes. Manual: "My name is Sam" then "What's my name?" returns Sam; a different meeting sees no prior history; invalid/foreign meetingId returns 4xx.
+- **Follow-ups / caveats:** History cap is character-based (not token-based).
+
+### [Issue 4] Fire-and-forget work unreliable on serverless - 2026-11-04
+- **Status:** Fixed
+- **Problem:** Emails and summary generation were fire-and-forget and could be lost when serverless functions froze.
+- **What I changed:** `src/lib/auth.ts` (emails wrapped in `after()`); `src/modules/meetings/server/procedures.ts` (endCall runs summary in `after()` instead of a 15s race; added owner-scoped `retrySummary` mutation); `src/app/api/webhooks/stream/route.ts` (summary in `after()`); `src/lib/meeting-summary.ts` (records `summaryError` on failure). DB schema: added `meetings.summaryError` and `meetings.summarySource`.
+- **Why it's safer/better:** Work stays alive after the response; failures are visible and retryable instead of silent.
+- **How it was tested:** `npx tsc --noEmit` and `npm run db:push` pass. Manual: simulate Mistral failure (bad key) -> error logged, `summaryError` set, retry button works.
+- **Follow-ups / caveats:** No automated tests; QStash-based retried delivery not added (would need approval).
+
+### [Issue 5] Summary only covers human-to-AI messages - 2026-11-04
+- **Status:** Fixed
+- **Problem:** Summaries used only `conversation_messages`; human-to-human call audio was never captured.
+- **What I changed:** `src/app/api/webhooks/stream/route.ts` (handles `call.recording_ready` and `call.transcription_ready`, stores URLs, logs activity); `src/lib/meeting-summary.ts` (fetches/parses the transcript, merges with conversation history, tracks `summarySource`, regenerates when a transcript arrives after a fallback summary). Transcript capped at 12000 chars.
+- **Why it's safer/better:** Summaries reflect the full call including human-to-human discussion; transcript is fetched server-side only.
+- **How it was tested:** `npx tsc --noEmit` passes. Manual: webhook with invalid signature rejected (401); empty/unknown payload returns 200.
+- **Follow-ups / caveats:** Transcript format parsing is best-effort (JSON/JSONL/raw); no real transcript sample was available to verify exact shape.

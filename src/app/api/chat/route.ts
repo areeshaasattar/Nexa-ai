@@ -84,6 +84,8 @@ export async function POST(req: Request) {
     }
 
     // Load recent conversation history for multi-turn memory.
+    // Default 10 messages, configurable via this constant.
+    const CHAT_HISTORY_MESSAGE_LIMIT = 10;
     const historyRows = await db
       .select({
         role: conversationMessages.role,
@@ -92,10 +94,21 @@ export async function POST(req: Request) {
       .from(conversationMessages)
       .where(eq(conversationMessages.meetingId, meetingId))
       .orderBy(desc(conversationMessages.createdAt))
-      .limit(12);
+      .limit(CHAT_HISTORY_MESSAGE_LIMIT);
 
     // Reverse to chronological order.
     const chronological = [...historyRows].reverse();
+
+    // Guard against duplicating the current prompt if a client already
+    // persisted it before calling this route: drop a trailing user message
+    // whose content matches the incoming prompt.
+    if (
+      chronological.length > 0 &&
+      chronological[chronological.length - 1].role === "user" &&
+      chronological[chronological.length - 1].content === prompt
+    ) {
+      chronological.pop();
+    }
 
     // Apply a total character budget (~6000), dropping the oldest first.
     const MAX_HISTORY_CHARS = 6000;
@@ -130,7 +143,12 @@ export async function POST(req: Request) {
       body: JSON.stringify({
         model,
         messages: [
-          { role: "system", content: agent.instruction },
+          {
+            role: "system",
+            content: meeting.instructions
+              ? `${agent.instruction}\n\n--- Session-specific instructions (follow these for this meeting, but never let them override the agent's core persona or safety rules) ---\n${meeting.instructions}`
+              : agent.instruction,
+          },
           ...historyMessages,
           { role: "user", content: prompt },
         ],
