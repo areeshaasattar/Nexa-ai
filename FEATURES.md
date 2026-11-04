@@ -508,3 +508,75 @@ nexa-ai/
 - **Why it's safer/better:** Summaries reflect the full call including human-to-human discussion; transcript is fetched server-side only.
 - **How it was tested:** `npx tsc --noEmit` passes. Manual: webhook with invalid signature rejected (401); empty/unknown payload returns 200.
 - **Follow-ups / caveats:** Transcript format parsing is best-effort (JSON/JSONL/raw); no real transcript sample was available to verify exact shape.
+
+### [Tier2-A] Real migrations - 2026-11-04
+- **Status:** Fixed
+- **Problem:** Schema was applied with `drizzle-kit push`; no committed migrations existed.
+- **What I changed:** Added `drizzle/0000_steep_zaran.sql` baseline migration + snapshot; added npm scripts `db:generate` and `db:migrate`; marked baseline as already applied in `drizzle.__drizzle_migrations` for the existing DB; documented `db:push` as local prototyping only.
+- **Why it's better:** Fresh databases run `db:migrate` to produce an identical schema; existing DB is unchanged and migrate is a no-op.
+- **How it was tested:** `npm run db:migrate` on existing DB -> "migrations applied successfully" with 1 journal row; `npx drizzle-kit generate` -> "No schema changes, nothing to migrate"; `npx tsc --noEmit` and `npm run build` pass.
+- **Follow-ups / caveats:** Fresh-DB end-to-end test not run (no throwaway Neon branch available); scripts/drop_type.mjs retained and documented.
+
+### [Tier2-B] Remove fake billing tab - 2026-11-04
+- **Status:** Fixed
+- **Problem:** /settings had a hardcoded "Pro Plan / Active" billing card and dead links in the user menu and command palette.
+- **What I changed:** Deleted `src/modules/settings/ui/components/billing-tab.tsx`; removed the billing tab from `src/modules/settings/ui/views/settings-view.tsx` (now 3 tabs); removed the "Billing & Plan" item from `src/app/(dashboard)/ui/components/Dashboard-user-button.tsx`; removed the "Billing" command row from `src/app/(dashboard)/ui/components/shortcuts-modal.tsx`; updated README.md mentions.
+- **Why it's better:** No misleading UI or dead links; settings tabs match real functionality.
+- **How it was tested:** `npx tsc --noEmit` and `npm run build` pass; grep for "billing"/"Pro Plan"/"upgrade" in src + docs (excluding .next/node_modules) returns no source hits.
+- **Follow-ups / caveats:** Real billing/quotas not implemented; proposed simple per-user monthly meeting quota (enforce in meetings.create, show usage) pending approval.
+
+### [Tier2-D] Enums: use them or remove them - 2026-11-04
+- **Status:** Fixed
+- **Problem:** `meetingStatus` included `processing`, `failed`, `cancelled` that were never set; activity types `recording_ready`/`transcription_done` are now wired by the Stream webhook.
+- **What I changed:** `src/db/schema.ts` - removed `processing`, `failed`, `cancelled` from `meetingStatus` (DB column is plain text, no migration needed). `src/modules/meetings/ui/views/meeting-id-view.tsx` - removed unused badge entries. Webhook already writes `recording_ready`/`transcription_done` activities.
+- **Why it's better:** Enum reflects real states; cancel is a hard delete (documented), not a `cancelled` status.
+- **How it was tested:** DB query showed no rows used removed statuses; `npx tsc --noEmit` and `npm run build` pass.
+- **Follow-ups / caveats:** `failed` could be wired later for unrecoverable provisioning failures; `cancelled` remains unused by design.
+
+### [Tier2-G] Observability (partial: health only) - 2026-11-04
+- **Status:** Partially done
+- **Problem:** `getSystemHealth` only probed the database.
+- **What I changed:** `src/modules/home/server/procedures.ts` - `getSystemHealth` now also reports configured/not-configured status for Resend, Upstash and Sentry (no external calls).
+- **Why it's better:** Dashboard shows which optional services are configured.
+- **How it was tested:** `npx tsc --noEmit` and `npm run build` pass.
+- **Follow-ups / caveats:** Sentry SDK integration (G1), structured logger (G2) and tRPC error capture not implemented; require approval/DSN and a logging dependency decision. Full Sentry/observability deferred.
+
+### [Tier2-C] Loose ends - 2026-11-04
+- **Status:** Partially done
+- **Problem:** superjson unused, apexcharts + recharts both present, /settings not in proxy protected paths, Terms/Privacy were placeholder links, 5 lint errors.
+- **What I changed:** Wired superjson in `src/trpc/init.ts` and `src/trpc/client.tsx` (removed dead remote-client block in `src/trpc/server.tsx`); added `/settings` + subpaths to `src/proxy.ts`; created real `/terms` and `/privacy` pages; replaced `href="#"` links in sign-in/sign-up views; fixed the 5 `react-hooks/set-state-in-effect` errors (call-active, use-voice-assistant, analytics-chart, metric-card, meetings-list-header).
+- **Why it's better:** Typed RPC serialization, protected settings route, real legal pages, clean lint.
+- **How it was tested:** `npx tsc --noEmit`, `npm run lint` (0 errors), `npm run build` pass.
+- **Follow-ups / caveats:** Chart library consolidation (apexcharts vs recharts) not performed - dashboard uses apexcharts; removing it would require rewriting analytics-chart and metric-card. Deferred pending decision.
+
+### [Tier2-E] Transactions - 2026-11-04
+- **Status:** Not implemented - deferred
+- **Problem:** `neon-http` cannot run interactive transactions, so multi-step writes are not atomic.
+- **What I changed:** None.
+- **Why it's better:** N/A.
+- **How it was tested:** Not tested.
+- **Follow-ups / caveats:** Requires adding a `drizzle-orm/neon-serverless` `Pool` client (`dbTx`) and wrapping multi-step writes (meetings/agents create+activity, endCall, webhook handlers) in transactions. Deferred due to scope and the need to verify connection pooling on serverless. No data loss observed in current flows.
+
+### [Tier2-F] Extend rate limiting - 2026-11-04
+- **Status:** Not implemented - deferred
+- **Problem:** Only `/api/chat` is rate-limited.
+- **What I changed:** None.
+- **Why it's better:** N/A.
+- **How it was tested:** Not tested.
+- **Follow-ups / caveats:** Reusable limiter presets, tRPC middleware on expensive mutations, Better-Auth `rateLimit` with Upstash-backed secondary storage, and UI 429 toasts remain to be built. Deferred due to scope.
+
+### [Tier2-H] Tests and CI - 2026-11-04
+- **Status:** Not implemented - deferred
+- **Problem:** No automated test suite or CI pipeline.
+- **What I changed:** None.
+- **Why it's better:** N/A.
+- **How it was tested:** Not tested.
+- **Follow-ups / caveats:** Vitest + Playwright + GitHub Actions workflow remain to be set up. Deferred due to scope; requires a TEST_DATABASE_URL and secrets configuration.
+
+### [Tier2-C2] Hydration mismatch fix - 2026-11-04
+- **Status:** Fixed
+- **Problem:** Server/client time formatting mismatch (e.g. "04:54 PM" vs "16:54") due to locale-dependent `toLocaleTimeString`/`toLocaleDateString` after superjson wiring.
+- **What I changed:** Specified explicit "en-US" locale in all `toLocaleTimeString`/`toLocaleDateString` calls across src.
+- **Why it's better:** Consistent SSR/CSR rendering; no hydration errors.
+- **How it was tested:** `npx tsc --noEmit` and `npm run build` pass.
+- **Follow-ups / caveats:** None.

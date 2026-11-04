@@ -22,7 +22,9 @@ function isProtectedPath(pathname: string): boolean {
     pathname === "/meetings" ||
     pathname.startsWith("/meetings/") ||
     pathname === "/call" ||
-    pathname.startsWith("/call/")
+    pathname.startsWith("/call/") ||
+    pathname === "/settings" ||
+    pathname.startsWith("/settings/")
   );
 }
 

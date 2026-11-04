@@ -15,7 +15,11 @@ export const createTRPCContext = cache(async () => {
   }
 });
 
-const t = initTRPC.context<{ userId: string | undefined }>().create();
+import superjson from "superjson";
+
+const t = initTRPC.context<{ userId: string | undefined }>().create({
+  transformer: superjson,
+});
 
 export const createTRPCRouter = t.router;
 export const createCallerFactory = t.createCallerFactory;

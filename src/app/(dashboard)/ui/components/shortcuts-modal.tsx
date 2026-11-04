@@ -11,7 +11,6 @@ import {
   HelpCircleIcon,
   UserIcon,
   ShieldCheckIcon,
-  CreditCardIcon,
   ArrowRightIcon,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -151,14 +150,6 @@ export function ShortcutsModal() {
                   label="Profile"
                   onSelect={() =>
                     runCommand(() => router.push("/settings?tab=profile"))
-                  }
-                />
-                <CommandRow
-                  icon={<CreditCardIcon className="h-4 w-4" />}
-                  iconBg="bg-gray-100 text-gray-600"
-                  label="Billing"
-                  onSelect={() =>
-                    runCommand(() => router.push("/settings?tab=billing"))
                   }
                 />
                 <CommandRow

@@ -202,10 +202,34 @@ export const homeRouter = createTRPCRouter({
       .catch(() => "offline" as const);
     const dbLatency = Date.now() - start;
 
-    return {
-      services: [
-        { name: "Neon Database", status: dbStatus, latency: `${dbLatency}ms` },
-      ]
-    };
+    const services: { name: string; status: "online" | "offline"; latency: string }[] = [
+      { name: "Neon Database", status: dbStatus, latency: `${dbLatency}ms` },
+    ];
+
+    // Optional services: report configured/not-configured without external calls.
+    services.push({
+      name: "Resend (email)",
+      status: process.env.RESEND_API_KEY ? "online" : "offline",
+      latency: process.env.RESEND_API_KEY ? "configured" : "not configured",
+    });
+    services.push({
+      name: "Upstash (rate limit)",
+      status:
+        process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
+          ? "online"
+          : "offline",
+      latency:
+        process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
+          ? "configured"
+          : "not configured",
+    });
+    services.push({
+      name: "Sentry",
+      status: process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN ? "online" : "offline",
+      latency:
+        process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN ? "configured" : "not configured",
+    });
+
+    return { services };
   })
 });

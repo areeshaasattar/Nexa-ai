@@ -80,7 +80,7 @@ export const columns: ColumnDef<Agent>[] = [
             })}
           </span>
           <span className="text-[10px] text-gray-400 mt-0.5">
-            {date.toLocaleTimeString([], {
+            {date.toLocaleTimeString("en-US", {
               hour: "2-digit",
               minute: "2-digit",
             })}
