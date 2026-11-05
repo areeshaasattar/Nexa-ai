@@ -465,7 +465,7 @@ nexa-ai/
 │   │   ├── routers/_app.ts          # appRouter root
 │   │   ├── server.tsx / client.tsx / query-client.ts
 │   └── constants.ts                 # pagination defaults
-├── drizzle/                         # drizzle-kit metadata (no committed migrations — db:push workflow)
+├── drizzle/                         # committed migrations + drizzle-kit metadata
 ├── scripts/drop_type.mjs
 ├── .env                             # runtime secrets (local)
 ├── drizzle.config.ts
