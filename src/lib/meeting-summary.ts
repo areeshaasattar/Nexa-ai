@@ -1,6 +1,18 @@
 import { db } from "@/db";
 import { meetings, conversationMessages } from "@/db/schema";
 import { eq, asc } from "drizzle-orm";
+import {
+  generateStructuredSummaryFromSource,
+} from "./summary-generation";
+import {
+  createMistralSummaryCaller,
+  SummaryRateLimitError,
+} from "./summary-mistral";
+import {
+  createInsufficientSummary,
+  isSummarySourceTooShort,
+  type StoredMeetingSummary,
+} from "./summary-schema";
 
 const TRANSCRIPT_CHAR_CAP = 12000;
 
@@ -92,36 +104,49 @@ async function fetchTranscriptText(url: string): Promise<string | null> {
     // Fall back to raw text.
     return raw;
   } catch (error) {
-    console.error(`fetchTranscriptText failed for ${url}:`, error);
+    console.error(
+      `fetchTranscriptText failed: ${error instanceof Error ? error.name : "unknown error"}`,
+    );
     return null;
   }
 }
 
 /**
- * Fetch conversation messages for a meeting and call the Mistral API to
- * generate a concise 3-5 sentence summary, then persist it on the meeting record.
+ * Fetch the transcript (preferred) or conversation messages (fallback) and
+ * generate a validated structured summary, then persist it.
  *
- * Idempotent: if `meetings.summary` is already set for the given meeting, the
- * function returns early without re-generating. This makes it safe to call
- * from both the client-side `endCall` mutation AND the Stream webhook
- * `call.session_ended` handler — whichever fires first writes the summary,
- * the second call is a no-op.
+ * Idempotent: by default, an existing summary is not regenerated unless a
+ * richer transcript has since arrived. Pass `{ force: true }` from the
+ * owner-scoped retry mutation to regenerate in the new format.
  */
-export async function generateMeetingSummary(meetingId: string): Promise<void> {
+export async function generateMeetingSummary(
+  meetingId: string,
+  options: { force?: boolean } = {},
+): Promise<void> {
+  const startedAt = Date.now();
+
   try {
     // 1. Load meeting (for transcriptUrl + existing summary/source)
     const [existing] = await db
       .select({
         summary: meetings.summary,
+        summaryData: meetings.summaryData,
         summarySource: meetings.summarySource,
         transcriptUrl: meetings.transcriptUrl,
       })
       .from(meetings)
       .where(eq(meetings.id, meetingId));
 
+    if (!existing) {
+      console.log(
+        JSON.stringify({ event: "summary.meeting_not_found", meetingId }),
+      );
+      return;
+    }
+
     // Fetch transcript text if a transcript URL is available.
     let transcriptText: string | null = null;
-    if (existing?.transcriptUrl) {
+    if (existing.transcriptUrl) {
       transcriptText = await fetchTranscriptText(existing.transcriptUrl);
       if (transcriptText && transcriptText.length > TRANSCRIPT_CHAR_CAP) {
         transcriptText =
@@ -133,16 +158,21 @@ export async function generateMeetingSummary(meetingId: string): Promise<void> {
     // Idempotency: skip if a summary already exists, unless the previous one
     // came only from the conversation fallback and a transcript is now
     // available (allow regeneration from the richer source).
-    if (existing?.summary) {
+    const hasSummary = Boolean(existing.summary || existing.summaryData);
+    if (hasSummary && !options.force) {
       const canRegenerate =
         transcriptText &&
         existing.summarySource !== "transcript" &&
         existing.summarySource !== "merged";
       if (!canRegenerate) {
-        console.log(`Summary already exists for meeting ${meetingId}, skipping re-generation.`);
+        console.log(
+          JSON.stringify({ event: "summary.skipped_existing", meetingId }),
+        );
         return;
       }
-      console.log(`Regenerating summary for meeting ${meetingId} using transcript.`);
+      console.log(
+        JSON.stringify({ event: "summary.regenerate_with_transcript", meetingId }),
+      );
     }
 
     // 2. Fetch all conversation messages for this meeting (fallback source)
@@ -154,16 +184,12 @@ export async function generateMeetingSummary(meetingId: string): Promise<void> {
 
     const conversationText =
       messages.length > 0
-        ? messages.map((m) => `${m.role === "user" ? "User" : "AI"}: ${m.content}`).join("\n")
+        ? messages
+            .map((m) => `${m.role === "user" ? "User" : "AI"}: ${m.content}`)
+            .join("\n")
         : "";
 
-    // 3. If neither source has content, skip (leave summary null)
-    if (!transcriptText && !conversationText) {
-      console.log(`No content for meeting ${meetingId}, skipping summary.`);
-      return;
-    }
-
-    // 4. Build the source string passed to the LLM.
+    // 3. Build the source string passed to the LLM.
     let source: string;
     let sourceLabel: "transcript" | "conversation" | "merged";
     if (transcriptText && conversationText) {
@@ -177,74 +203,109 @@ export async function generateMeetingSummary(meetingId: string): Promise<void> {
       sourceLabel = "conversation";
     }
 
-    // 5. Call Mistral API
+    // 4. Empty/tiny sources never reach the model. Store a clear, validated
+    // "not enough conversation" state instead of hallucinating content.
+    if (isSummarySourceTooShort(source)) {
+      const data = createInsufficientSummary();
+      await db
+        .update(meetings)
+        .set({
+          summary: data.overview,
+          summaryData: data,
+          summaryError: null,
+          summarySource: sourceLabel,
+        })
+        .where(eq(meetings.id, meetingId));
+
+      console.log(
+        JSON.stringify({
+          event: "summary.insufficient",
+          meetingId,
+          sourceChars: source.length,
+          transcriptChars: transcriptText?.length ?? 0,
+          conversationChars: conversationText.length,
+          ms: Date.now() - startedAt,
+        }),
+      );
+      return;
+    }
+
+    // 5. Call Mistral in JSON mode. The output is still validated by zod;
+    // JSON mode only guarantees syntactically valid JSON, not our schema.
     if (!process.env.MISTRAL_API_KEY) {
       throw new Error("Missing MISTRAL_API_KEY in environment variables.");
     }
 
     const model = process.env.MODEL_NAME || "mistral-small-latest";
 
-    const response = await fetch("https://api.mistral.ai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${process.env.MISTRAL_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          {
-            role: "system",
-            content:
-              "Summarize this conversation between a user and an AI agent in 3-5 concise sentences, " +
-              "highlighting the main topics discussed and any conclusions or action items. " +
-              "Write in plain prose, no markdown formatting, no headings.",
-          },
-          { role: "user", content: source },
-        ],
-      }),
+    const callModel = createMistralSummaryCaller({
+      meetingId,
+      model,
+      apiKey: process.env.MISTRAL_API_KEY,
     });
 
-    if (response.status === 429) {
-      console.warn(
-        `Mistral rate limit prevented summary generation for meeting ${meetingId}.`,
-      );
-      await db
-        .update(meetings)
-        .set({ summaryError: "AI provider rate-limited; retry later." })
-        .where(eq(meetings.id, meetingId));
-      return;
-    }
+    const result = await generateStructuredSummaryFromSource({
+      source,
+      callModel,
+    });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(`Mistral Error: ${JSON.stringify(error)}`);
-    }
-
-    const data = await response.json();
-    const summaryText: string =
-      data.choices?.[0]?.message?.content ||
-      "Conversation recorded but summary could not be generated.";
-
-    // 6. Persist the summary on the meeting record
+    // 6. Persist only validated (or explicitly flagged fallback) data.
+    const data: StoredMeetingSummary = result.data;
     await db
       .update(meetings)
-      .set({ summary: summaryText, summaryError: null, summarySource: sourceLabel })
+      .set({
+        summary: data.overview,
+        summaryData: data,
+        summaryError: null,
+        summarySource: sourceLabel,
+      })
       .where(eq(meetings.id, meetingId));
 
-    console.log(`Summary generated for meeting ${meetingId}.`);
+    console.log(
+      JSON.stringify({
+        event: "summary.generated",
+        meetingId,
+        source: sourceLabel,
+        sourceChars: source.length,
+        transcriptChars: transcriptText?.length ?? 0,
+        conversationChars: conversationText.length,
+        attempts: result.attempts,
+        usedFallback: result.usedFallback,
+        validationErrors: result.validationErrors.length,
+        ms: Date.now() - startedAt,
+      }),
+    );
   } catch (error) {
     // Log with context; record the failure on the meeting so the UI can show a
     // "Summary failed - retry" state instead of hanging forever.
-    const message = error instanceof Error ? error.message : String(error);
-    console.error(`generateMeetingSummary error for meeting ${meetingId}:`, error);
+    const message =
+      error instanceof SummaryRateLimitError
+        ? error.message
+        : error instanceof Error
+          ? error.message
+          : "Summary generation failed.";
+    console.error(
+      JSON.stringify({
+        event: "summary.error",
+        meetingId,
+        errorName: error instanceof Error ? error.name : "UnknownError",
+        message,
+        ms: Date.now() - startedAt,
+      }),
+    );
     try {
       await db
         .update(meetings)
         .set({ summaryError: message })
         .where(eq(meetings.id, meetingId));
     } catch (dbError) {
-      console.error(`Failed to record summary error for meeting ${meetingId}:`, dbError);
+      console.error(
+        JSON.stringify({
+          event: "summary.error_persist_failed",
+          meetingId,
+          errorName: dbError instanceof Error ? dbError.name : "UnknownError",
+        }),
+      );
     }
   }
 }

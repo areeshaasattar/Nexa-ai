@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { meetings, agents, activities, conversationMessages, voiceInteractions, user } from "@/db/schema";
+import { meetings, agents, activities, voiceInteractions, user } from "@/db/schema";
 import { createTRPCRouter, protectedProcedure } from "@/trpc/init";
 import { TRPCError } from "@trpc/server";
 import { meetingsInsertSchema, meetingsUpdateSchema } from "../schemas";
@@ -8,8 +8,6 @@ import { eq, and, desc, count, ilike, sql } from "drizzle-orm";
 import { DEFAULT_PAGE, DEFAULT_PAGE_SIZE } from "@/constants";
 import { meetingStatus as meetingStatusEnum } from "@/db/schema";
 import { streamVideo } from "@/lib/stream-video";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
 import { after } from "next/server";
 
 import { generateMeetingSummary } from "@/lib/meeting-summary";
@@ -251,6 +249,7 @@ export const meetingsRouter = createTRPCRouter({
           duration: sql<number | null>`CASE WHEN ${meetings.endedAt} IS NOT NULL AND ${meetings.startedAt} IS NOT NULL AND ${meetings.endedAt} >= ${meetings.startedAt} THEN EXTRACT(EPOCH FROM (${meetings.endedAt} - ${meetings.startedAt})) / 60 ELSE NULL END`,
           transcriptUrl: meetings.transcriptUrl,
           summary: meetings.summary,
+          summaryData: meetings.summaryData,
           summaryError: meetings.summaryError,
           summarySource: meetings.summarySource,
           recordingUrl: meetings.recordingUrl,
@@ -462,7 +461,7 @@ export const meetingsRouter = createTRPCRouter({
         .set({ summaryError: null })
         .where(and(eq(meetings.id, input.id), eq(meetings.userId, ctx.userId)));
 
-      await generateMeetingSummary(input.id);
+      await generateMeetingSummary(input.id, { force: true });
       return { success: true };
     }),
 });
