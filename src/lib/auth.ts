@@ -45,6 +45,34 @@ const trustedOrigins = [
     .filter((origin) => origin.length > 0);
 
 export const auth = betterAuth({
+    session: {
+        // Cache the session in a short-lived signed cookie so auth.api.getSession
+        // avoids a DB round-trip on every request (cuts /api/chat auth latency).
+        // Trade-off: revoked sessions (sign-out, password reset) may remain
+        // usable for up to maxAge seconds.
+        cookieCache: {
+            // Disabled: serializing the user object (incl. base64 avatars) into
+            // the session cookie caused HTTP 431. Re-enable only after avatars
+            // are stored as URLs, not data: URLs.
+            enabled: false,
+        },
+    },
+    databaseHooks: {
+        user: {
+            update: {
+                before: async (data) => {
+                    if (
+                        typeof data?.image === "string" &&
+                        data.image.startsWith("data:") &&
+                        data.image.length > 100000
+                    ) {
+                        throw new Error("Avatar image is too large to store.");
+                    }
+                    return { data };
+                },
+            },
+        },
+    },
     trustedOrigins,
      socialProviders: {
         github: {

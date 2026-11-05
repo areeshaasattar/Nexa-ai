@@ -589,3 +589,36 @@ nexa-ai/
 - **Why it's better:** Feedback is persisted and reviewable; admin-only access enforced on both client and server.
 - **How it was tested:** `npx tsc --noEmit` and `npm run build` pass; `npm run db:migrate` applied the feedback migration. Manual tests: submit as user -> DB row created; non-admin visiting /admin/feedback gets 404; non-admin calling updateStatus gets error; empty/10000-char messages rejected by zod (min 5, max 1000).
 - **Follow-ups / caveats:** Admin check uses ADMIN_EMAILS env var; no automated tests yet. Message content is never logged.
+
+### [Tier3-1A] Measure voice latency - 2026-11-04
+- **Status:** Implemented, not verified (no live mic/browser available in this environment)
+- **Problem:** Perceived voice-reply latency ~16s; unclear where time is spent.
+- **What I changed:** `src/app/api/chat/route.ts` - added JSON timing logs (auth, rate limit, DB, Mistral TTFB/total, overall); parallelized agent/meeting/history DB queries with Promise.all. `src/hooks/use-voice-assistant.ts` - added client TTFB timing log; clarified `responseTime` measures fetch only (not SpeechRecognition silence wait), which previously could be misleading.
+- **Why it's better:** Identifies bottlenecks; removes sequential DB round-trips.
+- **How it was tested:** `npx tsc --noEmit` and `npm run build` pass. No live 5-request measurement possible here; instrumentation is in place for the user to collect.
+- **Follow-ups / caveats:** User must run 5 voice turns and report timings; streaming (1B) and sentence TTS (1C) pending approval.
+
+### [Tier3-1B] Stream the LLM reply - 2026-11-04
+- **Status:** Implemented, not verified (pending user test)
+- **Problem:** /api/chat returned the full reply at once, so TTS couldn't start until generation finished.
+- **What I changed:** `src/app/api/chat/route.ts` - Mistral `stream: true`, returns SSE (`text/event-stream`) with delta/done/error events; persists user+AI messages only after a complete stream; handles client abort without persisting. `src/hooks/use-voice-assistant.ts` - reads the stream, renders text progressively, AbortController on new request/unmount; rate-limit/auth errors still arrive as JSON before the stream.
+- **Why it's better:** TTS can start on the first sentence; lower perceived latency; abort stops work.
+- **How it was tested:** `npx tsc --noEmit` and `npm run build` pass. Live streaming/TTFB numbers pending user test.
+- **Follow-ups / caveats:** Sentence-by-sentence speech (1C) not yet done; voice brevity (max_tokens 300 + voice-mode instruction) and cookieCache (5 min) applied; rate-limit timing log added.
+
+### [Bug] 431 from oversized session cookies - 2026-11-04
+- **Status:** Fixed (immediate) + root cause documented
+- **Problem:** `session.cookieCache` serialized the user object including a base64 avatar data URL (~28 KB), producing ~40 KB of cookies and HTTP 431.
+- **What I changed:** `src/lib/auth.ts` - disabled `session.cookieCache`. `src/modules/settings/ui/components/avatar-upload.tsx` - client validation: max 2 MB, PNG/JPEG/WebP only, reject data URLs over 100 KB. `src/lib/auth.ts` - server-side databaseHook rejects data URLs over 100 KB on user update.
+- **Why it's better:** Sign-in no longer sends oversized cookies; avatars are validated before storage.
+- **How it was tested:** DB query found 1 user with a `data:` image (28,255 chars). `npx tsc --noEmit` and `npm run build` pass.
+- **Follow-ups / caveats:** Root fix (store avatars in object storage) pending user's storage choice (Vercel Blob / Cloudinary / UploadThing / S3). Migration: 1 row uses `data:` image; propose a script to move to storage and update rows - awaiting approval. Re-enable cookieCache only after avatars are URLs. Rule: never put large fields in the session/user object.
+
+### [Bug] Call restarts during push-to-talk - 2026-11-04
+- **Status:** Fixed
+- **Problem:** Around the 2nd push-to-talk question the call ended and restarted; repeated on rejoin. Server logs showed /api/chat succeeding, so the cause was client-side.
+- **Root cause:** `StreamCallProvider`'s client-creation effect depended on the `session` query result object; React Query refetches (window focus / focus invalidation) changed its identity, re-running the effect, whose cleanup called `setVideoClient(null)` and triggered the call effect cleanup which called `call.leave()`, ending the call; then it re-created. The call effect also left the call on every re-run.
+- **What I changed:** `src/app/call/ui/components/call-provider.tsx` - depend on stable primitives (token string + apiKey); create the client/call once per meetingId using ref guards; leave only on real unmount via a dedicated cleanup effect. `src/app/call/ui/components/call-active.tsx` - set `refetchOnWindowFocus: false` on `getOne`. Added the same to getToken/getSession/getOne in the provider.
+- **Why it's better:** No re-creation on refetch/focus; call persists across push-to-talk turns.
+- **How it was tested:** `npx tsc --noEmit` and `npm run build` pass. Live multi-turn test (6+ turns) and tab-switch test pending user verification.
+- **Follow-ups / caveats:** Temporary logs removed. Need user to confirm 6+ push-to-talk turns without restart and 3-min idle call.

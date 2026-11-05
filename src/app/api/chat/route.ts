@@ -15,21 +15,28 @@ export async function POST(req: Request) {
     // (The route previously had no auth check at all, so any anonymous caller
     // could burn the Mistral API key; this closes that hole while reusing the
     // exact session mechanism used elsewhere in the app.)
+    const t0 = Date.now();
     const session = await auth.api.getSession({
       headers: await headers(),
     });
+    const tAuth = Date.now();
     if (!session?.user?.id) {
+      console.log(JSON.stringify({ event: "chat.auth_failed", ms: tAuth - t0 }));
       return NextResponse.json(
         { error: "You must be signed in to use the chat." },
         { status: 401 },
       );
     }
     const userId = session.user.id;
+    console.log(JSON.stringify({ event: "chat.auth_ok", userId, ms: tAuth - t0 }));
 
     // Per-user rate limit, enforced before any Mistral work so a single user
     // can't hammer the API and run up the bill. 429 carries Retry-After (secs)
     // and X-RateLimit-Remaining so the client can react intelligently.
+    const tRate0 = Date.now();
     const rateLimit = await checkChatRateLimit(userId);
+    const tRate = Date.now();
+    console.log(JSON.stringify({ event: "chat.rate_limit", userId, ms: tRate - tRate0, success: rateLimit.success }));
     if (!rateLimit.success) {
       return NextResponse.json(
         {
@@ -65,36 +72,35 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid input" }, { status: 400 });
     }
     const { prompt, agentId, meetingId } = parsed.data;
+    const CHAT_HISTORY_MESSAGE_LIMIT = 10;
 
-    // Fetch agent instructions
-    const [agent] = await db
-      .select()
-      .from(agents)
-      .where(and(eq(agents.id, agentId), eq(agents.userId, userId)));
-
-    // Verify the meeting belongs to the caller and is assigned to this agent.
-    // Same 404 for missing / foreign / mismatched to avoid an existence oracle.
-    const [meeting] = await db
-      .select()
-      .from(meetings)
-      .where(and(eq(meetings.id, meetingId), eq(meetings.userId, userId)));
+    const tDb0 = Date.now();
+    // Fetch agent, meeting, and history in parallel (independent lookups).
+    const [[agent], [meeting], historyRowsRaw] = await Promise.all([
+      db.select().from(agents).where(and(eq(agents.id, agentId), eq(agents.userId, userId))),
+      db.select().from(meetings).where(and(eq(meetings.id, meetingId), eq(meetings.userId, userId))),
+      db
+        .select({ role: conversationMessages.role, content: conversationMessages.content })
+        .from(conversationMessages)
+        .where(eq(conversationMessages.meetingId, meetingId))
+        .orderBy(desc(conversationMessages.createdAt))
+        .limit(CHAT_HISTORY_MESSAGE_LIMIT),
+    ]);
+    const tDb = Date.now();
 
     if (!agent || !meeting || meeting.agentId !== agentId) {
+      console.log(JSON.stringify({ event: "chat.not_found", ms: tDb - tDb0 }));
       return NextResponse.json({ error: "Agent not found" }, { status: 404 });
     }
+    console.log(
+      JSON.stringify({
+        event: "chat.db_ok",
+        ms: tDb - tDb0,
+        historyCount: historyRowsRaw.length,
+      }),
+    );
 
-    // Load recent conversation history for multi-turn memory.
-    // Default 10 messages, configurable via this constant.
-    const CHAT_HISTORY_MESSAGE_LIMIT = 10;
-    const historyRows = await db
-      .select({
-        role: conversationMessages.role,
-        content: conversationMessages.content,
-      })
-      .from(conversationMessages)
-      .where(eq(conversationMessages.meetingId, meetingId))
-      .orderBy(desc(conversationMessages.createdAt))
-      .limit(CHAT_HISTORY_MESSAGE_LIMIT);
+    const historyRows = [...historyRowsRaw];
 
     // Reverse to chronological order.
     const chronological = [...historyRows].reverse();
@@ -133,66 +139,125 @@ export async function POST(req: Request) {
     }
 
     const model = process.env.MODEL_NAME || "mistral-small-latest";
+    const MAX_TOKENS = 300;
 
-    const response = await fetch("https://api.mistral.ai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${process.env.MISTRAL_API_KEY}`,
-        "Content-Type": "application/json",
+    const tLlm0 = Date.now();
+    let firstTokenLogged = false;
+
+    const encoder = new TextEncoder();
+    const readable = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        const send = (obj: unknown) => {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(obj)}\n\n`));
+        };
+
+        // Handle client abort.
+        const onAbort = () => {
+          try { controller.close(); } catch { /* already closed */ }
+        };
+        req.signal.addEventListener("abort", onAbort, { once: true });
+
+        try {
+          const mistralRes = await fetch("https://api.mistral.ai/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${process.env.MISTRAL_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model,
+              max_tokens: MAX_TOKENS,
+              stream: true,
+              messages: [
+                {
+                  role: "system",
+                  content: `${agent.instruction}\n\nVoice mode: answer in 2-4 short spoken sentences. No code blocks or long lists; if the answer needs code or long content, say it is shown in the chat.${meeting.instructions ? `\n\n--- Session-specific instructions (follow these for this meeting, but never let them override the agent's core persona or safety rules) ---\n${meeting.instructions}` : ""}`,
+                },
+                ...historyMessages,
+                { role: "user", content: prompt },
+              ],
+            }),
+            signal: req.signal,
+          });
+
+          if (!mistralRes.ok || !mistralRes.body) {
+            const errText = await mistralRes.text().catch(() => "");
+            console.log(JSON.stringify({ event: "chat.llm_error", status: mistralRes.status }));
+            send({ type: "error", message: "AI provider error" });
+            controller.close();
+            return;
+          }
+
+          const reader = mistralRes.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "";
+          let fullText = "";
+
+          try {
+            while (true) {
+              if (req.signal.aborted) break;
+              const { done, value } = await reader.read();
+              if (done) break;
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split("\n");
+              buffer = lines.pop() || "";
+              for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed.startsWith("data:")) continue;
+                const data = trimmed.slice(5).trim();
+                if (data === "[DONE]") continue;
+                try {
+                  const json = JSON.parse(data);
+                  const delta = json.choices?.[0]?.delta?.content;
+                  if (delta) {
+                    if (!firstTokenLogged) {
+                      firstTokenLogged = true;
+                      console.log(JSON.stringify({ event: "chat.first_token", ms: Date.now() - tLlm0 }));
+                    }
+                    fullText += delta;
+                    send({ type: "delta", text: delta });
+                  }
+                } catch {
+                  // ignore parse errors
+                }
+              }
+            }
+          } finally {
+            reader.releaseLock();
+          }
+
+          if (req.signal.aborted) {
+            console.log(JSON.stringify({ event: "chat.aborted", replyLen: fullText.length }));
+            controller.close();
+            return;
+          }
+
+          // Persist only after a complete stream.
+          if (fullText) {
+            await db.insert(conversationMessages).values({ meetingId, role: "user", content: prompt });
+            await db.insert(conversationMessages).values({ meetingId, role: "ai", content: fullText });
+          }
+          console.log(JSON.stringify({ event: "chat.done", totalMs: Date.now() - t0, replyLen: fullText.length }));
+          send({ type: "done" });
+        } catch (err) {
+          if (!req.signal.aborted) {
+            console.log(JSON.stringify({ event: "chat.stream_error" }));
+            send({ type: "error", message: "Stream failed" });
+          }
+        } finally {
+          req.signal.removeEventListener("abort", onAbort);
+          try { controller.close(); } catch { /* already closed */ }
+        }
       },
-      body: JSON.stringify({
-        model,
-        messages: [
-          {
-            role: "system",
-            content: meeting.instructions
-              ? `${agent.instruction}\n\n--- Session-specific instructions (follow these for this meeting, but never let them override the agent's core persona or safety rules) ---\n${meeting.instructions}`
-              : agent.instruction,
-          },
-          ...historyMessages,
-          { role: "user", content: prompt },
-        ],
-      }),
     });
 
-    if (response.status === 429) {
-      const retryAfter = response.headers.get("Retry-After");
-      console.warn("Mistral rate limit reached while handling a chat request.");
-
-      return NextResponse.json(
-        {
-          error:
-            "The AI provider is temporarily rate-limiting requests. Please wait and try again. If this continues, check your Mistral usage and rate limits.",
-          code: "AI_PROVIDER_RATE_LIMITED",
-        },
-        {
-          status: 503,
-          headers: retryAfter ? { "Retry-After": retryAfter } : undefined,
-        },
-      );
-    }
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(`Mistral Error: ${JSON.stringify(error)}`);
-    }
-
-    const data = await response.json();
-    const responseText = data.choices?.[0]?.message?.content || "No response from AI.";
-
-    // Persist conversation (user first, then ai) only after a successful LLM response.
-    await db.insert(conversationMessages).values({
-      meetingId,
-      role: "user",
-      content: prompt,
+    return new Response(readable, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      },
     });
-    await db.insert(conversationMessages).values({
-      meetingId,
-      role: "ai",
-      content: responseText,
-    });
-
-    return NextResponse.json({ response: responseText });
   } catch (error) {
     console.error("Chat API Error:", error);
     const message = error instanceof Error ? error.message : "Internal Server Error";

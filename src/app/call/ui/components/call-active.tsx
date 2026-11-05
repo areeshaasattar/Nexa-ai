@@ -40,7 +40,10 @@ export const CallActive = () => {
   const meetingId = params.meetingId as string;
 
   // --- Single source of truth for voice state ---
-  const { data: meeting } = trpc.meetings.getOne.useQuery({ id: meetingId });
+  const { data: meeting } = trpc.meetings.getOne.useQuery(
+    { id: meetingId },
+    { refetchOnWindowFocus: false },
+  );
   const voice = useVoiceAssistant({ agentId: meeting?.agentId, meetingId });
   const { isListening, isProcessing, messages, startListening, stopListening, sendTextMessage, voiceEnabled, setVoiceEnabled, speakingMessageId, speakMessage, stopSpeaking, speechSupported } = voice;
 

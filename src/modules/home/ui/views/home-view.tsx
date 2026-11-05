@@ -229,7 +229,7 @@ export const HomeView = () => {
       title: "Voice Interactions",
       value: metrics?.voice.totalConversations ?? 0,
       icon: Mic,
-      description: `${metrics?.voice.responseTime ?? "—"}ms avg response`,
+      description: `${metrics?.voice.responseTime ?? "-"}ms avg reply time`,
       chartColor: "#3b82f6",
     },
     {
