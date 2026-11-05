@@ -35,9 +35,14 @@ export const StreamCallProvider = ({ children, meetingId }: StreamCallProviderPr
   });
 
   // Keep latest session in a ref so the client-creation effect can depend on
-  // stable primitives (token string) instead of the session object identity.
+  // stable primitives (token string + user id) instead of the session object
+  // identity. Update the ref in an effect, not during render.
   const sessionRef = useRef(session);
-  sessionRef.current = session;
+  const sessionUserId = session?.user.id;
+
+  useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
 
   const [videoClient, setVideoClient] = useState<StreamVideoClient | null>(null);
   const [call, setCall] = useState<Call | null>(null);
@@ -72,7 +77,7 @@ export const StreamCallProvider = ({ children, meetingId }: StreamCallProviderPr
       clientCreatedRef.current = false;
       setVideoClient(null);
     };
-  }, [token, apiKey]);
+  }, [token, apiKey, sessionUserId]);
 
   // Create the call once per meetingId + client.
   useEffect(() => {
