@@ -63,8 +63,9 @@ assistant**. A user can:
 
 ## 3. Database schema
 
-Defined in `src/db/schema.ts` (PostgreSQL dialect). Migrations are managed with `npm run db:push`
-(drizzle‑kit push — there is no committed migrations directory).
+Defined in `src/db/schema.ts` (PostgreSQL dialect). Migrations are committed in `drizzle/`
+and applied with `npm run db:migrate`; `npm run db:generate` creates a new migration from
+schema changes. `db:push` remains a local-prototyping script only.
 
 ### Better‑Auth tables (managed by the auth adapter)
 
@@ -80,11 +81,16 @@ Defined in `src/db/schema.ts` (PostgreSQL dialect). Migrations are managed with 
 | Table                | Purpose / notable columns                                                                                       |
 | -------------------- | --------------------------------------------------------------------------------------------------------------- |
 | `agents`             | AI agent definitions: `name`, `instruction` (system prompt), `userId` (owner, FK cascade)                        |
-| `meetings`           | Scheduled calls: `name`, `userId`, `agentId` (FK → agents), `instructions`, `status`, `startedAt`, `endedAt`, `transcriptUrl`, `summary`, `summaryError`, `summarySource`, `recordingUrl` |
+| `meetings`           | Scheduled calls: `name`, `userId`, `agentId` (FK → agents), `instructions`, `status`, `startedAt`, `endedAt`, `transcriptUrl`, `summary` (overview text, kept for compatibility), `summaryData` (nullable `jsonb` structured summary), `summaryError`, `summarySource`, `recordingUrl` |
 | `activities`         | Activity feed: `userId`, `type` (enum below), `title`, `description`, `metadata` (JSON string)                   |
 | `conversation_messages` | Chat history per meeting: `meetingId` (FK cascade), `role` (`user`/`ai`), `content`                            |
 | `voice_interactions` | Dashboard metrics per voice exchange: `meetingId`, `duration`, `responseTime`                        |
 | `feedback`           | User feedback: `id`, `userId` (FK -> user, cascade, indexed), `type` (bug/idea/other), `message`, `rating` (1-5, nullable), `pageUrl`, `status` (new/reviewed/resolved), `createdAt` |
+
+`meetings.summaryData` is validated by `src/lib/summary-schema.ts`:
+`{ overview, decisions[], actionItems[{ task, owner, dueDate }], topics[], openQuestions[], meta? }`.
+`meta.kind` is `structured`, `fallback`, or `insufficient`. Rows written before this
+column existed have `summaryData = null` and still render their text `summary`.
 
 **Enums:**
 
@@ -121,7 +127,7 @@ dependent rows).
 ### 4.3 Meetings module (`/meetings`, `/meetings/[meetingId]`)
 - **Schedule** a meeting (name, assigned agent, optional instructions, optional start/end datetimes) → `meetings.create`.
 - **List** meetings with pagination, **text search**, **status filter**, and **agent filter** → `meetings.getMany` (joins agent name, computes duration in SQL).
-- **View** a meeting detail page ("Meeting Intelligence") showing status badge, date/start time, assigned agent, duration, mission instructions, and — once available — **recording link**, **raw transcript link**, and the **AI‑generated summary**. The page **auto‑polls every 5 s** while status is `completed` but the summary hasn't arrived yet.
+- **View** a meeting detail page ("Meeting Intelligence") showing status badge, date/start time, assigned agent, duration, mission instructions, and — once available — **recording link**, **raw transcript link**, and the **AI‑generated summary**. Structured summaries render as Overview, Key decisions, Action items (checklist with owner badges and optional due dates), Topics (chips) and Open questions, plus a **Copy as Markdown** button. Older text-only summaries keep their original prose rendering. The page **auto‑polls every 5 s** while status is `completed` but the summary hasn't arrived yet, and offers a retry when generation failed.
 - **Cancel / delete** a meeting (with confirm).
 - **Start / Join** a meeting → navigates to the call room (`/call/[meetingId]`).
 - All actions are **owner‑scoped**.
@@ -147,15 +153,33 @@ Lives in the call sidebar (`src/app/call/ui/components/voice-assistant.tsx`), dr
 6. **Persistence** — each message is saved to `conversation_messages` (fire‑and‑forget `saveMessage`), and a `voice_interactions` row (duration estimate, response time) is logged after each exchange for dashboard metrics.
 
 ### 4.6 Meeting summarization
-- `src/lib/meeting-summary.ts` fetches all `conversation_messages` for a meeting, builds a transcript, and asks **Mistral** to produce a **3–5 sentence plain‑prose summary**.
-- Result is stored on `meetings.summary`.
-- **Idempotent** — skips if a summary already exists, safe to be triggered from both the Stream webhook and the client `endCall`.
-- Triggered by: (a) Stream `call.session_ended` webhook, and (b) the client `meetings.endCall` mutation (a reliable fallback when the webhook can't reach localhost during dev).
+- `src/lib/meeting-summary.ts` fetches the **Stream transcript** when `transcriptUrl` is present
+  (capped at 12,000 chars, existing rule), otherwise falls back to `conversation_messages`, and
+  merges both when available. The source is wrapped in explicit untrusted-data delimiters.
+- **Mistral JSON mode** — requests `response_format: { type: "json_object" }` and validates the
+  reply with the zod schema in `src/lib/summary-schema.ts`. JSON mode guarantees syntax only, so
+  invalid JSON or schema violations trigger **one retry** with the validation error described to
+  the model. A second failure persists a schema-valid overview-only fallback flagged
+  `meta.kind = "fallback"`; unvalidated model output is never stored.
+- **No hallucinated people** — action-item owners are kept only when the name appears in the
+  source text; otherwise `owner` is stored as `null`.
+- **Short calls** — sources under 200 non-whitespace chars skip the model and store
+  `meta.kind = "insufficient"` ("Not enough conversation to summarize").
+- Result is stored twice for compatibility: `meetings.summaryData` (jsonb, structured) and
+  `meetings.summary` (the overview text, so older UI/tests keep working).
+- **Idempotent** — skips if a summary already exists (unless a richer transcript has since
+  arrived), safe to be triggered from both the Stream webhook and the client `endCall`.
+  The owner-scoped `retrySummary` mutation forces regeneration in the new format.
+- Triggered by: (a) Stream `call.session_ended` webhook inside `after()`, and (b) the client
+  `meetings.endCall` mutation (a reliable fallback when the webhook can't reach localhost during
+  dev), also inside `after()` with a failure/retry state.
+- Logging emits JSON events with meeting ids, source lengths, attempt counts and timings only —
+  never transcript or summary content.
 
 ### 4.7 Stream webhook handling (`/api/webhooks/stream`)
 - Verifies the **HMAC‑SHA256 signature** (`x-signature` header) against the Stream secret via `streamVideo.verifyWebhook()`.
 - `call.session_started` → meeting `status = ongoing`, `startedAt = now`.
-- `call.session_ended` → meeting `status = completed`, `endedAt = now` + fire‑and‑forget summary generation.
+- `call.session_ended` → meeting `status = completed`, `endedAt = now` + summary generation inside `after()`.
 - Gracefully returns 200/"ignored" for unknown/empty payloads.
 
 ### 4.8 Dashboard (`/`, `src/modules/home`)
@@ -368,16 +392,21 @@ Four layers protect the app:
 5. `StreamCallProvider` → `meetings.getToken` (Stream JWT) + `meetings.getOne` + `meetings.createCall` → Stream call created (`recording: 720p`, `transcription: available`); meeting becomes `ongoing`.
 6. In the call: user presses **Push to Talk** → SpeechRecognition → `/api/chat` (Mistral, agent instruction as system prompt) → reply spoken + saved to `conversation_messages` + logged to `voice_interactions`.
 
-### 6.2 End a call → summary generated
+### 6.2 End a call → structured summary generated
 - User clicks **Leave** in `CallControls` → `window.speechSynthesis.cancel()` → `endCall` mutation:
   - Marks meeting `completed`, sets `endedAt`, logs `meeting_completed` activity.
   - Fetches recording/transcription URLs from Stream (best‑effort, non‑blocking).
-  - Calls `generateMeetingSummary(id)` raced against a 15 s timeout so `endCall` never blocks on it.
+  - Runs `generateMeetingSummary(id)` inside Next.js `after()` so `endCall` never blocks on it.
 - Alternatively (or additionally) the **Stream webhook** `call.session_ended` performs the same
-  status update and triggers summary generation wrapped in Next.js `after()` so it runs after the
-  response is sent. Both are **idempotent**, so the first one to run wins.
+  status update and triggers summary generation inside `after()`. Both are **idempotent**, so the
+  first one to run wins; if a transcript arrives later, the conversation-only summary may be
+  regenerated from the richer source.
+- Generation fetches the transcript (or `conversation_messages` fallback), asks Mistral in JSON
+  mode, validates with zod, retries once on invalid output, and then persists either structured
+  data, a flagged fallback, or the `insufficient` state. `summary` is filled with the overview.
 - The meeting detail page polls every 5 s while status is `completed` but `summary` is missing,
-  stopping after ~2 min, then shows a "Summary unavailable" state if none arrived.
+  stopping after ~2 min. Failures show `summaryError` with an owner-scoped **Retry summary**
+  button, which forces a fresh structured generation in the new format.
 
 ### 6.3 Voice interaction metrics
 - After each user→AI exchange, the client estimates response time (`performance.now()`) and a
@@ -421,7 +450,10 @@ nexa-ai/
 │   │   ├── auth.ts                  # Better-Auth server config
 │   │   ├── auth-client.ts           # Better-Auth client
 │   │   ├── stream-video.ts          # StreamClient (server-only)
-│   │   ├── meeting-summary.ts       # Mistral summarizer
+│   │   ├── meeting-summary.ts       # transcript/source loading + persistence
+│   │   ├── summary-schema.ts        # zod summary contract, prompt, parse, Markdown
+│   │   ├── summary-generation.ts    # validate/retry/fallback orchestration
+│   │   ├── summary-mistral.ts       # Mistral JSON-mode caller
 │   │   ├── avatar.tsx / utils.ts
 │   ├── modules/                     # feature modules (server procs + UI views)
 │   │   ├── agents/                  # schemas, tRPC procedures, table/list/detail/dialogs
@@ -450,11 +482,15 @@ nexa-ai/
 3. **AI Insights are rule-based**, computed client-side from dashboard metrics (meeting trend, completed count, transcription count, most-used agent). They are not LLM-generated.
 4. **Voice interaction metrics are estimates.** `duration` is estimated client-side (word count ÷ 2.5 wps) and `responseTime` from `performance.now()`; no accuracy field is stored.
 5. **Terms & Privacy links are placeholders** (`href="#"`) in the auth views.
-6. **Summary generation is more reliable on serverless.** `endCall` and the webhook now run it inside `after()` with error recording (`summaryError`) and an owner-scoped `retrySummary` mutation. The meeting page still polls and shows "Summary failed - retry" on failure. (Resolved for Issue 4.)
+6. **Summary generation is more reliable on serverless.** `endCall` and the webhook now run it inside `after()` with error recording (`summaryError`) and an owner-scoped `retrySummary` mutation. The meeting page still polls and shows "Summary failed - retry" on failure. (Resolved for Issue 4.) Summaries are structured now; invalid model output is retried once and then stored only as a clearly flagged overview fallback.
 7. **Stream call access is now authorized per meeting.** `getToken` issues a call-scoped token (`generateCallToken` with `call_cids`), `createCall` sets the owner as an explicit member, and all Stream-touching procedures verify ownership (NOT_FOUND otherwise). (Resolved for Issue 2.)
-8. **`superjson` is installed but unused** — no tRPC transformer is configured (JSON over HTTP batch links).
-9. **Route protection at the proxy layer is optimistic** (cookie presence only); real validation happens in the server layouts and tRPC. `/settings` is not in the proxy's protected-path list but is guarded by the layout.
-10. **No committed migrations** — schema changes are applied via `npm run db:push` (drizzle-kit push); there is no migrations directory committed (drizzle-kit metadata only).
+8. **`superjson` is installed and wired** — tRPC uses it for serialization (`src/trpc/init.ts`, `src/trpc/client.tsx`).
+9. **Route protection at the proxy layer is optimistic** (cookie presence only); real validation happens in the server layouts and tRPC. `/settings` is now in the proxy's protected-path list and is also guarded by the layout.
+10. **Migrations are committed and tested on a fresh database.** `drizzle/0000`–`0002` apply cleanly with `npm run db:migrate`; the existing database has all three recorded in `drizzle.__drizzle_migrations`.
+11. **Structured summaries rely on Mistral JSON mode plus zod, not a provider-enforced JSON Schema.** JSON mode guarantees syntax but not shape, so the code retries once and then falls back; `max_tokens` is 1500, which is ample for the configured caps but not independently load-tested with maximum-size output.
+12. **`retrySummary` is owner-scoped but not rate-limited.** No summary-specific limiter existed before this change; it keeps the previous behaviour (chat is still the only rate-limited route).
+13. **Owner sanitization is text matching, not identity resolution.** An owner is accepted if the name (or its first name) appears in the source; nicknames and initials can therefore come back as `null`, and a common word could match a name.
+14. **The structured-summary UI has not been visually regression-tested in a browser in this environment.** Legacy text-only rendering and owner scoping were verified by code path and DB queries (`5` legacy rows in the current database); the live model calls and offline schema/retry tests are recorded in the changelog.
 
 ---
 
@@ -622,3 +658,30 @@ nexa-ai/
 - **Why it's better:** No re-creation on refetch/focus; call persists across push-to-talk turns.
 - **How it was tested:** `npx tsc --noEmit` and `npm run build` pass. Live multi-turn test (6+ turns) and tab-switch test pending user verification.
 - **Follow-ups / caveats:** Temporary logs removed. Need user to confirm 6+ push-to-talk turns without restart and 3-min idle call.
+
+### [Tier3-2A] Structured meeting intelligence - 2026-11-05
+- **Status:** Implemented and verified for schema, live Mistral generation, retry/fallback and fresh-DB migration. Browser visual regression and cross-user UI clicks still need the user's manual test.
+- **Problem:** Summaries were free text stored in `meetings.summary`. The model could return prose, malformed content or invented names, and the UI could only render an unstructured paragraph. There was no stored contract the client could trust.
+- **What I changed:**
+  - `src/lib/summary-schema.ts` (new) — zod schema (`overview` ≤600 chars, ≤10 decisions, ≤15 action items with `owner`/`dueDate`, ≤10 topics, ≤10 open questions), prompt builder with explicit untrusted-transcript delimiters and injection resistance, JSON extraction/parse/validate, owner sanitization against the source, insufficient/fallback factories, Markdown exporter.
+  - `src/lib/summary-generation.ts` (new) — pure orchestration: skip short sources, parse + validate, retry once with the validation error, then a flagged overview-only fallback.
+  - `src/lib/summary-mistral.ts` (new) — shared Mistral caller using `response_format: { type: "json_object" }` (confirmed in Mistral docs/OpenAPI), with ids/lengths/timings-only logging.
+  - `src/lib/meeting-summary.ts` — transcript-first / `conversation_messages` fallback retained, existing 12,000-char cap retained, persists validated data to `summaryData` and the overview to the legacy `summary` column, stores the `insufficient` state, adds `{ force }` for retry, never logs content.
+  - `src/db/schema.ts` — nullable `meetings.summary_data jsonb`; `drizzle/0002_last_skullbuster.sql` + snapshot/journal generated with `db:generate` and applied with `db:migrate`.
+  - `src/modules/meetings/server/procedures.ts` — `getOne` returns `summaryData`; owner-scoped `retrySummary` now forces structured regeneration.
+  - `src/modules/meetings/ui/components/structured-summary.tsx` (new) and `meeting-id-view.tsx` — sections for Overview, Key decisions, Action items (owner badges + optional due dates), Topics (chips), Open questions, a **Copy as Markdown** button, and fallback/insufficient states. Text-only legacy summaries keep the old prose branch.
+  - `scripts/test-summary.ts`, `scripts/test-summary-live.ts` + `test:summary` / `test:summary:live` scripts — no new dependency; uses the existing `tsx`.
+  - `src/app/call/ui/components/call-provider.tsx` — moved a ref write out of render to keep lint at 0 errors (pre-existing issue).
+- **Why it's better:** The client receives a stable, validated shape; invalid model output cannot be persisted; owners and due dates are explicit and verifiable; short calls no longer produce hallucinated content; old meetings keep working through the unchanged text column/branch.
+- **How it was tested:**
+  - `npm run test:summary` — **12/12 passed**: delimiter/injection handling, retry prompt, JSON/fenced/prose parsing, schema rejection, owner sanitization, short-source insufficient, invalid→retry→fallback, invalid→valid retry, injection does not add schema fields, Markdown export, fallback validity.
+  - `npm run test:summary:live` (real Mistral, `mistral-small-latest`) — **all checks passed**:
+    - Distinctive scenario returned `meta.kind = "structured"`, exactly 2 decisions (March 14 launch, invite-only beta), 3 action items with owners `Priya`/`Marcus` (Sarah appears in the source but was not assigned work), 2 topics (Atlas launch, Beta onboarding) and the legal-review open question.
+    - Push-to-talk / conversation fallback produced a valid structured summary.
+    - A spoken "ignore previous instructions" line did not change the schema or add an `instructions` field.
+    - A too-short source produced `meta.kind = "insufficient"` with `attempts = 0` and no model call.
+  - Fresh database: created a temporary Neon database, ran `drizzle-kit migrate` (exit 0), confirmed all 10 tables, `meetings.summary` = nullable `text` and `meetings.summary_data` = nullable `jsonb`, confirmed 3 journal rows, then dropped the temporary database with `WITH (FORCE)`.
+  - Owner scoping: the same `id + userId` predicate used by `getOne`/`retrySummary` returned the meeting for its owner and **0 rows** for a different user id.
+  - Legacy rendering: current DB has 5 meetings with text `summary` and `summary_data = NULL`, which take the unchanged text branch; `summaryData` rows parse through `storedSummaryDataSchema` before rendering.
+  - `npx tsc --noEmit` passes; `npm run lint` exits 0 with 19 pre-existing warnings and no errors; `npm run build` passes (Next.js 16.2.6/Turbopack).
+- **Follow-ups / caveats:** User should visually verify the meeting page in a browser (new summary, a legacy meeting, and another user's meeting). `retrySummary` is owner-scoped but not rate-limited because no summary limiter existed before; adding one is a small follow-up. Owner matching is text-based (nicknames may become `null`). Consider Mistral `json_schema` strict mode later for provider-side shape enforcement; JSON mode + zod already prevents invalid storage.
