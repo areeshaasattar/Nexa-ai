@@ -98,6 +98,11 @@ export const useVoiceAssistant = ({ agentId, meetingId }: UseVoiceAssistantProps
 
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const processingStartRef = useRef<number>(0);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const ttsBufferRef = useRef<string>("");
+  const ttsQueueRef = useRef<string[]>([]);
+  const ttsSpeakingRef = useRef<boolean>(false);
+  const currentAiIdRef = useRef<string | null>(null);
 
   // Fire-and-forget interaction logging helper
   const logInteraction = useCallback((duration: number, responseTime: number) => {
@@ -178,19 +183,20 @@ export const useVoiceAssistant = ({ agentId, meetingId }: UseVoiceAssistantProps
       setIsProcessing(true);
       setMessages((prev) => [...prev, { role: 'user', content: text }]);
       stopSpeaking();
-      // Record when processing starts — used to compute responseTime
-      processingStartRef.current = performance.now();
+      const t0 = performance.now();
+      processingStartRef.current = t0;
+
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
 
       try {
         const response = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ prompt: text, agentId, meetingId }),
+          signal: controller.signal,
         });
 
-        // 429 = Upstash rate limit hit (sending too fast). This is an expected
-        // condition, not a generic error — surface a friendly toast and a distinct
-        // message instead of the scary "Error: ..." bubble.
         if (response.status === 429) {
           toast.error("You're sending messages too fast", {
             description: "Please wait a moment before trying again.",
@@ -202,59 +208,92 @@ export const useVoiceAssistant = ({ agentId, meetingId }: UseVoiceAssistantProps
           return;
         }
 
-        const data = await response.json();
-        if (response.status === 503 && data.code === 'AI_PROVIDER_RATE_LIMITED') {
-          toast.error("AI service is temporarily rate-limited", {
-            description:
-              "Please wait before retrying. If this continues, check your Mistral account's usage and rate limits.",
-          });
-          setMessages((prev) => [
-            ...prev,
-            {
-              role: 'ai',
-              content: "The AI service is temporarily rate-limited. Please wait a moment and try again.",
-            },
-          ]);
+        if (!response.ok || !response.body) {
+          let errMsg = "Request failed";
+          try {
+            const d = await response.json();
+            if (d?.code === 'AI_PROVIDER_RATE_LIMITED') {
+              toast.error("AI service is temporarily rate-limited", {
+                description: "Please wait before retrying.",
+              });
+              errMsg = "The AI service is temporarily rate-limited. Please wait a moment and try again.";
+            } else if (d?.error) {
+              errMsg = d.error;
+            }
+          } catch { /* ignore */ }
+          setMessages((prev) => [...prev, { role: 'ai', content: `Error: ${errMsg}` }]);
           return;
         }
 
-        if (data.response) {
-          const aiId =
-            typeof crypto !== "undefined" && crypto.randomUUID
-              ? crypto.randomUUID()
-              : `${Date.now()}-${Math.random()}`;
-          // Add the reply to the shared transcript. The agent "speaks" the
-          // answer aloud for BOTH input modes so the call stays live even when
-          // the question was typed (only when voice is enabled).
-          setMessages((prev) => [
-            ...prev,
-            { role: 'ai', content: data.response, id: aiId },
-          ]);
-          if (voiceEnabled) {
-            speakMessage(aiId, data.response);
-          }
+        const aiId =
+          typeof crypto !== "undefined" && crypto.randomUUID
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random()}`;
 
+        setMessages((prev) => [...prev, { role: 'ai', content: "", id: aiId }]);
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let fullText = "";
+        let firstByteLogged = false;
+
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            if (!firstByteLogged) {
+              firstByteLogged = true;
+              console.log(JSON.stringify({ event: 'voice.ttfb', ms: Math.round(performance.now() - t0) }));
+            }
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed.startsWith("data:")) continue;
+              const dataStr = trimmed.slice(5).trim();
+              if (!dataStr) continue;
+              let evt: { type: string; text?: string; message?: string };
+              try { evt = JSON.parse(dataStr); } catch { continue; }
+              if (evt.type === "delta" && evt.text) {
+                fullText += evt.text;
+                setMessages((prev) =>
+                  prev.map((m) => (m.id === aiId ? { ...m, content: fullText } : m)),
+                );
+              } else if (evt.type === "error") {
+                toast.error(evt.message || "Stream failed");
+                setMessages((prev) =>
+                  prev.map((m) => (m.id === aiId ? { ...m, content: `Error: ${evt.message}` } : m)),
+                );
+              }
+            }
+          }
+        } finally {
+          reader.releaseLock();
+        }
+
+        if (fullText) {
+          if (voiceEnabled) {
+            speakMessage(aiId, fullText);
+          }
           const responseTime = performance.now() - processingStartRef.current;
           if (mode === 'voice') {
-            // Estimate duration from AI response text length (rough: ~2.5 words/sec speaking rate).
-            const wordCount = data.response.split(/\s+/).length;
+            const wordCount = fullText.split(/\s+/).length;
             const estimatedDuration = wordCount / 2.5;
             logInteraction(estimatedDuration, responseTime);
           } else {
-            // Typed input: there is no spoken audio, so the word-count duration
-            // estimate (wordCount / 2.5 wps) is meaningless. Log the exchange
-            // with a 0 duration — the interaction is still counted for dashboard
-            // metrics, just without a fabricated "speaking time".
             logInteraction(0, responseTime);
           }
-        } else if (data.error) {
-            console.error('AI Error:', data.error);
-            setMessages((prev) => [...prev, { role: 'ai', content: `Error: ${data.error}` }]);
         }
       } catch (error) {
+        if ((error as Error)?.name === 'AbortError') {
+          return;
+        }
         console.error('Failed to get AI response:', error);
         setMessages((prev) => [...prev, { role: 'ai', content: 'Sorry, I encountered an error.' }]);
       } finally {
+        abortControllerRef.current = null;
         setIsProcessing(false);
       }
     },
@@ -310,10 +349,13 @@ export const useVoiceAssistant = ({ agentId, meetingId }: UseVoiceAssistantProps
       if (typeof window !== 'undefined') {
         window.speechSynthesis.cancel();
       }
+      abortControllerRef.current?.abort();
     };
   }, []);
 
   const startListening = useCallback(() => {
+    // Cancel any in-flight request before starting a new one.
+    abortControllerRef.current?.abort();
     if (recognitionRef.current && !isListening && !isProcessing) {
       // Stop any AI speech before capturing mic input.
       stopSpeaking();
@@ -339,6 +381,7 @@ export const useVoiceAssistant = ({ agentId, meetingId }: UseVoiceAssistantProps
     (text: string) => {
       const trimmed = (text ?? '').trim();
       if (!trimmed) return;
+      abortControllerRef.current?.abort();
       stopListening();
       // A typed reply supersedes whatever the mic was hearing; stop speech too.
       window.speechSynthesis.cancel();

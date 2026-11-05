@@ -7,7 +7,9 @@ import { authClient } from "@/lib/auth-client";
 import { GeneratedAvatar } from "@/components/generated-avatar";
 import { cn } from "@/lib/utils";
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2 MB
+const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"];
+const MAX_DATA_URL_LENGTH = 100_000; // ~75 KB image; keeps session cookies small
 const MAX_DIMENSION = 512; // px, longest edge after resize
 
 /**
@@ -89,15 +91,15 @@ export function AvatarUpload({
 
   const handleFile = async (file: File | undefined) => {
     if (!file) return;
-    if (!file.type.startsWith("image/")) {
+    if (!ALLOWED_TYPES.includes(file.type)) {
       toast.error("Invalid file", {
-        description: "Please choose an image (PNG, JPG, WebP, …).",
+        description: "Please choose a PNG, JPEG, or WebP image.",
       });
       return;
     }
     if (file.size > MAX_FILE_SIZE) {
       toast.error("File too large", {
-        description: "Images must be under 5 MB.",
+        description: "Images must be under 2 MB.",
       });
       return;
     }
@@ -106,6 +108,13 @@ export function AvatarUpload({
       toast.error("Could not read image", {
         description: "Please try a different image file.",
       });
+      return;
+    }
+    if (dataUrl.length > MAX_DATA_URL_LENGTH) {
+      toast.error("Image too large after compression", {
+        description: "Please choose a smaller image.",
+      });
+      if (fileRef.current) fileRef.current.value = "";
       return;
     }
     await saveImage(dataUrl);

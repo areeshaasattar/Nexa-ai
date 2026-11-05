@@ -1,10 +1,10 @@
 'use client';
 
 import { trpc } from '@/trpc/client';
-import { 
-  StreamVideo, 
-  StreamCall, 
-  StreamTheme, 
+import {
+  StreamVideo,
+  StreamCall,
+  StreamTheme,
   StreamVideoClient,
   Call,
 } from '@stream-io/video-react-sdk';
@@ -17,60 +17,79 @@ interface StreamCallProviderProps {
 }
 
 export const StreamCallProvider = ({ children, meetingId }: StreamCallProviderProps) => {
-  const { data: token, isLoading: isTokenLoading } = trpc.meetings.getToken.useQuery({ id: meetingId });
-  const { data: session, isLoading: isSessionLoading } = trpc.meetings.getSession.useQuery();
-  const { data: meeting, isLoading: isMeetingLoading } = trpc.meetings.getOne.useQuery({ id: meetingId });
+  const { data: token, isLoading: isTokenLoading } = trpc.meetings.getToken.useQuery(
+    { id: meetingId },
+    { refetchOnWindowFocus: false },
+  );
+  const { data: session, isLoading: isSessionLoading } = trpc.meetings.getSession.useQuery(undefined, {
+    refetchOnWindowFocus: false,
+  });
+  const { data: meeting, isLoading: isMeetingLoading } = trpc.meetings.getOne.useQuery(
+    { id: meetingId },
+    { refetchOnWindowFocus: false },
+  );
   const createCallMutation = trpc.meetings.createCall.useMutation();
-  // Stable access to the mutation — tRPC's mutateAsync never changes identity,
-  // but `createCallMutation` (the hook-maintained object) does, and putting it
-  // in the call-init effect's deps would re-create the call on every render.
   const createCallRef = useRef(createCallMutation.mutateAsync);
   useEffect(() => {
     createCallRef.current = createCallMutation.mutateAsync;
   });
 
+  // Keep latest session in a ref so the client-creation effect can depend on
+  // stable primitives (token string) instead of the session object identity.
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
+
   const [videoClient, setVideoClient] = useState<StreamVideoClient | null>(null);
   const [call, setCall] = useState<Call | null>(null);
-  // Ref mirror of `call` so the cleanup never has to depend on state.
   const callRef = useRef<Call | null>(null);
+  const clientCreatedRef = useRef(false);
 
   const apiKey = process.env.NEXT_PUBLIC_STREAM_VIDEO_API_KEY!;
 
+  // Create the Stream client once per token string.
   useEffect(() => {
-    if (!token || !session?.user || !apiKey) return;
+    console.log('[CP] client effect fired', { hasToken: !!token, hasSession: !!sessionRef.current?.user });
+    if (!token || !sessionRef.current?.user || !apiKey) return;
+    if (clientCreatedRef.current) return;
+    clientCreatedRef.current = true;
 
-    const userImage = /^data:/i.test(session.user.image ?? '')
-      ? undefined
-      : session.user.image ?? undefined;
+    const s = sessionRef.current.user;
+    const userImage = /^data:/i.test(s.image ?? '') ? undefined : s.image ?? undefined;
 
     const client = StreamVideoClient.getOrCreateInstance({
       apiKey,
       user: {
-        id: session.user.id,
-        name: session.user.name ?? session.user.email,
+        id: s.id,
+        name: s.name ?? s.email,
         image: userImage,
       },
       token,
     });
 
-    // Deferred to a microtask so no setState runs synchronously inside the
-    // effect body (react-hooks/set-state-in-effect). Behavior is unchanged:
-    // the client is available on the next microtask instead of immediately.
     queueMicrotask(() => setVideoClient(client));
 
     return () => {
+      clientCreatedRef.current = false;
       setVideoClient(null);
     };
-  }, [token, session, apiKey]);
+  }, [token, apiKey]);
 
+  // Create the call once per meetingId + client.
   useEffect(() => {
+    console.log('[CP] call effect fired', { hasClient: !!videoClient, meetingId });
     if (!videoClient || !meetingId) return;
 
+    let cancelled = false;
     const initCall = async () => {
       try {
         await createCallRef.current({ id: meetingId });
+        if (cancelled) return;
         const newCall = videoClient.call('default', meetingId);
         await newCall.getOrCreate();
+        if (cancelled) {
+          newCall.leave();
+          return;
+        }
         callRef.current = newCall;
         setCall(newCall);
       } catch (error) {
@@ -81,15 +100,24 @@ export const StreamCallProvider = ({ children, meetingId }: StreamCallProviderPr
     initCall();
 
     return () => {
-      callRef.current?.leave();
-      callRef.current = null;
-      setCall(null);
+      cancelled = true;
+      // Only leave on real unmount (component unmount), not on re-rend.
+      // We guard with a ref that tracks whether we are unmounting.
     };
   }, [videoClient, meetingId]);
 
+  // Separate unmount cleanup to leave the call.
+  useEffect(() => {
+    return () => {
+      console.log('[CP] UNMOUNT cleanup -> leave()');
+      callRef.current?.leave();
+      callRef.current = null;
+    };
+  }, []);
+
   if (isTokenLoading || isSessionLoading || isMeetingLoading || !call || !videoClient) {
     return (
-      <CallConnect 
+      <CallConnect
         meetingId={meetingId}
         meetingName={meeting?.name}
         userId={session?.user.id || ''}
@@ -104,7 +132,7 @@ export const StreamCallProvider = ({ children, meetingId }: StreamCallProviderPr
     <StreamVideo client={videoClient}>
       <StreamCall call={call}>
         <StreamTheme>
-          <CallConnect 
+          <CallConnect
             meetingId={meetingId}
             meetingName={meeting?.name}
             userId={session?.user.id || ''}
