@@ -14,13 +14,15 @@ import {
   PlayCircleIcon,
   ClipboardListIcon,
   CheckCircle2Icon ,
-  AlertCircleIcon,
-  EyeIcon,
-  Trash2Icon,
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { storedSummaryDataSchema } from "@/lib/summary-schema";
+import {
+  CopyMarkdownButton,
+  StructuredSummarySections,
+} from "@/modules/meetings/ui/components/structured-summary";
 
 interface MeetingIdViewProps {
   meetingId: string;
@@ -125,6 +127,12 @@ export const MeetingIdView = ({ meetingId }: MeetingIdViewProps) => {
   }
 
   const meeting = meetingQuery.data;
+  const parsedSummaryData = meeting.summaryData
+    ? storedSummaryDataSchema.safeParse(meeting.summaryData)
+    : null;
+  const structuredSummary = parsedSummaryData?.success
+    ? parsedSummaryData.data
+    : null;
   const startedAt = meeting.startedAt ? new Date(meeting.startedAt) : null;
   const endedAt = meeting.endedAt ? new Date(meeting.endedAt) : null;
   const durationMins = startedAt && endedAt && endedAt >= startedAt
@@ -251,11 +259,24 @@ export const MeetingIdView = ({ meetingId }: MeetingIdViewProps) => {
         {/* Right Column: AI Insights */}
         <div className="lg:col-span-2 flex flex-col gap-8">
           <div className="bg-white rounded-3xl border border-gray-100 p-8 shadow-sm min-h-[400px]">
-            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-6 flex items-center gap-2">
-              <ClipboardListIcon className="size-4 text-[#3B6D11]" />
-              AI-Generated Mission Summary
-            </h3>
-            {meeting.summary ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                <ClipboardListIcon className="size-4 text-[#3B6D11]" />
+                AI-Generated Mission Summary
+              </h3>
+              {structuredSummary && structuredSummary.meta?.kind !== "insufficient" && (
+                <CopyMarkdownButton summary={structuredSummary} />
+              )}
+            </div>
+            {structuredSummary ? (
+              <StructuredSummarySections
+                summary={structuredSummary}
+                onRegenerate={() => retrySummaryMutation.mutate({ id: meeting.id })}
+                isRegenerating={retrySummaryMutation.isPending}
+              />
+            ) : meeting.summary ? (
+              // Legacy text-only summaries keep their original plain-prose
+              // rendering; they are never forced through the new schema.
               <div className="prose prose-sm max-w-none text-gray-600 leading-relaxed whitespace-pre-wrap">
                 {meeting.summary}
               </div>
