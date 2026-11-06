@@ -3,12 +3,17 @@ import {
   buildSummaryMessages,
   createFallbackSummary,
   parseSummaryResponse,
+  removeDecisionsThatAreActionItems,
   summaryToMarkdown,
   storedSummaryDataSchema,
   TRANSCRIPT_END,
   TRANSCRIPT_START,
   type MeetingSummary,
 } from "../src/lib/summary-schema";
+import {
+  isLikelyAiSpeakerId,
+  parseStreamTranscript,
+} from "../src/lib/transcript-parser";
 import { generateStructuredSummaryFromSource } from "../src/lib/summary-generation";
 
 let passed = 0;
@@ -53,7 +58,180 @@ const VALID_SUMMARY: MeetingSummary = {
   openQuestions: ["Do we need legal review before the beta starts?"],
 };
 
+const DUPLICATE_SCENARIO = [
+  "Sarah: We need to decide on the launch date and the remaining budget for Project Atlas.",
+  "Marcus: Decision one: we launch on March 14th. Decision two: the remaining budget is 40,000.",
+  "Sarah: Agreed on both.",
+  "Priya: I will do the legal review before the beta starts.",
+  "Marcus: I will prepare the pricing page and send it to Sarah by Monday.",
+].join("\n");
+
+// The model returned "Priya will do the legal review" (a task) as a decision.
+const DUPLICATED_SUMMARY: MeetingSummary = {
+  overview:
+    "The team agreed to launch Project Atlas on March 14th with a remaining budget of 40,000.",
+  decisions: [
+    "Launch Project Atlas on March 14th.",
+    "The remaining budget is 40,000.",
+    "Priya will do the legal review.",
+  ],
+  actionItems: [
+    { task: "Do the legal review.", owner: "Priya", dueDate: null },
+    { task: "Prepare the pricing page and send it to Sarah.", owner: "Marcus", dueDate: "Monday" },
+  ],
+  topics: ["Project Atlas launch", "Budget"],
+  openQuestions: [],
+};
+
 async function main() {
+await test("prompt defines decisions vs action items with a good/bad example", () => {
+  const messages = buildSummaryMessages(SCENARIO);
+  const system = messages[0].content;
+  assert.match(system, /A DECISION is a choice or agreement the group made/);
+  assert.match(system, /An ACTION ITEM is work assigned to a person/);
+  assert.match(system, /NEVER also appear in decisions/);
+  assert.match(system, /Good example/);
+  assert.match(system, /Bad example/);
+  assert.match(system, /Priya will do the legal review/);
+});
+await test("guard drops decisions that restate an action item's task", () => {
+  const cleaned = removeDecisionsThatAreActionItems(DUPLICATED_SUMMARY);
+  assert.equal(cleaned.decisions.length, 2);
+  assert.deepEqual(cleaned.decisions, [
+    "Launch Project Atlas on March 14th.",
+    "The remaining budget is 40,000.",
+  ]);
+  // Action items and everything else are untouched.
+  assert.equal(cleaned.actionItems.length, 2);
+  assert.equal(cleaned.overview, DUPLICATED_SUMMARY.overview);
+});
+
+await test("guard keeps decisions with no counterpart action item", () => {
+  const cleaned = removeDecisionsThatAreActionItems({
+    ...DUPLICATED_SUMMARY,
+    actionItems: [
+      { task: "Do the legal review.", owner: "Priya", dueDate: null },
+      { task: "Prepare the pricing page and send it to Sarah.", owner: "Marcus", dueDate: "Monday" },
+    ],
+    decisions: [
+      "Launch Project Atlas on March 14th.",
+      "The remaining budget is 40,000.",
+      "The beta stays invite-only for two weeks.",
+    ],
+  });
+  assert.equal(cleaned.decisions.length, 3);
+});
+
+await test("guard handles owner-prefixed and high-overlap variants", () => {
+  const cleaned = removeDecisionsThatAreActionItems({
+    ...DUPLICATED_SUMMARY,
+    decisions: [
+      "Priya will update the rollout checklist by Friday",
+      "Launch on March 14th",
+    ],
+    actionItems: [
+      { task: "Update the rollout checklist", owner: "Priya", dueDate: "Friday" },
+    ],
+  });
+  assert.equal(cleaned.decisions.length, 1);
+  assert.deepEqual(cleaned.decisions, ["Launch on March 14th"]);
+});
+
+await test("guard leaves summaries with no overlap unchanged", () => {
+  const cleaned = removeDecisionsThatAreActionItems({
+    ...DUPLICATED_SUMMARY,
+    decisions: ["Launch on March 14th"],
+    actionItems: [
+      { task: "Prepare the pricing page entirely", owner: "Marcus", dueDate: null },
+    ],
+  });
+  assert.equal(cleaned.decisions.length, 1);
+});
+
+await test("parse pipeline applies the decision/task guard", () => {
+  const parsed = parseSummaryResponse(
+    JSON.stringify(DUPLICATED_SUMMARY),
+    DUPLICATE_SCENARIO,
+  );
+  assert.equal(parsed.success, true);
+  if (parsed.success) {
+    assert.equal(parsed.data.decisions.length, 2);
+    assert.ok(!parsed.data.decisions.some((d) => /legal review/i.test(d)));
+    assert.equal(parsed.data.actionItems.length, 2);
+  }
+});
+
+await test("two-decision scenario parses to exactly two decisions", () => {
+  const parsed = parseSummaryResponse(
+    JSON.stringify({ ...DUPLICATED_SUMMARY, decisions: DUPLICATED_SUMMARY.decisions.slice(0, 2) }),
+    DUPLICATE_SCENARIO,
+  );
+  assert.equal(parsed.success, true);
+  if (parsed.success) {
+    assert.equal(parsed.data.decisions.length, 2);
+    assert.equal(parsed.data.actionItems.length, 2);
+  }
+});
+
+await test("transcript parser handles the real Stream JSONL format", () => {
+  const raw = [
+    '{"type":"speech","start_time":"2026-11-06T09:00:01Z","stop_time":"2026-11-06T09:00:04Z","speaker_id":"usr_1","text":"Let us pick the launch date."}',
+    '{"type":"speech","start_time":"2026-11-06T09:00:05Z","stop_time":"2026-11-06T09:00:09Z","speaker_id":"usr_2","text":"March 14th works for me."}',
+    '{"type":"non_speech","start_time":"2026-11-06T09:00:10Z","stop_time":"2026-11-06T09:00:11Z","speaker_id":"usr_1","text":"metadata noise"}',
+  ].join("\n");
+  const parsed = parseStreamTranscript(raw, { usr_1: "Sarah", usr_2: "Marcus" });
+  assert.ok(parsed);
+  assert.equal(parsed.segments, 2);
+  assert.deepEqual(parsed.speakers, ["Sarah", "Marcus"]);
+  assert.ok(parsed.text.includes("Sarah: Let us pick the launch date."));
+  assert.ok(parsed.text.includes("Marcus: March 14th works for me."));
+  assert.ok(!parsed.text.includes("metadata noise"));
+});
+
+await test("transcript parser maps unknown and AI-like speaker ids", () => {
+  const raw = [
+    '{"type":"speech","speaker_id":"Priya_Sharma","text":"Good idea."}',
+    '{"type":"speech","speaker_id":"ai_agent_1","text":"I summarized the discussion."}',
+    '{"type":"speech","speaker_id":"usr_x","text":"Thanks."}',
+  ].join("\n");
+  const parsed = parseStreamTranscript(raw, {});
+  assert.ok(parsed);
+  assert.deepEqual(parsed.speakers, [
+    "Priya Sharma",
+    "AI Assistant (non-human)",
+    "usr x",
+  ]);
+  assert.equal(isLikelyAiSpeakerId("ai_agent_1"), true);
+  assert.equal(isLikelyAiSpeakerId("usr_x"), false);
+});
+
+await test("transcript parser sorts fragments by start time and rejects empty input", () => {
+  const raw = [
+    '{"type":"speech","start_time":"2026-11-06T09:00:30Z","speaker_id":"a","text":"second"}',
+    '{"type":"speech","start_time":"2026-11-06T09:00:20Z","speaker_id":"a","text":"first"}',
+  ].join("\n");
+  const parsed = parseStreamTranscript(raw, {});
+  assert.ok(parsed);
+  assert.ok(parsed.text.indexOf("first") < parsed.text.indexOf("second"));
+  assert.equal(parseStreamTranscript("", {}), null);
+  assert.equal(parseStreamTranscript("   \n  ", {}), null);
+});
+
+await test("transcript parser falls back to JSON arrays and raw text", () => {
+  const arrayInput = JSON.stringify([
+    { type: "speech", start_time: "09:00:01", speaker_id: "u1", text: "hello" },
+    { type: "speech", start_time: "09:00:02", speaker_id: "u1", text: "world" },
+  ]);
+  const parsedArray = parseStreamTranscript(arrayInput, { u1: "Sarah" });
+  assert.ok(parsedArray);
+  assert.equal(parsedArray.segments, 2);
+  assert.ok(parsedArray.text.includes("Sarah: hello"));
+
+  const parsedRaw = parseStreamTranscript("Plain prose transcript line.", {});
+  assert.ok(parsedRaw);
+  assert.equal(parsedRaw.text, "Plain prose transcript line.");
+});
+
 await test("prompt builder puts transcript in delimited untrusted data", () => {
   const messages = buildSummaryMessages(SCENARIO);
   assert.equal(messages[0].role, "system");

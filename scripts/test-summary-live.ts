@@ -86,6 +86,43 @@ assert.ok(
 );
 console.log("PASS distinctive scenario (2 decisions, 3 owned actions, 2 topics)");
 
+const DUPLICATE_SCENARIO = [
+  "Sarah: We need to decide on the launch date and the remaining budget for Project Atlas.",
+  "Marcus: Decision one: we launch on March 14th. Decision two: the remaining budget is 40,000.",
+  "Sarah: Agreed on both.",
+  "Priya: I will do the legal review before the beta starts.",
+  "Marcus: I will prepare the pricing page and send it to Sarah by Monday.",
+].join("\n");
+
+const dedup = await run("decision/task dedupe scenario", DUPLICATE_SCENARIO);
+assert.equal(dedup.meta?.kind, "structured");
+assert.equal(dedup.decisions.length, 2, "tasks assigned to a person must not be listed as decisions");
+assert.ok(
+  dedup.decisions.every(
+    (decision) => !/legal review|pricing page/i.test(decision),
+  ),
+  "no assigned task may appear under decisions",
+);
+assert.ok(
+  dedup.actionItems.length >= 2,
+  "expected the two assigned tasks as action items",
+);
+assert.ok(
+  dedup.actionItems.every(
+    (item) => item.owner === null || ["Sarah", "Marcus", "Priya"].includes(item.owner),
+  ),
+  "no invented people may appear as owners",
+);
+assert.ok(
+  dedup.actionItems.some((item) => /legal review/i.test(item.task) && item.owner === "Priya"),
+  "Priya must own the legal review task",
+);
+assert.ok(
+  dedup.actionItems.some((item) => /pricing page/i.test(item.task) && item.owner === "Marcus"),
+  "Marcus must own the pricing page task",
+);
+console.log("PASS dedupe scenario (2 decisions, 2 assigned tasks, no task in decisions)");
+
 const PTT_SOURCE = [
   "User: Can you help me plan the customer onboarding email sequence for the new analytics product?",
   "AI: Yes. I suggest a five-email sequence starting with a welcome message, then setup guidance, a use-case story, a check-in, and finally an upgrade prompt.",

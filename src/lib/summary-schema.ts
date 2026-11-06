@@ -102,6 +102,23 @@ Schema:
   "openQuestions": string[]                   // <= ${SUMMARY_LIMITS.openQuestions} items
 }
 
+Definitions:
+- A DECISION is a choice or agreement the group made together (e.g. "launch on Friday", "the budget is 40,000"). It states what was agreed, not who will do work.
+- An ACTION ITEM is work assigned to a person. If something is assigned to a person, it belongs ONLY in actionItems.
+- A task assigned to a person must NEVER also appear in decisions. The two lists are mutually exclusive for tasks.
+
+Good example (illustration only, not transcript content):
+{
+  "decisions": ["Launch on Friday", "The budget is 40,000"],
+  "actionItems": [{"task": "Do the legal review", "owner": "Priya", "dueDate": null}]
+}
+Bad example (never do this - the task appears in both lists):
+{
+  "decisions": ["Launch on Friday", "Priya will do the legal review"],
+  "actionItems": [{"task": "Do the legal review", "owner": "Priya", "dueDate": null}]
+}
+In the bad example, "Priya will do the legal review" is work assigned to a person, so it must be removed from decisions and kept only in actionItems.
+
 Rules:
 1. Use only information explicitly present in the transcript. Do not invent decisions, action items, names, dates or questions.
 2. If an action item has no named owner in the transcript, set owner to null. Never infer a person.
@@ -239,6 +256,93 @@ export function sanitizeSummaryOwners(
   };
 }
 
+/** Words that carry no meaning when comparing texts for near-duplication. */
+const DUPLICATE_STOP_WORDS = new Set([
+  "a", "an", "the", "and", "or", "but", "to", "for", "of", "on", "in", "by",
+  "at", "as", "is", "are", "be", "been", "was", "were", "will", "would",
+  "shall", "should", "that", "this", "it", "its", "we", "our", "us",
+]);
+
+function normalizeComparable(text: string, owner?: string | null): string {
+  let normalized = text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (owner && owner.trim()) {
+    // A decision that names its owner ("Priya will do the legal review")
+    // must still match the owner-less task ("Do the legal review.").
+    const ownerWords = owner
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}\s]/gu, " ")
+      .split(/\s+/)
+      .filter((word) => word.length >= 2 && !DUPLICATE_STOP_WORDS.has(word));
+    for (const word of ownerWords) {
+      normalized = normalized
+        .split(` ${word} `)
+        .join(" ")
+        .replace(new RegExp(`^${word} `), "")
+        .replace(new RegExp(` ${word}$`), "");
+    }
+  }
+
+  return normalized
+    .split(" ")
+    .filter((word) => word.length > 0 && !DUPLICATE_STOP_WORDS.has(word))
+    .join(" ");
+}
+
+function wordsOf(normalized: string): string[] {
+  return normalized ? normalized.split(" ").filter((word) => word && !DUPLICATE_STOP_WORDS.has(word)) : [];
+}
+
+function isNearDuplicate(a: string, b: string): boolean {
+  if (!a || !b) return false;
+  if (a === b) return true;
+
+  const aWords = wordsOf(a);
+  const bWords = wordsOf(b);
+  if (aWords.length === 0 || bWords.length === 0) return false;
+
+  // Containment: one text fully contains the other ("update the rollout
+  // checklist" inside "Priya will update the rollout checklist by Friday").
+  const shorter = a.length <= b.length ? a : b;
+  const longer = a.length <= b.length ? b : a;
+  if (shorter.length >= 4 && longer.includes(shorter)) return true;
+
+  // High word overlap: shared content words relative to the shorter text.
+  const aSet = new Set(aWords);
+  const shared = bWords.filter((word) => aSet.has(word)).length;
+  return shared / Math.min(aWords.length, bWords.length) >= 0.7;
+}
+
+/**
+ * Pure post-processing guard: the model is told that tasks never belong in
+ * decisions, but if it duplicates anyway, drop the decision that restates an
+ * action item's task. Near-identity is judged on normalized text (punctuation
+ * and stop words removed) with owner names stripped, so "Priya will do the
+ * legal review" matches the task "Do the legal review."
+ */
+export function removeDecisionsThatAreActionItems(
+  summary: MeetingSummary,
+): MeetingSummary {
+  if (summary.decisions.length === 0 || summary.actionItems.length === 0) {
+    return summary;
+  }
+
+  const taskKeys = summary.actionItems.map((item) =>
+    normalizeComparable(item.task, item.owner),
+  );
+
+  const decisions = summary.decisions.filter((decision) => {
+    const decisionKey = normalizeComparable(decision);
+    return !taskKeys.some((taskKey) => isNearDuplicate(decisionKey, taskKey));
+  });
+
+  return { ...summary, decisions };
+}
+
 /**
  * Parse a model response, repair common wrapping, validate with zod and
  * sanitize owners against the source. Invalid output is never returned.
@@ -267,7 +371,10 @@ export function parseSummaryResponse(
 
   return {
     success: true,
-    data: sanitizeSummaryOwners(parsed.data, source),
+    data: sanitizeSummaryOwners(
+      removeDecisionsThatAreActionItems(parsed.data),
+      source,
+    ),
   };
 }
 

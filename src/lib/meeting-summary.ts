@@ -13,96 +13,33 @@ import {
   isSummarySourceTooShort,
   type StoredMeetingSummary,
 } from "./summary-schema";
+import { parseStreamTranscript } from "./transcript-parser";
+import { user } from "@/db/schema";
 
 const TRANSCRIPT_CHAR_CAP = 12000;
 
 /**
- * Best-effort fetch + parse of a Stream transcription file into a plain-text,
- * speaker-labeled transcript. Returns null when the file can't be fetched or
- * parsed. The format varies (JSON array, JSONL, or plain text), so we try a
- * few shapes and fall back to the raw body.
+ * Fetch a Stream transcription file and parse it with the pure Stream JSONL
+ * parser. speaker_id values are Stream user ids; they are mapped to display
+ * names via knownUsers (currently the meeting owner).
  */
-async function fetchTranscriptText(url: string): Promise<string | null> {
+async function fetchTranscriptText(
+  url: string,
+  knownUsers: Record<string, string>,
+): Promise<string | null> {
   try {
     const res = await fetch(url);
     if (!res.ok) return null;
     const raw = await res.text();
-    if (!raw.trim()) return null;
 
-    // Try JSON first.
-    try {
-      const json = JSON.parse(raw);
-      const segments: unknown[] = Array.isArray(json)
-        ? json
-        : Array.isArray((json as { segments?: unknown[] })?.segments)
-          ? (json as { segments: unknown[] }).segments
-          : Array.isArray((json as { transcript?: unknown[] })?.transcript)
-            ? (json as { transcript: unknown[] }).transcript
-            : Array.isArray((json as { results?: unknown[] })?.results)
-              ? (json as { results: unknown[] }).results
-              : [];
-
-      if (segments.length > 0) {
-        const lines = segments
-          .map((s) => {
-            const obj = s as Record<string, unknown>;
-            const speaker =
-              (obj.speaker as string) ||
-              (obj.speaker_name as string) ||
-              (obj.participant as string) ||
-              (obj.user as string) ||
-              (obj.name as string) ||
-              "Speaker";
-            const text =
-              (obj.text as string) ||
-              (obj.transcript as string) ||
-              (obj.content as string) ||
-              (obj.value as string) ||
-              "";
-            return text ? `${speaker}: ${text}` : null;
-          })
-          .filter(Boolean) as string[];
-        if (lines.length > 0) return lines.join("\n");
-      }
-    } catch {
-      // Not JSON; try JSONL below.
+    const parsed = parseStreamTranscript(raw, knownUsers);
+    if (!parsed) {
+      console.log(
+        JSON.stringify({ event: "summary.transcript_parse_failed", urlLength: url.length }),
+      );
+      return null;
     }
-
-    // Try JSONL.
-    const jsonlLines = raw
-      .split(/\n+/)
-      .map((l) => l.trim())
-      .filter(Boolean);
-    const parsedJsonl: string[] = [];
-    let allJson = true;
-    for (const line of jsonlLines) {
-      try {
-        const obj = JSON.parse(line) as Record<string, unknown>;
-        const speaker =
-          (obj.speaker as string) ||
-          (obj.speaker_name as string) ||
-          (obj.participant as string) ||
-          (obj.user as string) ||
-          (obj.name as string) ||
-          "Speaker";
-        const text =
-          (obj.text as string) ||
-          (obj.transcript as string) ||
-          (obj.content as string) ||
-          (obj.value as string) ||
-          "";
-        if (text) parsedJsonl.push(`${speaker}: ${text}`);
-      } catch {
-        allJson = false;
-        break;
-      }
-    }
-    if (allJson && parsedJsonl.length > 0) {
-      return parsedJsonl.join("\n");
-    }
-
-    // Fall back to raw text.
-    return raw;
+    return parsed.text;
   } catch (error) {
     console.error(
       `fetchTranscriptText failed: ${error instanceof Error ? error.name : "unknown error"}`,
@@ -126,9 +63,10 @@ export async function generateMeetingSummary(
   const startedAt = Date.now();
 
   try {
-    // 1. Load meeting (for transcriptUrl + existing summary/source)
+    // 1. Load meeting (for transcriptUrl + existing summary/source + owner)
     const [existing] = await db
       .select({
+        userId: meetings.userId,
         summary: meetings.summary,
         summaryData: meetings.summaryData,
         summarySource: meetings.summarySource,
@@ -144,10 +82,24 @@ export async function generateMeetingSummary(
       return;
     }
 
+    // Map Stream user ids (transcript speaker_id) to display names. The only
+    // guaranteed Stream member is the meeting owner; other human members
+    // would need to be added to this map when member management exists.
+    const [owner] = await db
+      .select({ id: user.id, name: user.name })
+      .from(user)
+      .where(eq(user.id, existing.userId));
+    const knownUsers: Record<string, string> = owner
+      ? { [owner.id]: owner.name }
+      : {};
+
     // Fetch transcript text if a transcript URL is available.
     let transcriptText: string | null = null;
     if (existing.transcriptUrl) {
-      transcriptText = await fetchTranscriptText(existing.transcriptUrl);
+      transcriptText = await fetchTranscriptText(
+        existing.transcriptUrl,
+        knownUsers,
+      );
       if (transcriptText && transcriptText.length > TRANSCRIPT_CHAR_CAP) {
         transcriptText =
           transcriptText.slice(0, TRANSCRIPT_CHAR_CAP) +
