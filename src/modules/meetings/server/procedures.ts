@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { meetings, agents, activities, conversationMessages, voiceInteractions, user } from "@/db/schema";
+import { meetings, agents, activities, voiceInteractions, user } from "@/db/schema";
 import { createTRPCRouter, protectedProcedure } from "@/trpc/init";
 import { TRPCError } from "@trpc/server";
 import { meetingsInsertSchema, meetingsUpdateSchema } from "../schemas";
@@ -8,9 +8,47 @@ import { eq, and, desc, count, ilike, sql } from "drizzle-orm";
 import { DEFAULT_PAGE, DEFAULT_PAGE_SIZE } from "@/constants";
 import { meetingStatus as meetingStatusEnum } from "@/db/schema";
 import { streamVideo } from "@/lib/stream-video";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
 import { after } from "next/server";
+
+/**
+ * Extract safe diagnostics from a Stream SDK error. The SDK throws
+ * `StreamError` with:
+ * - `metadata.responseCode`: the HTTP status of the failed request
+ * - `code`: the Stream API error code (e.g. 12)
+ * - `message`: "Stream error code <code>: <api message>" (no PII)
+ * The message is truncated and only the name is kept for unknown errors.
+ */
+export function describeStreamError(error: unknown): {
+  httpStatus: number | null;
+  errorCode: number | null;
+  message: string;
+} {
+  const truncated = (value: string) => value.slice(0, 200);
+  if (error && typeof error === "object" && "metadata" in error) {
+    const streamError = error as {
+      metadata?: { responseCode?: number };
+      code?: number;
+      message?: unknown;
+    };
+    return {
+      httpStatus:
+        typeof streamError.metadata?.responseCode === "number"
+          ? streamError.metadata.responseCode
+          : null,
+      errorCode: typeof streamError.code === "number" ? streamError.code : null,
+      message: truncated(
+        typeof streamError.message === "string" ? streamError.message : "",
+      ),
+    };
+  }
+  return {
+    httpStatus: null,
+    errorCode: null,
+    message: truncated(
+      error instanceof Error ? `${error.name}: ${error.message}` : "unknown error",
+    ),
+  };
+}
 
 import { generateMeetingSummary } from "@/lib/meeting-summary";
 
@@ -79,23 +117,62 @@ export const meetingsRouter = createTRPCRouter({
 
       const call = streamVideo.video.call("default", meeting.id);
 
-      await call.getOrCreate({
-        data: {
-          created_by_id: ctx.userId,
-          // Explicitly scope the call to its owner so other authenticated users
-          // cannot join even if they know the meeting id.
-          members: [{ user_id: ctx.userId, role: "admin" }],
-          settings_override: {
-            recording: {
-              mode: "available",
-              quality: "720p",
-            },
-            transcription: {
-              mode: "available",
+      try {
+        const response = await call.getOrCreate({
+          data: {
+            created_by_id: ctx.userId,
+            // Explicitly scope the call to its owner so other authenticated users
+            // cannot join even if they know the meeting id.
+            members: [{ user_id: ctx.userId, role: "admin" }],
+            settings_override: {
+              recording: {
+                mode: "available",
+                quality: "720p",
+              },
+              transcription: {
+                // "available" only makes the feature *available*; the transcript
+                // must be started explicitly via startTranscription(). "auto-on"
+                // starts transcription automatically when the first participant
+                // joins and stops it when all participants leave, and the
+                // call.transcription_ready webhook fires with the file URL.
+                mode: "auto-on",
+              },
             },
           },
-        },
-      });
+        });
+
+        // Verify Stream actually accepted the transcription settings: the
+        // response echoes the effective call settings back.
+        const effectiveMode = response.call.settings.transcription?.mode;
+        console.log(
+          JSON.stringify({
+            event: "transcription.settings_applied",
+            meetingId: meeting.id,
+            requestedMode: "auto-on",
+            effectiveMode: effectiveMode ?? "unknown",
+            matchesRequested: effectiveMode === "auto-on",
+            transcribing: response.call.transcribing,
+          }),
+        );
+      } catch (error) {
+        // If Stream rejects the settings (or the call creation), surface the
+        // rejection with safe diagnostics so misconfiguration is visible
+        // instead of silently producing transcript-less calls.
+        const details = describeStreamError(error);
+        console.error(
+          JSON.stringify({
+            event: "transcription.settings_rejected",
+            meetingId: meeting.id,
+            requestedMode: "auto-on",
+            httpStatus: details.httpStatus,
+            errorCode: details.errorCode,
+            message: details.message,
+          }),
+        );
+        // Call creation itself failed — keep the previous behavior so the
+        // call flow surfaces the error as before.
+        throw error;
+      }
 
       if (meeting.status === "scheduled") {
         await db
@@ -251,6 +328,7 @@ export const meetingsRouter = createTRPCRouter({
           duration: sql<number | null>`CASE WHEN ${meetings.endedAt} IS NOT NULL AND ${meetings.startedAt} IS NOT NULL AND ${meetings.endedAt} >= ${meetings.startedAt} THEN EXTRACT(EPOCH FROM (${meetings.endedAt} - ${meetings.startedAt})) / 60 ELSE NULL END`,
           transcriptUrl: meetings.transcriptUrl,
           summary: meetings.summary,
+          summaryData: meetings.summaryData,
           summaryError: meetings.summaryError,
           summarySource: meetings.summarySource,
           recordingUrl: meetings.recordingUrl,
@@ -398,6 +476,29 @@ export const meetingsRouter = createTRPCRouter({
       //    (they may not be ready immediately — fail silently if not available)
       try {
         const streamCall = streamVideo.video.call("default", input.id);
+        // 5a. Best-effort explicit stop so the transcription file is finalized
+        //     even if a call member stays connected after "end call".
+        //     With mode "auto-on" Stream already stops when everyone leaves;
+        //     calling stop here simply short-circuits that wait. Harmless if
+        //     transcription is not running (error is swallowed below).
+        const stopResult = await streamCall
+          .stopTranscription()
+          .then(
+            () =>
+              JSON.stringify({
+                event: "transcription.stop_requested",
+                meetingId: input.id,
+              }),
+            (error: unknown) =>
+              JSON.stringify({
+                event: "transcription.stop_skipped",
+                meetingId: input.id,
+                errorName: error instanceof Error ? error.name : "unknown error",
+                ...describeStreamError(error),
+              }),
+          );
+        console.log(stopResult);
+
         const [recordingsResult, transcriptionsResult] = await Promise.allSettled([
           streamCall.listRecordings(),
           streamCall.listTranscriptions(),
@@ -462,7 +563,7 @@ export const meetingsRouter = createTRPCRouter({
         .set({ summaryError: null })
         .where(and(eq(meetings.id, input.id), eq(meetings.userId, ctx.userId)));
 
-      await generateMeetingSummary(input.id);
+      await generateMeetingSummary(input.id, { force: true });
       return { success: true };
     }),
 });

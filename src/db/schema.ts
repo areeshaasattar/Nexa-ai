@@ -1,6 +1,7 @@
-import { pgTable, text, timestamp, boolean, index, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, boolean, index, integer, jsonb } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { nanoid } from "nanoid";
+import type { StoredMeetingSummary } from "@/lib/summary-schema";
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -122,6 +123,7 @@ export const meetings = pgTable(
     endedAt: timestamp("ended_at"),
     transcriptUrl: text("transcript_url"),
     summary: text("summary"),
+    summaryData: jsonb("summary_data").$type<StoredMeetingSummary>(),
     summaryError: text("summary_error"),
     summarySource: text("summary_source"),
     recordingUrl: text("recording_url"),

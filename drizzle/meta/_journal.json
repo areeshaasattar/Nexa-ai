@@ -15,6 +15,13 @@
       "when": 1793799001957,
       "tag": "0001_noisy_famine",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793900520512,
+      "tag": "0002_last_skullbuster",
+      "breakpoints": true
     }
   ]
 }

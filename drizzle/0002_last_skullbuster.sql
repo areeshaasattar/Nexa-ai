@@ -1,0 +1,1 @@
+ALTER TABLE "meetings" ADD COLUMN "summary_data" jsonb;
