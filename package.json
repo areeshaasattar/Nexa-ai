@@ -11,6 +11,8 @@
     "test:summary:live": "tsx scripts/test-summary-live.ts",
     "test:transcript-parser": "tsx scripts/test-transcript-parser.ts",
     "test:webhook-replay": "tsx scripts/test-webhook-replay.ts",
+    "test:seed-starter-agent": "tsx scripts/test-seed-starter-agent.ts",
+    "seed:starter-agent": "tsx scripts/backfill-starter-agent.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",

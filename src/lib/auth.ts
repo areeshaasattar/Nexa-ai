@@ -4,6 +4,7 @@ import { db } from "@/db"
 import * as schema from "@/db/schema"
 import { sendPasswordResetEmail, sendVerificationEmail } from "@/lib/email"
 import { after } from "next/server"
+import { seedStarterAgent } from "@/lib/seed-starter-agent"
 
 /**
  * Build the password-reset link that goes in the email.
@@ -59,6 +60,19 @@ export const auth = betterAuth({
     },
     databaseHooks: {
         user: {
+            create: {
+                after: async (user) => {
+                    // Run seeding after the response so it never delays signup, while
+                    // staying alive on serverless runtimes (same pattern as email).
+                    // seedStarterAgent catches all errors and never rethrows.
+                    after(() => {
+                        void seedStarterAgent(user.id).catch(() => {
+                            // Defense in depth: seedStarterAgent must not throw, but
+                            // this ensures the hook can never fail signup.
+                        });
+                    });
+                },
+            },
             update: {
                 before: async (data) => {
                     if (
