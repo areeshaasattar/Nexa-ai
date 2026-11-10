@@ -1,7 +1,7 @@
 'use client';
 
 import type { Message } from "@/hooks/use-voice-assistant";
-import { Mic, MicOff, Loader2, Send, X, Bot, User, MessageSquare, Volume2, VolumeX, Square } from "lucide-react";
+import { Mic, MicOff, Loader2, Send, X, Bot, User, MessageSquare, Volume2, VolumeX, Square, AlertCircle, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useState, useEffect, useRef, type KeyboardEvent } from "react";
@@ -27,6 +27,7 @@ interface VoiceAssistantProps {
   onStartListening: () => void;
   onStopListening: () => void;
   onSendText: (text: string) => void;
+  onRetry: (prompt: string) => void;
   onClose?: () => void;
   voiceEnabled: boolean;
   onToggleVoice: () => void;
@@ -43,6 +44,7 @@ export const VoiceAssistant = ({
   onStartListening,
   onStopListening,
   onSendText,
+  onRetry,
   onClose,
   voiceEnabled,
   onToggleVoice,
@@ -146,61 +148,92 @@ export const VoiceAssistant = ({
             )}
 
             {/* Message bubbles */}
-            {messages.map((m, i) => (
-              <div key={i} className={cn(
-                'flex flex-col gap-1 min-w-0',
-                m.role === 'user' ? 'items-end' : 'items-start'
-              )}>
-                {/* Label */}
-                <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-1
-                  text-slate-400">
-                  {m.role === 'user' ? (
-                    <><User className="size-2.5" /> You</>
-                  ) : (
-                    <><Bot className="size-2.5" /> {AGENT_NAME}</>
-                  )}
-                </span>
-                {/* Bubble */}
-                <div className={cn(
-                  'max-w-[85%] min-w-0 max-w-full rounded-2xl px-3 py-2 text-sm leading-relaxed break-words',
-                  m.role === 'user' 
-                    ? 'bg-emerald-600 text-white rounded-tr-none shadow-md shadow-emerald-200 whitespace-pre-wrap' 
-                    : 'bg-slate-100 text-slate-700 rounded-tl-none border border-slate-200/50'
-                )}>
-                  {m.role === 'ai' ? (
-                    <div className="flex flex-col gap-2">
-                      <MarkdownMessage content={m.content} />
-                      {speechSupported && m.id && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (speakingMessageId === m.id) {
-                              onStopSpeaking();
-                            } else {
-                              onSpeakMessage(m.id!, m.content);
-                            }
-                          }}
-                          aria-label={
-                            speakingMessageId === m.id
-                              ? "Stop listening"
-                              : "Listen to this reply"
-                          }
-                          className="self-end inline-flex items-center justify-center size-9 rounded-lg text-slate-400 opacity-70 transition-opacity hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 hover:text-green-700 focus:text-green-700 focus:outline-none focus:ring-1 focus:ring-green-500"
-                        >
-                          {speakingMessageId === m.id ? (
-                            <Square className="size-3.5" />
-                          ) : (
-                            <Volume2 className="size-3.5" />
+            {messages.map((m, i) => {
+              if (m.role === 'error') {
+                return (
+                  <div key={m.id ?? i} className="flex flex-col gap-1 min-w-0 items-start">
+                    <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-1 text-red-400">
+                      <AlertCircle className="size-2.5" /> {AGENT_NAME}
+                    </span>
+                    <div className="max-w-[85%] min-w-0 rounded-2xl rounded-tl-none px-3 py-2 text-sm leading-relaxed break-words bg-red-50 text-red-700 border border-red-200/70">
+                      <div className="flex items-start gap-2">
+                        <AlertCircle className="size-4 mt-0.5 shrink-0 text-red-500" />
+                        <div className="min-w-0">
+                          <p className="text-sm text-red-700">{m.content}</p>
+                          {m.retryPrompt && (
+                            <button
+                              type="button"
+                              onClick={() => onRetry(m.retryPrompt!)}
+                              disabled={isProcessing}
+                              className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-red-200 bg-white px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-100/60 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <RotateCcw className="size-3" />
+                              Try again
+                            </button>
                           )}
-                        </button>
-                      )}
+                        </div>
+                      </div>
                     </div>
-                  ) : (
-                    m.content
-                  )}
+                  </div>
+                );
+              }
+
+              return (
+                <div key={m.id ?? i} className={cn(
+                  'flex flex-col gap-1 min-w-0',
+                  m.role === 'user' ? 'items-end' : 'items-start'
+                )}>
+                  {/* Label */}
+                  <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-1
+                    text-slate-400">
+                    {m.role === 'user' ? (
+                      <><User className="size-2.5" /> You</>
+                    ) : (
+                      <><Bot className="size-2.5" /> {AGENT_NAME}</>
+                    )}
+                  </span>
+                  {/* Bubble */}
+                  <div className={cn(
+                    'max-w-[85%] min-w-0 max-w-full rounded-2xl px-3 py-2 text-sm leading-relaxed break-words',
+                    m.role === 'user' 
+                      ? 'bg-emerald-600 text-white rounded-tr-none shadow-md shadow-emerald-200 whitespace-pre-wrap' 
+                      : 'bg-slate-100 text-slate-700 rounded-tl-none border border-slate-200/50'
+                  )}>
+                    {m.role === 'ai' ? (
+                      <div className="flex flex-col gap-2">
+                        <MarkdownMessage content={m.content} />
+                        {speechSupported && m.id && m.content && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (speakingMessageId === m.id) {
+                                onStopSpeaking();
+                              } else {
+                                onSpeakMessage(m.id!, m.content);
+                              }
+                            }}
+                            aria-label={
+                              speakingMessageId === m.id
+                                ? "Stop listening"
+                                : "Listen to this reply"
+                            }
+                            className="self-end inline-flex items-center justify-center size-9 rounded-lg text-slate-400 opacity-70 transition-opacity hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100 hover:text-green-700 focus:text-green-700 focus:outline-none focus:ring-1 focus:ring-green-500"
+                          >
+                            {speakingMessageId === m.id ? (
+                              <Square className="size-3.5" />
+                            ) : (
+                              <Volume2 className="size-3.5" />
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      m.content
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
 
             {/* Typing indicator (AI is thinking) */}
             {showTyping && (

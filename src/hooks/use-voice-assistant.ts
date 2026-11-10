@@ -5,9 +5,12 @@ import { trpc } from "@/trpc/client";
 import { toast } from "sonner";
 
 export interface Message {
-  role: 'user' | 'ai';
+  role: 'user' | 'ai' | 'error';
   content: string;
   id?: string;
+  /** For role='error': prompt to resend when user clicks "Try again". */
+  retryPrompt?: string;
+  code?: string;
 }
 
 interface UseVoiceAssistantProps {
@@ -205,9 +208,11 @@ export const useVoiceAssistant = ({ agentId, meetingId }: UseVoiceAssistantProps
             body = null;
           }
           const isDaily = body?.error === "daily_limit";
-          const message = body?.message || (isDaily
-            ? "You have used today's voice limit. Try again tomorrow."
-            : "Slow down a little.");
+          const message =
+            body?.message ||
+            (isDaily
+              ? "You have used today's voice limit. Try again tomorrow."
+              : "Slow down a little.");
           toast.error(message);
           stopListening();
           // Leave UI in a usable idle state; do not auto-retry and do not persist blocked requests.
@@ -215,19 +220,24 @@ export const useVoiceAssistant = ({ agentId, meetingId }: UseVoiceAssistantProps
         }
 
         if (!response.ok || !response.body) {
-          let errMsg = "Request failed";
+          let errMsg = "Something went wrong with the AI. Please try again.";
+          let code: string | undefined;
           try {
             const d = await response.json();
-            if (d?.code === 'AI_PROVIDER_RATE_LIMITED') {
-              toast.error("AI service is temporarily rate-limited", {
-                description: "Please wait before retrying.",
-              });
-              errMsg = "The AI service is temporarily rate-limited. Please wait a moment and try again.";
-            } else if (d?.error) {
-              errMsg = d.error;
-            }
+            if (typeof d?.message === "string") errMsg = d.message;
+            else if (typeof d?.error === "string") errMsg = d.error;
+            if (typeof d?.code === "string") code = d.code;
           } catch { /* ignore */ }
-          setMessages((prev) => [...prev, { role: 'ai', content: `Error: ${errMsg}` }]);
+          setMessages((prev) => [
+            ...prev,
+            {
+              role: 'error',
+              content: errMsg,
+              code,
+              retryPrompt: text,
+              id: `${Date.now()}-err`,
+            },
+          ]);
           return;
         }
 
@@ -243,6 +253,7 @@ export const useVoiceAssistant = ({ agentId, meetingId }: UseVoiceAssistantProps
         let buffer = "";
         let fullText = "";
         let firstByteLogged = false;
+        let streamError: { code?: string; message?: string } | null = null;
 
         try {
           while (true) {
@@ -260,7 +271,7 @@ export const useVoiceAssistant = ({ agentId, meetingId }: UseVoiceAssistantProps
               if (!trimmed.startsWith("data:")) continue;
               const dataStr = trimmed.slice(5).trim();
               if (!dataStr) continue;
-              let evt: { type: string; text?: string; message?: string };
+              let evt: { type: string; text?: string; message?: string; code?: string };
               try { evt = JSON.parse(dataStr); } catch { continue; }
               if (evt.type === "delta" && evt.text) {
                 fullText += evt.text;
@@ -268,15 +279,33 @@ export const useVoiceAssistant = ({ agentId, meetingId }: UseVoiceAssistantProps
                   prev.map((m) => (m.id === aiId ? { ...m, content: fullText } : m)),
                 );
               } else if (evt.type === "error") {
-                toast.error(evt.message || "Stream failed");
-                setMessages((prev) =>
-                  prev.map((m) => (m.id === aiId ? { ...m, content: `Error: ${evt.message}` } : m)),
-                );
+                streamError = { code: evt.code, message: evt.message };
+              } else if (evt.type === "done") {
+                // handled after loop
               }
             }
+            if (streamError) break;
           }
         } finally {
           reader.releaseLock();
+        }
+
+        if (streamError) {
+          // Never persist errors and never speak them. Show distinct error UI.
+          setMessages((prev) => {
+            const withoutPlaceholder = prev.filter((m) => !(m.role === 'ai' && m.id === aiId && !m.content));
+            return [
+              ...withoutPlaceholder,
+              {
+                role: 'error',
+                content: streamError?.message || "Something went wrong with the AI. Please try again.",
+                code: streamError?.code,
+                retryPrompt: text,
+                id: `${Date.now()}-err`,
+              },
+            ];
+          });
+          return;
         }
 
         if (fullText) {
@@ -291,13 +320,25 @@ export const useVoiceAssistant = ({ agentId, meetingId }: UseVoiceAssistantProps
           } else {
             logInteraction(0, responseTime);
           }
+        } else {
+          // No content received; remove empty placeholder so UI stays usable.
+          setMessages((prev) => prev.filter((m) => !(m.role === 'ai' && m.id === aiId && !m.content)));
         }
       } catch (error) {
         if ((error as Error)?.name === 'AbortError') {
           return;
         }
         console.error('Failed to get AI response:', error);
-        setMessages((prev) => [...prev, { role: 'ai', content: 'Sorry, I encountered an error.' }]);
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: 'error',
+            content: "The AI is temporarily unavailable. Please try again.",
+            code: "provider_unavailable",
+            retryPrompt: text,
+            id: `${Date.now()}-err`,
+          },
+        ]);
       } finally {
         abortControllerRef.current = null;
         setIsProcessing(false);
@@ -396,6 +437,14 @@ export const useVoiceAssistant = ({ agentId, meetingId }: UseVoiceAssistantProps
     [requestAssistant, stopListening],
   );
 
+  const retryMessage = useCallback(
+    (prompt: string) => {
+      // User-initiated retry only (no auto-retry). Re-sends last prompt once per click.
+      requestAssistant(prompt, 'text');
+    },
+    [requestAssistant],
+  );
+
   return {
     isListening,
     isProcessing,
@@ -404,6 +453,7 @@ export const useVoiceAssistant = ({ agentId, meetingId }: UseVoiceAssistantProps
     startListening,
     stopListening,
     sendTextMessage,
+    retryMessage,
     voiceEnabled,
     setVoiceEnabled,
     speakingMessageId,
