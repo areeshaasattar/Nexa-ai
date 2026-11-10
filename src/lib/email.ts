@@ -3,6 +3,7 @@ import {
   resetPasswordEmail,
   verificationEmail,
 } from "@/lib/email-templates";
+import { checkLimit } from "@/lib/rate-limit";
 
 const BREVO_ENDPOINT = "https://api.brevo.com/v3/smtp/email";
 
@@ -115,6 +116,23 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
   const start = Date.now();
   const toMasked = maskEmail(options.to);
   const template = options.template;
+
+  // Global Brevo budget (safety margin under 300/day free cap), checked before any Brevo call.
+  const utcDay = new Date().toISOString().slice(0, 10);
+  const budget = await checkLimit("email.global.day", `global:${utcDay}`);
+  if (!budget.allowed) {
+    console.warn(
+      JSON.stringify({
+        event: "email.budget_exceeded",
+        limiter: "email.global.day",
+        template,
+        to: toMasked,
+        resetAt: budget.resetAt,
+      }),
+    );
+    logDevLink(template, options.devLink);
+    return { ok: false, error: "daily_email_budget_exceeded" };
+  }
 
   const apiKey = process.env.BREVO_API_KEY;
   const senderEmail = process.env.BREVO_SENDER_EMAIL;

@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { meetings, agents, activities, voiceInteractions, user } from "@/db/schema";
-import { createTRPCRouter, protectedProcedure } from "@/trpc/init";
+import { createTRPCRouter, protectedProcedure, rateLimited } from "@/trpc/init";
 import { TRPCError } from "@trpc/server";
 import { meetingsInsertSchema, meetingsUpdateSchema } from "../schemas";
 import { z } from "zod";
@@ -9,6 +9,7 @@ import { DEFAULT_PAGE, DEFAULT_PAGE_SIZE } from "@/constants";
 import { meetingStatus as meetingStatusEnum } from "@/db/schema";
 import { streamVideo } from "@/lib/stream-video";
 import { after } from "next/server";
+import { LIMITS } from "@/lib/limits";
 
 /**
  * Extract safe diagnostics from a Stream SDK error. The SDK throws
@@ -75,6 +76,7 @@ export const meetingsRouter = createTRPCRouter({
   }),
 
   getToken: protectedProcedure
+    .use(rateLimited("getToken.hour"))
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       // Verify the meeting belongs to the caller before issuing a call-scoped
@@ -104,6 +106,8 @@ export const meetingsRouter = createTRPCRouter({
     }),
 
   createCall: protectedProcedure
+    .use(rateLimited("createCall.hour"))
+    .use(rateLimited("createCall.day"))
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       const [meeting] = await db
@@ -136,6 +140,10 @@ export const meetingsRouter = createTRPCRouter({
                 // joins and stops it when all participants leave, and the
                 // call.transcription_ready webhook fires with the file URL.
                 mode: "auto-on",
+              },
+              limits: {
+                max_duration_seconds: LIMITS.stream.callMaxDurationMinutes * 60,
+                max_participants: 4,
               },
             },
           },
@@ -344,6 +352,19 @@ export const meetingsRouter = createTRPCRouter({
   create: protectedProcedure
     .input(meetingsInsertSchema)
     .mutation(async ({ ctx, input }) => {
+      // Quota check (count-then-insert; small race acceptable on neon-http).
+      const [existing] = await db
+        .select({ total: count() })
+        .from(meetings)
+        .where(eq(meetings.userId, ctx.userId));
+
+      if ((existing?.total ?? 0) >= LIMITS.quotas.maxMeetingsPerUser) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: `You reached the limit of ${LIMITS.quotas.maxMeetingsPerUser} meetings. Delete one to create another.`,
+        });
+      }
+
       const [newMeeting] = await db
         .insert(meetings)
         .values({
@@ -399,6 +420,7 @@ export const meetingsRouter = createTRPCRouter({
    * Called from the client after each user→AI exchange completes.
    */
   logVoiceInteraction: protectedProcedure
+    .use(rateLimited("logVoiceInteraction.hour"))
     .input(z.object({
       meetingId: z.string(),
       duration: z.string().optional(),
@@ -544,7 +566,14 @@ export const meetingsRouter = createTRPCRouter({
    * Clears any previous error before attempting again.
    */
   retrySummary: protectedProcedure
+    .use(rateLimited("retrySummary.hour"))
     .input(z.object({ id: z.string() }))
+    .use(
+      rateLimited("retrySummary.dayPerMeeting", (ctx, input) => {
+        const id = (input as { id?: string } | undefined)?.id ?? "unknown";
+        return `${ctx.userId}:${id}`;
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       const [meeting] = await db
         .select()

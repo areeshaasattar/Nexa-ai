@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { trpc } from "@/trpc/client";
 import { LoadingState } from "@/components/loading-state";
 import { ErrorState } from "@/components/error-state";
@@ -91,6 +92,9 @@ export const MeetingIdView = ({ meetingId }: MeetingIdViewProps) => {
 
   const retrySummaryMutation = trpc.meetings.retrySummary.useMutation({
     onSuccess: () => meetingQuery.refetch(),
+    onError: (error) => {
+      toast.error(error.message);
+    },
   });
 
   // Client-side guard: polling stops ~2 minutes after the call completes

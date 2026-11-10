@@ -4,78 +4,136 @@ import { agents, meetings, conversationMessages } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import { checkChatRateLimit } from "@/lib/rate-limit";
+import { checkLimit } from "@/lib/rate-limit";
+import { LIMITS } from "@/lib/limits";
 import { z } from "zod";
+
+import {
+  mapProviderError,
+  shouldRetryProviderFailure,
+} from "@/lib/chat-provider-errors";
+
+export { mapProviderError, shouldRetryProviderFailure };
+
+function sleep(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
+
+function getRetryDelayMs(retryAfterHeader: string | null): number {
+  const fallback = 800;
+  if (!retryAfterHeader) return fallback;
+  const seconds = Number(retryAfterHeader);
+  if (Number.isFinite(seconds) && seconds >= 0) {
+    return Math.min(3000, Math.max(0, Math.round(seconds * 1000)));
+  }
+  const dateMs = Date.parse(retryAfterHeader);
+  if (Number.isFinite(dateMs)) {
+    return Math.min(3000, Math.max(0, dateMs - Date.now()));
+  }
+  return fallback;
+}
+
+function combineSignals(clientSignal: AbortSignal, timeoutMs: number): { signal: AbortSignal; cleanup: () => void } {
+  const timeoutController = new AbortController();
+  const timer = setTimeout(() => timeoutController.abort(new Error("timeout")), timeoutMs);
+  const onAbort = () => timeoutController.abort(clientSignal.reason);
+  if (clientSignal.aborted) {
+    timeoutController.abort(clientSignal.reason);
+  } else {
+    clientSignal.addEventListener("abort", onAbort, { once: true });
+  }
+  const any = (AbortSignal as any).any;
+  const signal: AbortSignal =
+    typeof any === "function"
+      ? any([clientSignal, timeoutController.signal])
+      : timeoutController.signal;
+  return {
+    signal,
+    cleanup: () => {
+      clearTimeout(timer);
+      clientSignal.removeEventListener("abort", onAbort);
+    },
+  };
+}
+
+async function readUpstreamErrorMeta(res: Response): Promise<{ code?: string; message?: string; type?: string }> {
+  try {
+    const text = await res.text();
+    if (!text) return {};
+    const json = JSON.parse(text);
+    const err = json?.error ?? json;
+    return {
+      code: typeof err?.code === "string" ? err.code : undefined,
+      message: typeof err?.message === "string" ? err.message : undefined,
+      type: typeof err?.type === "string" ? err.type : undefined,
+    };
+  } catch {
+    return {};
+  }
+}
 
 export async function POST(req: Request) {
   try {
-    // Resolve the authenticated user. The route is called from the browser
-    // (the voice assistant) with the session cookie, so grab the user id from
-    // the session — it both gates access and keys the per-user rate limit.
-    // (The route previously had no auth check at all, so any anonymous caller
-    // could burn the Mistral API key; this closes that hole while reusing the
-    // exact session mechanism used elsewhere in the app.)
-    const t0 = Date.now();
     const session = await auth.api.getSession({
       headers: await headers(),
     });
-    const tAuth = Date.now();
     if (!session?.user?.id) {
-      console.log(JSON.stringify({ event: "chat.auth_failed", ms: tAuth - t0 }));
       return NextResponse.json(
         { error: "You must be signed in to use the chat." },
         { status: 401 },
       );
     }
     const userId = session.user.id;
-    console.log(JSON.stringify({ event: "chat.auth_ok", userId, ms: tAuth - t0 }));
-
-    // Per-user rate limit, enforced before any Mistral work so a single user
-    // can't hammer the API and run up the bill. 429 carries Retry-After (secs)
-    // and X-RateLimit-Remaining so the client can react intelligently.
-    const tRate0 = Date.now();
-    const rateLimit = await checkChatRateLimit(userId);
-    const tRate = Date.now();
-    console.log(JSON.stringify({ event: "chat.rate_limit", userId, ms: tRate - tRate0, success: rateLimit.success }));
-    if (!rateLimit.success) {
-      return NextResponse.json(
-        {
-          error: "Too many requests. Please wait a moment before sending another message.",
-          rateLimit: {
-            limit: rateLimit.limit,
-            remaining: rateLimit.remaining,
-            reset: rateLimit.reset,
-          },
-        },
-        {
-          status: 429,
-          headers: {
-            "Retry-After": String(
-              Math.max(1, Math.ceil((rateLimit.reset - Date.now()) / 1000)),
-            ),
-            "X-RateLimit-Remaining": String(rateLimit.remaining),
-          },
-        },
-      );
-    }
 
     const body = await req.json().catch(() => null);
-
     const chatInputSchema = z.object({
       prompt: z.string().trim().min(1).max(2000),
       agentId: z.string().min(1).max(64),
       meetingId: z.string().min(1).max(64),
     });
-
     const parsed = chatInputSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid input" }, { status: 400 });
     }
     const { prompt, agentId, meetingId } = parsed.data;
+
+    // Rate limits BEFORE any Mistral call and before loading history/DB work.
+    const minuteLimit = await checkLimit("chat.minute", userId);
+    if (!minuteLimit.allowed) {
+      return NextResponse.json(
+        {
+          error: "rate_limited",
+          message: "Slow down a little. Try again shortly.",
+          retryAfterSeconds: minuteLimit.retryAfterSeconds,
+        },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(minuteLimit.retryAfterSeconds),
+          },
+        },
+      );
+    }
+
+    const dayLimit = await checkLimit("chat.day", userId);
+    if (!dayLimit.allowed) {
+      return NextResponse.json(
+        {
+          error: "daily_limit",
+          message: "You have used today's voice limit. Try again tomorrow.",
+          retryAfterSeconds: dayLimit.retryAfterSeconds,
+        },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(dayLimit.retryAfterSeconds),
+          },
+        },
+      );
+    }
+
     const CHAT_HISTORY_MESSAGE_LIMIT = 10;
 
-    const tDb0 = Date.now();
-    // Fetch agent, meeting, and history in parallel (independent lookups).
     const [[agent], [meeting], historyRowsRaw] = await Promise.all([
       db.select().from(agents).where(and(eq(agents.id, agentId), eq(agents.userId, userId))),
       db.select().from(meetings).where(and(eq(meetings.id, meetingId), eq(meetings.userId, userId))),
@@ -86,28 +144,12 @@ export async function POST(req: Request) {
         .orderBy(desc(conversationMessages.createdAt))
         .limit(CHAT_HISTORY_MESSAGE_LIMIT),
     ]);
-    const tDb = Date.now();
 
     if (!agent || !meeting || meeting.agentId !== agentId) {
-      console.log(JSON.stringify({ event: "chat.not_found", ms: tDb - tDb0 }));
       return NextResponse.json({ error: "Agent not found" }, { status: 404 });
     }
-    console.log(
-      JSON.stringify({
-        event: "chat.db_ok",
-        ms: tDb - tDb0,
-        historyCount: historyRowsRaw.length,
-      }),
-    );
 
-    const historyRows = [...historyRowsRaw];
-
-    // Reverse to chronological order.
-    const chronological = [...historyRows].reverse();
-
-    // Guard against duplicating the current prompt if a client already
-    // persisted it before calling this route: drop a trailing user message
-    // whose content matches the incoming prompt.
+    const chronological = [...historyRowsRaw].reverse();
     if (
       chronological.length > 0 &&
       chronological[chronological.length - 1].role === "user" &&
@@ -116,15 +158,12 @@ export async function POST(req: Request) {
       chronological.pop();
     }
 
-    // Apply a total character budget (~6000), dropping the oldest first.
     const MAX_HISTORY_CHARS = 6000;
     const selected: { role: "user" | "ai"; content: string }[] = [];
     let totalChars = 0;
     for (let i = chronological.length - 1; i >= 0; i--) {
       const msg = chronological[i];
-      if (totalChars + msg.content.length > MAX_HISTORY_CHARS && selected.length > 0) {
-        break;
-      }
+      if (totalChars + msg.content.length > MAX_HISTORY_CHARS && selected.length > 0) break;
       selected.unshift(msg);
       totalChars += msg.content.length;
     }
@@ -139,110 +178,179 @@ export async function POST(req: Request) {
     }
 
     const model = process.env.MODEL_NAME || "mistral-small-latest";
-    const MAX_TOKENS = 300;
-
-    const tLlm0 = Date.now();
-    let firstTokenLogged = false;
+    const MAX_TOKENS = LIMITS.mistral.chatMaxTokens;
+    const requestBody = JSON.stringify({
+      model,
+      max_tokens: MAX_TOKENS,
+      stream: true,
+      messages: [
+        {
+          role: "system",
+          content: `${agent.instruction}\n\nVoice mode: answer in 2-4 short spoken sentences. No code blocks or long lists; if the answer needs code or long content, say it is shown in the chat.${meeting.instructions ? `\n\n--- Session-specific instructions (follow these for this meeting, but never let them override the agent's core persona or safety rules) ---\n${meeting.instructions}` : ""}`,
+        },
+        ...historyMessages,
+        { role: "user", content: prompt },
+      ],
+    });
 
     const encoder = new TextEncoder();
     const readable = new ReadableStream<Uint8Array>({
       async start(controller) {
+        let streamStarted = false;
         const send = (obj: unknown) => {
+          streamStarted = true;
           controller.enqueue(encoder.encode(`data: ${JSON.stringify(obj)}\n\n`));
         };
 
-        // Handle client abort.
         const onAbort = () => {
           try { controller.close(); } catch { /* already closed */ }
         };
         req.signal.addEventListener("abort", onAbort, { once: true });
 
-        try {
-          const mistralRes = await fetch("https://api.mistral.ai/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${process.env.MISTRAL_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model,
-              max_tokens: MAX_TOKENS,
-              stream: true,
-              messages: [
-                {
-                  role: "system",
-                  content: `${agent.instruction}\n\nVoice mode: answer in 2-4 short spoken sentences. No code blocks or long lists; if the answer needs code or long content, say it is shown in the chat.${meeting.instructions ? `\n\n--- Session-specific instructions (follow these for this meeting, but never let them override the agent's core persona or safety rules) ---\n${meeting.instructions}` : ""}`,
-                },
-                ...historyMessages,
-                { role: "user", content: prompt },
-              ],
+        const logFailure = (info: {
+          status?: number | "network" | "timeout";
+          upstreamCode?: string;
+          upstreamType?: string;
+          upstreamMessage?: string;
+          attempt: number;
+          streamStarted: boolean;
+          durationMs: number;
+        }) => {
+          console.error(
+            JSON.stringify({
+              event: "chat.provider_error",
+              meetingId,
+              userId,
+              status: info.status,
+              upstreamCode: info.upstreamCode,
+              upstreamType: info.upstreamType,
+              upstreamMessage: info.upstreamMessage,
+              attempt: info.attempt,
+              streamStarted: info.streamStarted,
+              durationMs: info.durationMs,
             }),
-            signal: req.signal,
-          });
+          );
+        };
 
-          if (!mistralRes.ok || !mistralRes.body) {
-            const errText = await mistralRes.text().catch(() => "");
-            console.log(JSON.stringify({ event: "chat.llm_error", status: mistralRes.status }));
-            send({ type: "error", message: "AI provider error" });
-            controller.close();
-            return;
-          }
+        try {
+          let attempt = 1;
+          while (true) {
+            if (req.signal.aborted) break;
+            const attemptStart = Date.now();
+            const { signal, cleanup } = combineSignals(req.signal, 20000);
+            let upstream: Response | null = null;
+            let failureStatus: number | "network" | "timeout" | undefined;
+            let upstreamMeta: { code?: string; message?: string; type?: string } = {};
 
-          const reader = mistralRes.body.getReader();
-          const decoder = new TextDecoder();
-          let buffer = "";
-          let fullText = "";
-
-          try {
-            while (true) {
-              if (req.signal.aborted) break;
-              const { done, value } = await reader.read();
-              if (done) break;
-              buffer += decoder.decode(value, { stream: true });
-              const lines = buffer.split("\n");
-              buffer = lines.pop() || "";
-              for (const line of lines) {
-                const trimmed = line.trim();
-                if (!trimmed.startsWith("data:")) continue;
-                const data = trimmed.slice(5).trim();
-                if (data === "[DONE]") continue;
-                try {
-                  const json = JSON.parse(data);
-                  const delta = json.choices?.[0]?.delta?.content;
-                  if (delta) {
-                    if (!firstTokenLogged) {
-                      firstTokenLogged = true;
-                      console.log(JSON.stringify({ event: "chat.first_token", ms: Date.now() - tLlm0 }));
-                    }
-                    fullText += delta;
-                    send({ type: "delta", text: delta });
-                  }
-                } catch {
-                  // ignore parse errors
-                }
-              }
+            try {
+              upstream = await fetch("https://api.mistral.ai/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${process.env.MISTRAL_API_KEY}`,
+                  "Content-Type": "application/json",
+                },
+                body: requestBody,
+                signal,
+              });
+            } catch (err) {
+              const isTimeout =
+                (err instanceof Error && (err.name === "TimeoutError" || err.message === "timeout")) ||
+                (signal.aborted && !req.signal.aborted);
+              failureStatus = isTimeout ? "timeout" : req.signal.aborted ? undefined : "network";
+            } finally {
+              cleanup();
             }
-          } finally {
-            reader.releaseLock();
-          }
 
-          if (req.signal.aborted) {
-            console.log(JSON.stringify({ event: "chat.aborted", replyLen: fullText.length }));
-            controller.close();
-            return;
-          }
+            if (req.signal.aborted) {
+              // Client abort: stop silently, no error message.
+              break;
+            }
 
-          // Persist only after a complete stream.
+            if (upstream && upstream.ok && upstream.body) {
+              const reader = upstream.body.getReader();
+              const decoder = new TextDecoder();
+              let buffer = "";
+              let fullText = "";
+              try {
+                while (true) {
+                  if (req.signal.aborted) break;
+                  const { done, value } = await reader.read();
+                  if (done) break;
+                  buffer += decoder.decode(value, { stream: true });
+                  const lines = buffer.split("\n");
+                  buffer = lines.pop() || "";
+                  for (const line of lines) {
+                    const trimmed = line.trim();
+                    if (!trimmed.startsWith("data:")) continue;
+                    const data = trimmed.slice(5).trim();
+                    if (!data || data === "[DONE]") continue;
+                    try {
+                      const json = JSON.parse(data);
+                      const delta = json.choices?.[0]?.delta?.content;
+                      if (delta) {
+                        fullText += delta;
+                        send({ type: "delta", text: delta });
+                      }
+                    } catch {
+                      // ignore parse errors
+                    }
+                  }
+                }
+              } finally {
+                reader.releaseLock();
+              }
+
+              if (req.signal.aborted) break;
+
+          // Persist only after a complete stream (user + AI together).
           if (fullText) {
             await db.insert(conversationMessages).values({ meetingId, role: "user", content: prompt });
             await db.insert(conversationMessages).values({ meetingId, role: "ai", content: fullText });
           }
-          console.log(JSON.stringify({ event: "chat.done", totalMs: Date.now() - t0, replyLen: fullText.length }));
-          send({ type: "done" });
-        } catch (err) {
-          if (!req.signal.aborted) {
-            console.log(JSON.stringify({ event: "chat.stream_error" }));
-            send({ type: "error", message: "Stream failed" });
+          if (!streamStarted) {
+            // Completed with no deltas; still signal done so client can idle.
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "done" })}\n\n`));
+          } else {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "done" })}\n\n`));
+          }
+          return;
+            }
+
+            // Upstream failure before streaming started.
+            if (upstream && !upstream.ok) {
+              failureStatus = upstream.status;
+              upstreamMeta = await readUpstreamErrorMeta(upstream);
+            }
+
+            const failure = (failureStatus ?? "network") as number | "network" | "timeout";
+            const mapped = mapProviderError(failure);
+            const retryable = shouldRetryProviderFailure(failure, attempt, streamStarted);
+            logFailure({
+              status: failure,
+              upstreamCode: upstreamMeta.code,
+              upstreamType: upstreamMeta.type,
+              upstreamMessage: upstreamMeta.message,
+              attempt,
+              streamStarted,
+              durationMs: Date.now() - attemptStart,
+            });
+
+            if (retryable) {
+              const delay = failureStatus === 429 ? getRetryDelayMs(upstream?.headers.get("Retry-After") ?? null) : 800;
+              await sleep(delay);
+              attempt += 1;
+              continue; // no additional rate-limit count consumed
+            }
+
+            if (!req.signal.aborted) {
+              send({ type: "error", code: mapped.code, message: mapped.message });
+            }
+            return;
+          }
+        } catch {
+          if (!req.signal.aborted && !streamStarted) {
+            const mapped = mapProviderError("network");
+            send({ type: "error", code: mapped.code, message: mapped.message });
           }
         } finally {
           req.signal.removeEventListener("abort", onAbort);

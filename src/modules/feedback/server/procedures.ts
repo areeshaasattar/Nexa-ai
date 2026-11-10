@@ -1,9 +1,10 @@
 import { db } from "@/db";
 import { feedback, user } from "@/db/schema";
-import { createTRPCRouter, protectedProcedure } from "@/trpc/init";
+import { createTRPCRouter, protectedProcedure, rateLimited } from "@/trpc/init";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
+import { LIMITS } from "@/lib/limits";
 
 const feedbackType = ["bug", "idea", "other"] as const;
 const feedbackStatus = ["new", "reviewed", "resolved"] as const;
@@ -18,10 +19,15 @@ function isAdmin(email: string | null | undefined): boolean {
 
 export const feedbackRouter = createTRPCRouter({
   create: protectedProcedure
+    .use(rateLimited("feedback.create.hour"))
     .input(
       z.object({
         type: z.enum(feedbackType),
-        message: z.string().trim().min(5).max(1000),
+        message: z
+          .string()
+          .trim()
+          .min(LIMITS.textCaps.feedbackMessageMin)
+          .max(LIMITS.textCaps.feedbackMessageMax),
         rating: z.number().int().min(1).max(5).optional(),
         pageUrl: z.string().max(500).optional(),
       }),

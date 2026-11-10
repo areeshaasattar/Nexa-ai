@@ -223,7 +223,7 @@ Protected under dashboard layout (and included in proxy protected paths).
 |---|---|---|
 | `/api/auth/[...all]` | GET/POST | Better‑Auth handler (`toNextJsHandler`) |
 | `/api/trpc/*` | GET/POST | tRPC endpoint (app router: agents, meetings, home, feedback) |
-| `/api/chat` | POST | Streaming Mistral chat for voice assistant (auth required, zod validation, per‑user Upstash rate limit, meeting/agent ownership checks, SSE response) |
+| `/api/chat` | POST | Streaming Mistral chat for voice assistant (auth required, zod validation, per‑user Upstash per-minute + daily limits, meeting/agent ownership checks, SSE response). On limit hit returns **429** with `Retry-After` (seconds) and JSON `{ "error": "rate_limited" \| "daily_limit", "message": string, "retryAfterSeconds": number }` before any Mistral call and before loading history/DB; blocked requests do not call Mistral and do not write conversation/voice-interaction records. |
 | `/api/webhooks/stream` | POST | Stream Video webhooks (signature/decompression hardening, meeting status/URLs, summary triggers) |
 
 ### 4.13 Scripts & developer tooling
@@ -335,19 +335,36 @@ nexa-ai/
 
 ## 8. Known limitations & roadmap
 
-1. **Transactional email (Brevo):** free plan is 300 emails/day total; sender/domain must be verified in Brevo. Email sends are logged with masked/non-sensitive details only; a dev-only action-link fallback is printed when `NODE_ENV !== "production"` and Brevo is not configured or a send fails.
+1. **Transactional email (Brevo):** free plan is 300 emails/day total; sender/domain must be verified in Brevo. Email sends are logged with masked/non-sensitive details only; a dev-only action-link fallback is printed when `NODE_ENV !== "production"` and Brevo is not configured or a send fails. A global daily email budget (250/day safety margin) is enforced in `sendEmail()` before calling Brevo.
 2. **No billing/payments.** Billing UI and plan enforcement are not implemented.
-2. **Rate limiting is narrow.** Only `/api/chat` uses Upstash; tRPC mutations and auth endpoints are not covered by the same limiter strategy.
-3. **System health is partial.** DB is actively pinged; other services are reported as configured/not configured based on env vars (no live probes). No Sentry SDK integration is evident in runtime code from this scan.
-4. **AI Insights are rule-based**, not LLM-generated.
-5. **Voice metrics are estimates** (client-side duration/response timing).
-6. **No automated test suite/CI in repo** (beyond `tsx` scripts). Several behaviors require manual/browser verification (call UX, webhooks in deployed env, transcript availability).
-7. **Transactions not broadly adopted.** Multi-step writes are not wrapped in interactive transactions (noted historically; neon-http constraints apply).
-8. **Chart libraries are mixed** (ApexCharts used; Recharts also present). Consolidation deferred.
-9. **Stream transcript speaker mapping is limited** (primarily owner mapping today); multi-participant naming needs richer member resolution.
-10. **`retrySummary` is owner-scoped but not specifically rate-limited.**
+3. **Rate limiting / quotas / caps:** Centralized in `src/lib/limits.ts` and enforced via Upstash-backed limiters (`src/lib/rate-limit.ts`) for `/api/chat` (per-minute + daily), tRPC mutations (`meetings.createCall` hourly+daily, `meetings.getToken`, `meetings.retrySummary` per-user hourly + per-meeting daily, `meetings.logVoiceInteraction`, `feedback.create`), Better-Auth auth endpoint rules (secondary-storage backed by Upstash when configured), global Brevo daily budget, and per-user quotas (max agents/meetings) plus input/text caps and Mistral `max_tokens`/Stream call limits where supported. **Limits fail open** when Upstash is unconfigured or errors at runtime (with structured logs) so the app remains available.
+4. **System health is partial.** DB is actively pinged; other services are reported as configured/not configured based on env vars (no live probes). No Sentry SDK integration is evident in runtime code from this scan.
+5. **AI Insights are rule-based**, not LLM-generated.
+6. **Voice metrics are estimates** (client-side duration/response timing).
+7. **No automated test suite/CI in repo** (beyond `tsx` scripts). Several behaviors require manual/browser verification (call UX, webhooks in deployed env, transcript availability).
+8. **Transactions not broadly adopted.** Multi-step writes are not wrapped in interactive transactions (noted historically; neon-http constraints apply).
+9. **Chart libraries are mixed** (ApexCharts used; Recharts also present). Consolidation deferred.
+10. **Stream transcript speaker mapping is limited** (primarily owner mapping today); multi-participant naming needs richer member resolution.
 11. **Avatar storage**: large `data:` avatars are blocked; durable fix is object storage for avatar URLs (cookie cache should remain off until avatars are URL-based/small).
 12. **Production webhook reliability depends on Stream dashboard config** (URL, events like `call.transcription_ready`, secret alignment) and reachable public endpoint.
+
+### Limits (from `src/lib/limits.ts`)
+
+| Area | Limit |
+|---|---|
+| Chat | 15 requests/minute per user (existing value kept); 300 requests/day per user; Mistral `max_tokens` 250 |
+| Create call | 15/hour per user; 40/day per user |
+| Get call token | 60/hour per user |
+| Retry summary | 5/hour per user; 3/day per meeting (`userId:meetingId`) |
+| Feedback create | 5/hour per user |
+| Log voice interaction | 120/hour per user |
+| Email resend (verification) | 1 per 60 seconds per user/email key; 10/day per user/email key |
+| Global Brevo budget | 250 emails/day (UTC day key), checked before Brevo calls |
+| Quotas | Max 25 agents per user; max 200 meetings per user (count-then-insert; small race acceptable on neon-http) |
+| Text caps | Agent name 80; agent instruction 4000; meeting name 120; meeting instructions 2000; feedback message 5–1000 (unchanged) |
+| Stream call | `max_duration_seconds` 3600, `max_participants` 4 (when supported by installed SDK) |
+
+*Notes:* Chat blocked responses return 429 with `Retry-After` and do not call Mistral or write conversation/voice-interaction records. Rate/limit checks fail open when Upstash is down or unconfigured. No schema/migration changes.
 
 ---
 

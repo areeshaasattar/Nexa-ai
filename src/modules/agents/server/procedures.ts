@@ -1,10 +1,12 @@
 import { db } from "@/db";
 import { agents, meetings, activities } from "@/db/schema";
 import { createTRPCRouter, protectedProcedure } from "@/trpc/init";
-import { agentsInsertSchema } from "../schemas";
+import { agentsInsertSchema, agentsUpdateSchema } from "../schemas";
 import { z } from "zod";
 import { eq, sql, or, ilike, desc, count, and } from "drizzle-orm";
 import { DEFAULT_PAGE, DEFAULT_PAGE_SIZE } from "@/constants";
+import { TRPCError } from "@trpc/server";
+import { LIMITS } from "@/lib/limits";
 
 export const agentsRouter = createTRPCRouter({
   getMany: protectedProcedure
@@ -93,6 +95,19 @@ export const agentsRouter = createTRPCRouter({
   create: protectedProcedure
     .input(agentsInsertSchema.omit({ userId: true }))
     .mutation(async ({ ctx, input }) => {
+      // Quota check (count-then-insert; small race acceptable on neon-http).
+      const [existing] = await db
+        .select({ total: count() })
+        .from(agents)
+        .where(eq(agents.userId, ctx.userId));
+
+      if ((existing?.total ?? 0) >= LIMITS.quotas.maxAgentsPerUser) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: `You reached the limit of ${LIMITS.quotas.maxAgentsPerUser} agents. Delete one to create another.`,
+        });
+      }
+
       const [newAgent] = await db
         .insert(agents)
         .values({
@@ -112,13 +127,7 @@ export const agentsRouter = createTRPCRouter({
       return newAgent;
     }),
   update: protectedProcedure
-    .input(
-      z.object({
-        id: z.string(),
-        name: z.string().min(1).optional(),
-        instruction: z.string().min(1).optional(),
-      })
-    )
+    .input(agentsUpdateSchema)
     .mutation(async ({ ctx, input }) => {
       const { id, ...data } = input;
       const [updatedAgent] = await db

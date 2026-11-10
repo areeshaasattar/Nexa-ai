@@ -10,6 +10,40 @@ import {
 import { after } from "next/server"
 import { createAuthMiddleware, sendVerificationEmailFn } from "better-auth/api"
 import { seedStarterAgent } from "@/lib/seed-starter-agent"
+import { Redis } from "@upstash/redis"
+
+const upstashRedis =
+  process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
+    ? new Redis({
+        url: process.env.UPSTASH_REDIS_REST_URL,
+        token: process.env.UPSTASH_REDIS_REST_TOKEN,
+      })
+    : null;
+
+// Use Better-Auth's rateLimit.customStorage (not top-level secondaryStorage) so
+// we don't change session storage behavior. No schema changes.
+const authRateLimitStorage = upstashRedis
+  ? {
+      get: async (key: string) => {
+        const data = await upstashRedis.get(key);
+        if (data == null) return undefined;
+        if (typeof data === "string") {
+          try {
+            return JSON.parse(data);
+          } catch {
+            return undefined;
+          }
+        }
+        if (typeof data === "object") return data as any;
+        return undefined;
+      },
+      set: async (key: string, value: any) => {
+        // TTL is managed by Better-Auth's rate limiter logic around window;
+        // customStorage.set receives (key, value, update?) per BA types.
+        await upstashRedis.set(key, JSON.stringify(value));
+      },
+    }
+  : undefined;
 
 /**
  * Build the password-reset link that goes in the email.
@@ -81,6 +115,20 @@ export const auth = betterAuth({
                 }
             }
         }),
+    },
+    // Rate limiting for auth endpoints (Better-Auth 1.6.x). Uses customStorage
+    // backed by Upstash when configured to avoid changing session storage behavior.
+    rateLimit: {
+        enabled: true,
+        ...(authRateLimitStorage ? { customStorage: authRateLimitStorage } : {}),
+        customRules: {
+            "/sign-in/email": { window: 60, max: 10 },
+            "/sign-up/email": { window: 3600, max: 5 },
+            "/forget-password": { window: 3600, max: 3 },
+            "/request-password-reset": { window: 3600, max: 3 },
+            "/send-verification-email": { window: 60, max: 1 },
+            "/change-email": { window: 3600, max: 3 },
+        },
     },
     session: {
         // Cache the session in a short-lived signed cookie so auth.api.getSession
