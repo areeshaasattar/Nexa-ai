@@ -42,18 +42,13 @@ export type SeedDeps = {
   agents: { id: unknown; userId: unknown };
   activities: unknown;
   eq: (left: unknown, right: unknown) => unknown;
-  sleep?: (ms: number) => Promise<void>;
 };
-
-const DEFAULT_RETRY_DELAYS_MS = [300, 800, 1500] as const;
-
-const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 const getErrorCode = (error: unknown): string | undefined => {
   if (!error || typeof error !== "object") return undefined;
   const cause =
     "cause" in error
-      ? (error as { cause?: { code?: unknown; message?: unknown } }).cause
+      ? (error as { cause?: { code?: unknown } }).cause
       : undefined;
   if (cause && typeof cause === "object" && typeof (cause as { code?: unknown }).code === "string") {
     return (cause as { code: string }).code;
@@ -64,47 +59,11 @@ const getErrorCode = (error: unknown): string | undefined => {
   return undefined;
 };
 
-async function trySeedStarterAgent(
-  userId: string,
-  deps: SeedDeps,
-): Promise<{ status: "created" | "skipped"; agentId?: string }> {
-  const existing = await deps.db
-    .select({ id: deps.agents.id })
-    .from(deps.agents)
-    .where(deps.eq(deps.agents.userId, userId))
-    .limit(1);
-
-  if (existing.length > 0) {
-    return { status: "skipped" };
-  }
-
-  const values = buildStarterAgentValues(userId);
-  const now = new Date();
-
-  await deps.db.insert(deps.agents).values({
-    id: values.id,
-    name: values.name,
-    instruction: values.instruction,
-    userId: values.userId,
-    createdAt: now,
-    updatedAt: now,
-  });
-
-  await deps.db.insert(deps.activities).values({
-    userId,
-    type: "agent_created",
-    title: `Agent Created: ${values.name}`,
-    description: `Your starter AI agent "${values.name}" has been deployed to your workspace so you can start a meeting right away.`,
-    createdAt: now,
-  });
-
-  return { status: "created", agentId: values.id };
-}
-
 /**
  * Seeds the default starter agent for a user. Idempotent: no-op if the user
- * already has an agent. Retries on Postgres FK 23503 (user row not yet
- * visible/committed) with short backoff. Never throws and never blocks signup.
+ * already has an agent. Call from points where the user row is committed
+ * (e.g. after email verification, or deferred after response for OAuth/create).
+ * Never throws and never blocks signup.
  */
 export async function seedStarterAgent(
   userId: string,
@@ -121,59 +80,50 @@ export async function seedStarterAgent(
       resolvedDeps = { db: db as unknown as SeedDeps["db"], agents, activities, eq };
     }
 
-    const wait = resolvedDeps.sleep ?? sleep;
-    const retryDelays = DEFAULT_RETRY_DELAYS_MS;
-    let attempt = 1;
-    let lastError: unknown;
+    const existing = await resolvedDeps.db
+      .select({ id: resolvedDeps.agents.id })
+      .from(resolvedDeps.agents)
+      .where(resolvedDeps.eq(resolvedDeps.agents.userId, userId))
+      .limit(1);
 
-    while (attempt <= retryDelays.length + 1) {
-      try {
-        const result = await trySeedStarterAgent(userId, resolvedDeps);
-        if (result.status === "created") {
-          console.info(
-            JSON.stringify({
-              event: "seed.starter_agent.created",
-              userId,
-              agentId: result.agentId,
-              attempt,
-            }),
-          );
-        }
-        return;
-      } catch (error) {
-        lastError = error;
-        const code = getErrorCode(error);
-
-        if (code === "23503" && attempt <= retryDelays.length) {
-          await wait(retryDelays[attempt - 1]!);
-          attempt += 1;
-          continue;
-        }
-
-        console.error(
-          JSON.stringify({
-            event: "seed.starter_agent.failed",
-            userId,
-            code: code ?? "unknown",
-          }),
-        );
-        return;
-      }
+    if (existing.length > 0) {
+      return;
     }
 
-    console.error(
+    const values = buildStarterAgentValues(userId);
+    const now = new Date();
+
+    await resolvedDeps.db.insert(resolvedDeps.agents).values({
+      id: values.id,
+      name: values.name,
+      instruction: values.instruction,
+      userId: values.userId,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await resolvedDeps.db.insert(resolvedDeps.activities).values({
+      userId,
+      type: "agent_created",
+      title: `Agent Created: ${values.name}`,
+      description: `Your starter AI agent "${values.name}" has been deployed to your workspace so you can start a meeting right away.`,
+      createdAt: now,
+    });
+
+    console.info(
       JSON.stringify({
-        event: "seed.starter_agent.failed",
+        event: "seed.starter_agent.created",
         userId,
-        code: getErrorCode(lastError) ?? "unknown",
+        agentId: values.id,
+        attempt: 1,
       }),
     );
-  } catch {
+  } catch (error) {
     console.error(
       JSON.stringify({
         event: "seed.starter_agent.failed",
         userId,
-        code: "unknown",
+        code: getErrorCode(error) ?? "unknown",
       }),
     );
   }

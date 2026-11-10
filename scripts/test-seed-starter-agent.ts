@@ -58,7 +58,6 @@ function createDbStub(opts?: { failAgentInsertTimes?: number; alwaysFailCode?: s
       agents: agentsTable,
       activities: activitiesTable,
       eq: (left: unknown, right: unknown) => ({ left, right }),
-      sleep: async () => {},
     } satisfies SeedDeps,
     calls,
     get agentInsertAttempts() {
@@ -88,22 +87,14 @@ async function main() {
   });
   assert.equal(schemaResult.success, true, "name/instruction must satisfy existing agent validation");
 
-  // Retry: fails with 23503 twice, then succeeds => 3 agent-insert attempts, one agent created.
-  {
-    const stub = createDbStub({ failAgentInsertTimes: 2 });
-    await seedStarterAgent("user-retry-ok", stub.deps);
-    assert.equal(stub.agentInsertAttempts, 3, "expected exactly 3 agent insert attempts");
-    assert.equal(stub.activitiesInserted, 1, "expected one activity created on success");
-  }
-
-  // Always fails with 23503 => retries exhausted (4 attempts total), no throw.
+  // Single-attempt seeding (no hook retries): 23503 fails once, no throw.
   {
     const stub = createDbStub({ alwaysFailCode: "23503" });
     await assert.doesNotReject(async () => {
-      await seedStarterAgent("user-retry-fail", stub.deps);
+      await seedStarterAgent("user-fk-fail", stub.deps);
     });
-    assert.equal(stub.agentInsertAttempts, 4, "expected 4 agent insert attempts (1 + 3 retries)");
-    assert.equal(stub.activitiesInserted, 0, "expected no activity created on final failure");
+    assert.equal(stub.agentInsertAttempts, 1, "expected single attempt on 23503");
+    assert.equal(stub.activitiesInserted, 0, "expected no activity created");
   }
 
   // Non-23503 error => single attempt, no throw.
@@ -128,8 +119,7 @@ async function main() {
           hasMarkdownMarkers: /[#*`]/.test(values.instruction),
           schemaValid: schemaResult.success,
           schemaMaxLength: "none (agentsInsertSchema has min(1) only)",
-          retry23503_then_success: { agentInsertAttempts: 3, activitiesInserted: 1 },
-          retry23503_always_fail: { agentInsertAttempts: 4, activitiesInserted: 0, threw: false },
+          fk23503_single_attempt: { agentInsertAttempts: 1, activitiesInserted: 0, threw: false },
           non23503_single_attempt: { agentInsertAttempts: 1, activitiesInserted: 0, threw: false },
         },
       },

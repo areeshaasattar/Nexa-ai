@@ -59,14 +59,11 @@ export const auth = betterAuth({
 
                 if (user?.id) {
                     after(async () => {
-                        try {
-                            await seedStarterAgent(user.id);
-                        } catch {
-                            // seedStarterAgent never throws; guard defensively.
-                        }
-
                         // Fallback: ensure verification email is sent if Better-Auth's
                         // built-in sign-up send path did not invoke the callback.
+                        // (Starter-agent seeding is handled at committed points:
+                        // afterEmailVerification for email signups, and a lazy dashboard
+                        // safety net; create hook covers OAuth/verified-at-creation flows.)
                         if (!user.emailVerified && user.email) {
                             try {
                                 const fallbackUser = { ...user, emailVerified: false };
@@ -187,6 +184,11 @@ export const auth = betterAuth({
                     url,
                 });
             });
+        },
+        afterEmailVerification: async (user) => {
+            // Runs after successful verification when the user row is committed.
+            // Idempotent; never throws or blocks.
+            await seedStarterAgent(user.id);
         },
         sendOnSignUp: true,
         autoSignInAfterVerification: true,
