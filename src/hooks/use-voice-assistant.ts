@@ -20,6 +20,9 @@ interface UseVoiceAssistantProps {
 
 type InputMode = 'voice' | 'text';
 
+// Minimum cooldown between exchanges (completed or failed) before next send is allowed.
+export const MIN_SEND_GAP_MS = 2000;
+
 /*
  * Minimal typings for the Web Speech API (`SpeechRecognition` is not in all
  * TS lib targets, and the vendor-prefixed `webkitSpeechRecognition` never is).
@@ -82,6 +85,8 @@ export const useVoiceAssistant = ({ agentId, meetingId }: UseVoiceAssistantProps
   const [isProcessing, setIsProcessing] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
+  const [isCoolingDown, setIsCoolingDown] = useState(false);
+  const cooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [voiceEnabled, setVoiceEnabledState] = useState(() => {
     if (typeof window === "undefined") return true;
@@ -172,6 +177,17 @@ export const useVoiceAssistant = ({ agentId, meetingId }: UseVoiceAssistantProps
     setIsListening(false);
   }, []);
 
+  const startCooldown = useCallback(() => {
+    if (cooldownTimerRef.current) {
+      clearTimeout(cooldownTimerRef.current);
+    }
+    setIsCoolingDown(true);
+    cooldownTimerRef.current = setTimeout(() => {
+      cooldownTimerRef.current = null;
+      setIsCoolingDown(false);
+    }, MIN_SEND_GAP_MS);
+  }, []);
+
   /**
    * The shared core pipeline. Both input modes — push-to-talk (`recognition`
    * onresult) and typed input — call through here so a spoken and a typed
@@ -179,12 +195,28 @@ export const useVoiceAssistant = ({ agentId, meetingId }: UseVoiceAssistantProps
    * reply).
    */
   const requestAssistant = useCallback(
-    async (text: string, mode: InputMode) => {
-      if (!text || !text.trim() || isProcessing || !agentId) return;
+    async (
+      text: string,
+      mode: InputMode,
+      options?: { addUserMessage?: boolean; replaceErrorId?: string },
+    ) => {
+      if (!text || !text.trim() || isProcessing || isCoolingDown || !agentId) return;
+      const addUserMessage = options?.addUserMessage !== false;
+      const replaceErrorId = options?.replaceErrorId;
 
       setTranscript('');
       setIsProcessing(true);
-      setMessages((prev) => [...prev, { role: 'user', content: text }]);
+      setMessages((prev) => {
+        if (replaceErrorId) {
+          // Replace the error row with a pending user+assistant state (no extra user bubble).
+          const withoutError = prev.filter((m) => m.id !== replaceErrorId);
+          return withoutError;
+        }
+        if (addUserMessage) {
+          return [...prev, { role: 'user', content: text }];
+        }
+        return prev;
+      });
       stopSpeaking();
       const t0 = performance.now();
       processingStartRef.current = t0;
@@ -215,6 +247,7 @@ export const useVoiceAssistant = ({ agentId, meetingId }: UseVoiceAssistantProps
               : "Slow down a little.");
           toast.error(message);
           stopListening();
+          startCooldown();
           // Leave UI in a usable idle state; do not auto-retry and do not persist blocked requests.
           return;
         }
@@ -238,6 +271,7 @@ export const useVoiceAssistant = ({ agentId, meetingId }: UseVoiceAssistantProps
               id: `${Date.now()}-err`,
             },
           ]);
+          startCooldown();
           return;
         }
 
@@ -305,6 +339,7 @@ export const useVoiceAssistant = ({ agentId, meetingId }: UseVoiceAssistantProps
               },
             ];
           });
+          startCooldown();
           return;
         }
 
@@ -320,12 +355,15 @@ export const useVoiceAssistant = ({ agentId, meetingId }: UseVoiceAssistantProps
           } else {
             logInteraction(0, responseTime);
           }
+          startCooldown();
         } else {
           // No content received; remove empty placeholder so UI stays usable.
           setMessages((prev) => prev.filter((m) => !(m.role === 'ai' && m.id === aiId && !m.content)));
+          startCooldown();
         }
       } catch (error) {
         if ((error as Error)?.name === 'AbortError') {
+          // Abort/cancel is not a completed or failed exchange; no cooldown.
           return;
         }
         console.error('Failed to get AI response:', error);
@@ -339,12 +377,13 @@ export const useVoiceAssistant = ({ agentId, meetingId }: UseVoiceAssistantProps
             id: `${Date.now()}-err`,
           },
         ]);
+        startCooldown();
       } finally {
         abortControllerRef.current = null;
         setIsProcessing(false);
       }
     },
-    [isProcessing, agentId, meetingId, logInteraction, voiceEnabled, speakMessage, stopSpeaking, stopListening],
+    [isProcessing, isCoolingDown, agentId, meetingId, logInteraction, voiceEnabled, speakMessage, stopSpeaking, stopListening, startCooldown],
   );
 
   // Latest-ref: the SpeechRecognition effect is registered once ([] deps) but we
@@ -397,13 +436,16 @@ export const useVoiceAssistant = ({ agentId, meetingId }: UseVoiceAssistantProps
         window.speechSynthesis.cancel();
       }
       abortControllerRef.current?.abort();
+      if (cooldownTimerRef.current) {
+        clearTimeout(cooldownTimerRef.current);
+      }
     };
   }, []);
 
   const startListening = useCallback(() => {
     // Cancel any in-flight request before starting a new one.
     abortControllerRef.current?.abort();
-    if (recognitionRef.current && !isListening && !isProcessing) {
+    if (recognitionRef.current && !isListening && !isProcessing && !isCoolingDown) {
       // Stop any AI speech before capturing mic input.
       stopSpeaking();
       // Stop synthesis if it's speaking
@@ -417,7 +459,7 @@ export const useVoiceAssistant = ({ agentId, meetingId }: UseVoiceAssistantProps
         console.error('Failed to start recognition:', e);
       }
     }
-  }, [isListening, isProcessing]);
+  }, [isListening, isProcessing, isCoolingDown, stopSpeaking]);
 
   /**
    * Send a typed message through the same pipeline as push-to-talk.
@@ -438,9 +480,10 @@ export const useVoiceAssistant = ({ agentId, meetingId }: UseVoiceAssistantProps
   );
 
   const retryMessage = useCallback(
-    (prompt: string) => {
-      // User-initiated retry only (no auto-retry). Re-sends last prompt once per click.
-      requestAssistant(prompt, 'text');
+    (prompt: string, errorId?: string) => {
+      // User-initiated retry only (no auto-retry). Re-sends last prompt once per click
+      // without adding a second user message bubble; replaces the error row with pending state.
+      requestAssistant(prompt, 'text', { addUserMessage: false, replaceErrorId: errorId });
     },
     [requestAssistant],
   );
@@ -448,6 +491,7 @@ export const useVoiceAssistant = ({ agentId, meetingId }: UseVoiceAssistantProps
   return {
     isListening,
     isProcessing,
+    isCoolingDown,
     transcript,
     messages,
     startListening,

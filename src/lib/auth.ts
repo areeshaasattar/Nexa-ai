@@ -22,22 +22,40 @@ const upstashRedis =
 
 // Use Better-Auth's rateLimit.customStorage (not top-level secondaryStorage) so
 // we don't change session storage behavior. No schema changes.
+type AuthRateLimitRecord = { key: string; count: number; lastRequest: number };
+
 const authRateLimitStorage = upstashRedis
   ? {
-      get: async (key: string) => {
+      get: async (key: string): Promise<AuthRateLimitRecord | null | undefined> => {
         const data = await upstashRedis.get(key);
         if (data == null) return undefined;
+        let parsed: unknown = data;
         if (typeof data === "string") {
           try {
-            return JSON.parse(data);
+            parsed = JSON.parse(data) as unknown;
           } catch {
             return undefined;
           }
         }
-        if (typeof data === "object") return data as any;
+        if (
+          parsed &&
+          typeof parsed === "object" &&
+          "key" in parsed &&
+          "count" in parsed &&
+          "lastRequest" in parsed
+        ) {
+          const rec = parsed as { key: unknown; count: unknown; lastRequest: unknown };
+          if (
+            typeof rec.key === "string" &&
+            typeof rec.count === "number" &&
+            typeof rec.lastRequest === "number"
+          ) {
+            return { key: rec.key, count: rec.count, lastRequest: rec.lastRequest };
+          }
+        }
         return undefined;
       },
-      set: async (key: string, value: any) => {
+      set: async (key: string, value: AuthRateLimitRecord) => {
         // TTL is managed by Better-Auth's rate limiter logic around window;
         // customStorage.set receives (key, value, update?) per BA types.
         await upstashRedis.set(key, JSON.stringify(value));

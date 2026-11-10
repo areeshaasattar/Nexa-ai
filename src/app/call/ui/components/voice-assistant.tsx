@@ -24,10 +24,11 @@ interface VoiceAssistantProps {
   messages: Message[];
   isListening: boolean;
   isProcessing: boolean;
+  isCoolingDown: boolean;
   onStartListening: () => void;
   onStopListening: () => void;
   onSendText: (text: string) => void;
-  onRetry: (prompt: string) => void;
+  onRetry: (prompt: string, errorId?: string) => void;
   onClose?: () => void;
   voiceEnabled: boolean;
   onToggleVoice: () => void;
@@ -41,6 +42,7 @@ export const VoiceAssistant = ({
   messages,
   isListening,
   isProcessing,
+  isCoolingDown,
   onStartListening,
   onStopListening,
   onSendText,
@@ -71,11 +73,11 @@ export const VoiceAssistant = ({
     messages[messages.length - 1].role === 'user';
 
   // ---- Typed input helpers --------------------------------------------
-  const canSend = draft.trim().length > 0;
+  const canSend = draft.trim().length > 0 && !isProcessing && !isCoolingDown;
 
   const handleSendText = () => {
     const text = draft.trim();
-    if (!text || isProcessing) return;
+    if (!text || isProcessing || isCoolingDown) return;
     setDraft("");
     onSendText(text);
   };
@@ -163,12 +165,12 @@ export const VoiceAssistant = ({
                           {m.retryPrompt && (
                             <button
                               type="button"
-                              onClick={() => onRetry(m.retryPrompt!)}
-                              disabled={isProcessing}
+                              onClick={() => onRetry(m.retryPrompt!, m.id)}
+                              disabled={isProcessing || isCoolingDown}
                               className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-red-200 bg-white px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-100/60 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               <RotateCcw className="size-3" />
-                              Try again
+                              {isCoolingDown ? "Wait a moment..." : "Try again"}
                             </button>
                           )}
                         </div>
@@ -274,19 +276,20 @@ export const VoiceAssistant = ({
               // Gracefully close an open mic the moment the user starts typing so
               // voice and typed input can't both fire at once.
               onFocus={onStopListening}
-              placeholder="Type a message…"
+              placeholder={isCoolingDown ? "Wait a moment..." : "Type a message…"}
               rows={2}
-              disabled={isProcessing}
+              disabled={isProcessing || isCoolingDown}
               className="flex-1 min-h-[38px] max-h-24 resize-none overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
             />
             <Button
               size="icon"
               onClick={handleSendText}
-              disabled={isProcessing || !canSend}
-              aria-label="Send message"
+              disabled={!canSend}
+              aria-label={isCoolingDown ? "Wait a moment" : "Send message"}
+              title={isCoolingDown ? "Wait a moment..." : undefined}
               className={cn(
                 'h-9 w-9 shrink-0 rounded-xl transition-all shadow',
-                canSend && !isProcessing
+                canSend
                   ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200'
                   : 'bg-slate-100 text-slate-400 hover:bg-slate-100'
               )}
@@ -298,7 +301,7 @@ export const VoiceAssistant = ({
           {/* ---- Push to Talk button ---- */}
           <Button
             onClick={onStartListening}
-            disabled={isListening || isProcessing}
+            disabled={isListening || isProcessing || isCoolingDown}
             className={cn(
               'w-full rounded-xl gap-3 h-12 text-sm font-bold transition-all shadow-lg',
               isListening
@@ -307,7 +310,7 @@ export const VoiceAssistant = ({
             )}
           >
             {isListening ? <MicOff className="size-4" /> : <Mic className="size-4" />}
-            {isListening ? 'Listening...' : 'Push to Talk'}
+            {isListening ? 'Listening...' : isCoolingDown ? 'Wait a moment...' : 'Push to Talk'}
           </Button>
           <p className="mt-2 text-[9px] text-center text-slate-400 font-medium uppercase tracking-widest">
             Powered by Nexa AI Core

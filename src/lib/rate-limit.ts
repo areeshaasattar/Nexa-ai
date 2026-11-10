@@ -102,8 +102,21 @@ function getLimiter(name: RateLimitName): Ratelimit | null {
   return limiter;
 }
 
-function toResult(res: { success: boolean; remaining: number; reset: number }): CheckLimitResult {
-  const resetAt = typeof res.reset === "number" ? res.reset : Date.now();
+function toResult(
+  name: RateLimitName,
+  res: { success: boolean; remaining: number; reset: number; limit?: number; reason?: string },
+): CheckLimitResult {
+  let resetAt = typeof res.reset === "number" ? res.reset : Date.now();
+  const isTimeoutFailOpen =
+    res.success === true &&
+    (res.reason === "timeout" || (res.reset === 0 && res.limit === 0));
+
+  if (isTimeoutFailOpen) {
+    // Upstash timed out and failed open; keep allow/deny behavior but make reset sane.
+    console.warn(JSON.stringify({ event: "rate_limit.timeout", limiter: name }));
+    resetAt = Date.now() + 60_000;
+  }
+
   const retryAfterSeconds = Math.max(1, Math.ceil((resetAt - Date.now()) / 1000));
   return {
     allowed: res.success,
@@ -134,7 +147,7 @@ export async function checkLimit(name: RateLimitName, key: string): Promise<Chec
   if (testBackend) {
     try {
       const res = await testBackend.limit(name, key);
-      return toResult(res);
+      return toResult(name, res);
     } catch {
       console.warn(JSON.stringify({ event: "rate_limit.error", limiter: name, mode: "test_fail_open" }));
       return failOpenResult(name);
@@ -153,7 +166,7 @@ export async function checkLimit(name: RateLimitName, key: string): Promise<Chec
       return failOpenResult(name);
     }
     const res = await limiter.limit(key);
-    const result = toResult(res);
+    const result = toResult(name, res as unknown as { success: boolean; remaining: number; reset: number; limit?: number; reason?: string });
     // Structured log for observability (no secrets/emails).
     console.info(
       JSON.stringify({

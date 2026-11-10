@@ -42,10 +42,10 @@ function combineSignals(clientSignal: AbortSignal, timeoutMs: number): { signal:
   } else {
     clientSignal.addEventListener("abort", onAbort, { once: true });
   }
-  const any = (AbortSignal as any).any;
+  const abortSignalAny = (AbortSignal as unknown as { any?: (signals: AbortSignal[]) => AbortSignal }).any;
   const signal: AbortSignal =
-    typeof any === "function"
-      ? any([clientSignal, timeoutController.signal])
+    typeof abortSignalAny === "function"
+      ? abortSignalAny([clientSignal, timeoutController.signal])
       : timeoutController.signal;
   return {
     signal,

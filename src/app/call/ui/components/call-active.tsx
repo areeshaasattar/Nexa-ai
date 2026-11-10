@@ -45,7 +45,7 @@ export const CallActive = () => {
     { refetchOnWindowFocus: false },
   );
   const voice = useVoiceAssistant({ agentId: meeting?.agentId, meetingId });
-  const { isListening, isProcessing, messages, startListening, stopListening, sendTextMessage, retryMessage, voiceEnabled, setVoiceEnabled, speakingMessageId, speakMessage, stopSpeaking, speechSupported } = voice;
+  const { isListening, isProcessing, isCoolingDown, messages, startListening, stopListening, sendTextMessage, retryMessage, voiceEnabled, setVoiceEnabled, speakingMessageId, speakMessage, stopSpeaking, speechSupported } = voice;
 
   // Fire-and-forget mutation: end the call on the server so summary is generated
   // even when the Stream webhook can't reach localhost.
@@ -236,6 +236,7 @@ export const CallActive = () => {
           messages={messages}
           isListening={isListening}
           isProcessing={isProcessing}
+          isCoolingDown={isCoolingDown}
           onStartListening={startListening}
           onStopListening={stopListening}
           onSendText={sendTextMessage}
@@ -270,6 +271,7 @@ export const CallActive = () => {
               messages={messages}
               isListening={isListening}
               isProcessing={isProcessing}
+              isCoolingDown={isCoolingDown}
               onStartListening={startListening}
               onStopListening={stopListening}
               onSendText={sendTextMessage}
