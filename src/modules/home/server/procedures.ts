@@ -208,9 +208,15 @@ export const homeRouter = createTRPCRouter({
 
     // Optional services: report configured/not-configured without external calls.
     services.push({
-      name: "Resend (email)",
-      status: process.env.RESEND_API_KEY ? "online" : "offline",
-      latency: process.env.RESEND_API_KEY ? "configured" : "not configured",
+      name: "Brevo (email)",
+      status:
+        process.env.BREVO_API_KEY && process.env.BREVO_SENDER_EMAIL
+          ? "online"
+          : "offline",
+      latency:
+        process.env.BREVO_API_KEY && process.env.BREVO_SENDER_EMAIL
+          ? "configured"
+          : "not configured",
     });
     services.push({
       name: "Upstash (rate limit)",

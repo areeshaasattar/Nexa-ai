@@ -1,167 +1,247 @@
-import { Resend } from "resend";
+import {
+  changeEmailConfirmationEmail,
+  resetPasswordEmail,
+  verificationEmail,
+} from "@/lib/email-templates";
 
-/**
- * Lightweight email layer built on Resend.
- *
- * - If `RESEND_API_KEY` is missing we log a clear warning and skip sending
- *   (never throw) so local dev / builds don't crash.
- * - The sender address comes from `RESEND_FROM_EMAIL`. When unset it falls
- *   back to Resend's shared sandbox sender `onboarding@resend.dev`, which only
- *   delivers to your own verified account email. Set a verified custom domain
- *   before going to production (see FEATURES.md / env docs).
- */
+const BREVO_ENDPOINT = "https://api.brevo.com/v3/smtp/email";
 
-const fromEmail =
-  process.env.RESEND_FROM_EMAIL || "Nexa AI <onboarding@resend.dev>";
-
-// Lazily create the client once. Guarded against double-init by module caching.
-let resend: Resend | null = null;
-if (process.env.RESEND_API_KEY) {
-  resend = new Resend(process.env.RESEND_API_KEY);
-} else {
-  console.warn(
-    "[email] RESEND_API_KEY is not set. Password reset emails will NOT be sent. " +
-      "Add RESEND_API_KEY (and optionally RESEND_FROM_EMAIL) to your environment to enable email delivery.",
-  );
-}
+export type SendEmailResult =
+  | { ok: true; messageId: string }
+  | { ok: false; error: string; status?: number };
 
 export interface SendEmailOptions {
   to: string;
   subject: string;
-  /** HTML body. Required so Resend's type union resolves to the HTML template variant. */
   html: string;
-  /** Plain-text body (optional — fallback for email clients without HTML). */
-  text?: string;
+  text: string;
+  template: string;
+  /** Action URL (verification/reset/confirmation) for [DEV ONLY] fallback logging. */
+  devLink?: string;
 }
 
-/**
- * Send a transactional email through Resend.
- * Returns without throwing when the client is unavailable.
- */
-export async function sendEmail({
-  to,
-  subject,
-  html,
-  text,
-}: SendEmailOptions): Promise<void> {
-  if (!resend) {
-    console.warn(`[email] Skipping email to "${to}" — RESEND_API_KEY is missing.`);
-    return;
-  }
+export function maskEmail(email: string): string {
+  const at = email.indexOf("@");
+  if (at <= 0) return "***";
+  const local = email.slice(0, at);
+  const domain = email.slice(at + 1);
+  const visible = local.slice(0, 1);
+  return `${visible}***@${domain}`;
+}
 
-  const { error } = await resend.emails.send({
-    from: fromEmail,
-    to,
-    subject,
-    html,
-    text,
-  });
+function isDev(): boolean {
+  return process.env.NODE_ENV !== "production";
+}
 
-  if (error) {
-    throw new Error(`Resend failed to send email: ${error.message}`);
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function brevoErrorFields(body: unknown): { code?: string; message?: string } {
+  if (!body || typeof body !== "object") return {};
+  const record = body as Record<string, unknown>;
+  return {
+    code: typeof record.code === "string" ? record.code : undefined,
+    message: typeof record.message === "string" ? record.message : undefined,
+  };
+}
+
+function logDevLink(template: string, devLink: string | undefined): void {
+  if (!isDev() || !devLink) return;
+  // DEV ONLY: prints the action URL locally so developers can test without a mailbox.
+  // Never runs in production. Never logged in the structured production log lines.
+  console.info(`[DEV ONLY][${template}] action link: ${devLink}`);
+}
+
+async function attemptSend(
+  input: Required<Pick<SendEmailOptions, "to" | "subject" | "html" | "text">> & {
+    apiKey: string;
+    senderEmail: string;
+    senderName: string;
+  },
+): Promise<{ status?: number; ok: true; messageId: string } | { status?: number; ok: false; error: string; code?: string; message?: string; retryable: boolean }> {
+  try {
+    const response = await fetch(BREVO_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "api-key": input.apiKey,
+        "content-type": "application/json",
+        accept: "application/json",
+      },
+      body: JSON.stringify({
+        sender: { name: input.senderName, email: input.senderEmail },
+        to: [{ email: input.to }],
+        subject: input.subject,
+        htmlContent: input.html,
+        textContent: input.text,
+      }),
+      signal: AbortSignal.timeout(10000),
+    });
+
+    const status = response.status;
+    let body: unknown = null;
+    try {
+      body = await response.json();
+    } catch {
+      body = null;
+    }
+
+    if (response.ok && status === 201) {
+      const messageId =
+        body && typeof body === "object" && typeof (body as { messageId?: unknown }).messageId === "string"
+          ? (body as { messageId: string }).messageId
+          : "unknown";
+      return { ok: true, status, messageId };
+    }
+
+    const { code, message } = brevoErrorFields(body);
+    const retryable = status === 429 || status >= 500;
+    return {
+      ok: false,
+      status,
+      retryable,
+      code,
+      message,
+      error: message || `Brevo request failed with status ${status}`,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "network error";
+    return { ok: false, retryable: true, error: message, message };
   }
 }
 
-/**
- * Send the Better-Auth password reset email.
- *
- * `url` is the full reset link (with the single-use token embedded) that
- * Better-Auth validates before the user reaches the reset form.
- */
+export async function sendEmail(options: SendEmailOptions): Promise<SendEmailResult> {
+  console.log("[DEBUG:auth-email] stage:sendEmail_entered");
+  const start = Date.now();
+  const toMasked = maskEmail(options.to);
+  const template = options.template;
+
+  const apiKey = process.env.BREVO_API_KEY;
+  const senderEmail = process.env.BREVO_SENDER_EMAIL;
+  const senderName = process.env.BREVO_SENDER_NAME || "Nexa AI";
+
+  const missing: string[] = [];
+  if (!apiKey) missing.push("BREVO_API_KEY");
+  if (!senderEmail) missing.push("BREVO_SENDER_EMAIL");
+
+  if (missing.length > 0 || !apiKey || !senderEmail) {
+    console.log("[DEBUG:auth-email] stage:sendEmail_not_configured");
+    console.error(
+      JSON.stringify({
+        event: "email.not_configured",
+        template,
+        to: toMasked,
+        missing,
+        durationMs: Date.now() - start,
+      }),
+    );
+    logDevLink(template, options.devLink);
+    return { ok: false, error: `Email not configured: missing ${missing.join(", ")}` };
+  }
+
+  console.log("[DEBUG:auth-email] stage:sendEmail_before_fetch");
+  const payload = {
+    to: options.to,
+    subject: options.subject,
+    html: options.html,
+    text: options.text,
+    apiKey,
+    senderEmail,
+    senderName,
+  };
+
+  let result = await attemptSend(payload);
+  if (!result.ok && result.retryable) {
+    await sleep(500);
+    result = await attemptSend(payload);
+  }
+
+  const durationMs = Date.now() - start;
+
+  if (result.ok) {
+    console.log("[DEBUG:auth-email] stage:sendEmail_ok");
+    console.info(
+      JSON.stringify({
+        event: "email.sent",
+        template,
+        to: toMasked,
+        messageId: result.messageId,
+        durationMs,
+      }),
+    );
+    return { ok: true, messageId: result.messageId };
+  }
+
+  console.log("[DEBUG:auth-email] stage:sendEmail_failed");
+  console.error(
+    JSON.stringify({
+      event: "email.failed",
+      template,
+      to: toMasked,
+      status: result.status,
+      code: result.code,
+      message: result.message,
+      durationMs,
+    }),
+  );
+  logDevLink(template, options.devLink);
+  return { ok: false, error: result.error, status: result.status };
+}
+
 export async function sendPasswordResetEmail({
   to,
+  name,
   url,
 }: {
   to: string;
+  name?: string | null;
   url: string;
 }): Promise<void> {
+  const template = resetPasswordEmail({ name, url });
   await sendEmail({
     to,
-    subject: "Reset your Nexa AI password",
-    html: `
-      <div style="font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; color: #1a2e1a;">
-        <h2 style="margin: 0 0 16px; color: #1a2e1a;">Reset your password</h2>
-        <p style="font-size: 15px; line-height: 1.6; color: #3f5a3f;">
-          We received a request to reset the password for your Nexa AI account.
-          Click the button below to choose a new one. This link is valid for
-          <strong>1 hour</strong>.
-        </p>
-        <p style="text-align: center; margin: 32px 0;">
-          <a href="${url}" style="display: inline-block; background: #166534; color: #ffffff; text-decoration: none; font-weight: 600; padding: 12px 28px; border-radius: 10px;">
-            Reset password
-          </a>
-        </p>
-        <p style="font-size: 13px; line-height: 1.6; color: #6b826b;">
-          If the button doesn't work, copy and paste this link into your browser:<br />
-          <a href="${url}" style="color: #166534; word-break: break-all;">${url}</a>
-        </p>
-        <p style="font-size: 13px; color: #6b826b; margin-top: 32px;">
-          If you didn't request this, you can safely ignore this email.
-        </p>
-      </div>
-    `,
-    text: `
-Reset your Nexa AI password
-
-We received a request to reset the password for your Nexa AI account. Use the
-link below to choose a new one. It is valid for 1 hour.
-
-${url}
-
-If you didn't request this, you can safely ignore this email.
-    `.trim(),
+    ...template,
+    template: "password_reset",
+    devLink: url,
   });
 }
 
-/**
- * Send the Better-Auth email-verification email.
- *
- * `url` is the full verification link (with the single-use token embedded) that
- * Better-Auth validates before it flips `emailVerified` to true and — because
- * `autoSignInAfterVerification` is set — signs the user in automatically.
- */
 export async function sendVerificationEmail({
   to,
+  name,
   url,
 }: {
   to: string;
+  name?: string | null;
   url: string;
 }): Promise<void> {
+  console.log("[DEBUG:auth-email] stage:email_wrapper_entered");
+  const template = verificationEmail({ name, url });
   await sendEmail({
     to,
-    subject: "Verify your Nexa AI email",
-    html: `
-      <div style="font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; color: #1a2e1a;">
-        <h2 style="margin: 0 0 16px; color: #1a2e1a;">Verify your email address</h2>
-        <p style="font-size: 15px; line-height: 1.6; color: #3f5a3f;">
-          Thanks for creating a Nexa AI account. To finish setting it up and
-          start using the platform, please confirm your email address by
-          clicking the button below. This link is valid for
-          <strong>1 hour</strong>.
-        </p>
-        <p style="text-align: center; margin: 32px 0;">
-          <a href="${url}" style="display: inline-block; background: #166534; color: #ffffff; text-decoration: none; font-weight: 600; padding: 12px 28px; border-radius: 10px;">
-            Verify email
-          </a>
-        </p>
-        <p style="font-size: 13px; line-height: 1.6; color: #6b826b;">
-          If the button doesn't work, copy and paste this link into your browser:<br />
-          <a href="${url}" style="color: #166534; word-break: break-all;">${url}</a>
-        </p>
-        <p style="font-size: 13px; color: #6b826b; margin-top: 32px;">
-          If you didn't create an account, you can safely ignore this email.
-        </p>
-      </div>
-    `,
-    text: `
-Verify your Nexa AI email
+    ...template,
+    template: "email_verification",
+    devLink: url,
+  });
+  console.log("[DEBUG:auth-email] stage:email_wrapper_done");
+}
 
-Thanks for creating a Nexa AI account. Confirm your email address by opening
-the link below. It is valid for 1 hour.
-
-${url}
-
-If you didn't create an account, you can safely ignore this email.
-    `.trim(),
+export async function sendChangeEmailConfirmation({
+  to,
+  name,
+  newEmail,
+  url,
+}: {
+  to: string;
+  name?: string | null;
+  newEmail: string;
+  url: string;
+}): Promise<void> {
+  const template = changeEmailConfirmationEmail({ name, newEmail, url });
+  await sendEmail({
+    to,
+    ...template,
+    template: "change_email_confirmation",
+    devLink: url,
   });
 }

@@ -6,7 +6,17 @@ import Link from "next/link";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, Controller } from "react-hook-form";
-import { ArrowRight, Loader2, MailCheck, User, Mail, Lock, Eye, EyeOff } from "lucide-react";
+import {
+  ArrowRight,
+  Loader2,
+  MailCheck,
+  User,
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  RefreshCw,
+} from "lucide-react";
 import { toast } from "sonner";
 import { FaGithub, FaGoogle } from "react-icons/fa";
 import { authClient } from "@/lib/auth-client";
@@ -19,6 +29,7 @@ import {
   FieldError,
   FieldGroup,
 } from "@/components/ui/field";
+import { useResendCooldown } from "@/hooks/use-resend-cooldown";
 import { signUpSchema } from "../../schemas";
 
 const formSchema = signUpSchema;
@@ -28,11 +39,36 @@ type FormValues = z.infer<typeof formSchema>;
 const SignUpView = () => {
   const [loading, setLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState<string | null>(null);
+  const [resending, setResending] = useState(false);
   // Toggles visibility for both password fields (eye icon), like the
   // settings security tab.
   const [showPassword, setShowPassword] = useState(false);
   // Set once signup succeeds — flips the view to a "check your email" screen.
   const [submittedEmail, setSubmittedEmail] = useState<string | null>(null);
+  const resendCooldown = useResendCooldown(
+    `resend-cooldown:sign-up:${submittedEmail ?? "pending"}`,
+  );
+
+  const handleResendVerification = async () => {
+    if (!submittedEmail || resending || resendCooldown.active) return;
+    setResending(true);
+    try {
+      const { error } = await authClient.sendVerificationEmail({
+        email: submittedEmail,
+        callbackURL: "/",
+      });
+      if (error) {
+        toast.error("Could not send verification email. Please try again.");
+        return;
+      }
+      resendCooldown.start();
+      toast.success("Verification email sent. Check your inbox and spam folder.");
+    } catch {
+      toast.error("Could not send verification email. Please try again.");
+    } finally {
+      setResending(false);
+    }
+  };
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -147,6 +183,27 @@ const SignUpView = () => {
                   </span>
                   . Click it to verify your account — you&apos;ll be signed in
                   automatically. The link expires in 1 hour.
+                </p>
+              </div>
+              <div className="flex w-full max-w-sm flex-col gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={resending || resendCooldown.active}
+                  onClick={handleResendVerification}
+                  className="h-12 rounded-xl border-gray-200 font-semibold transition-all"
+                >
+                  {resending ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="size-4" />
+                  )}
+                  {resendCooldown.active
+                    ? `Resend in ${resendCooldown.remaining}s`
+                    : "Resend email"}
+                </Button>
+                <p className="text-xs text-gray-500">
+                  Didn&apos;t get it? Check your spam folder.
                 </p>
               </div>
               <Button

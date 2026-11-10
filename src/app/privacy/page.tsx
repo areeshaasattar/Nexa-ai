@@ -28,7 +28,7 @@ export default function PrivacyPage() {
         </p>
         <h2 className="text-lg font-semibold mt-6">Third parties</h2>
         <p>
-          Neon (database), Stream Video (video, recording, transcription), Mistral (LLM), Resend
+          Neon (database), Stream Video (video, recording, transcription), Mistral (LLM), Brevo
           (email), Upstash (rate limiting), and optionally Sentry (error reporting). Each processes
           data under their own terms.
         </p>
