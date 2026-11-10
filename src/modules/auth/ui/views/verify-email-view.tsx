@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useResendCooldown } from "@/hooks/use-resend-cooldown";
 
 type VerifyStatus = "verifying" | "success" | "error";
 
@@ -24,6 +25,7 @@ const VerifyEmailView = () => {
   const [status, setStatus] = useState<VerifyStatus>("verifying");
   const [resendEmail, setResendEmail] = useState("");
   const [resending, setResending] = useState(false);
+  const resendCooldown = useResendCooldown("resend-cooldown:verify-email");
 
   const token = searchParams.get("token");
   const callbackURL = searchParams.get("callbackURL") || "/";
@@ -67,30 +69,23 @@ const VerifyEmailView = () => {
   }, [token, callbackURL, router]);
 
   const handleResend = async () => {
-    if (!resendEmail.trim()) return;
+    if (!resendEmail.trim() || resending || resendCooldown.active) return;
     setResending(true);
     try {
       const { error } = await authClient.sendVerificationEmail({
         email: resendEmail.trim(),
         callbackURL: "/",
       });
-      setResending(false);
       if (error) {
-        toast.error("Could not resend verification email", {
-          description:
-            error.message || "Please check your email and try again.",
-          duration: 5000,
-        });
+        toast.error("Could not send verification email. Please try again.");
         return;
       }
-      toast.success("Verification email sent!", {
-        description: `Check ${resendEmail.trim()} for the link. It expires in 1 hour.`,
-      });
+      resendCooldown.start();
+      toast.success("Verification email sent. Check your inbox and spam folder.");
     } catch {
+      toast.error("Could not send verification email. Please try again.");
+    } finally {
       setResending(false);
-      toast.error("Unexpected Error", {
-        description: "An unexpected error occurred. Please try again later.",
-      });
     }
   };
 
@@ -178,15 +173,20 @@ const VerifyEmailView = () => {
                 </div>
                 <Button
                   onClick={handleResend}
-                  disabled={resending || !resendEmail.trim()}
+                  disabled={resending || resendCooldown.active || !resendEmail.trim()}
                   className="h-12 rounded-xl bg-green-800 hover:bg-green-900 text-white font-bold shadow-lg shadow-green-900/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
                 >
                   {resending ? (
                     <Loader2 className="size-5 animate-spin" />
+                  ) : resendCooldown.active ? (
+                    `Resend in ${resendCooldown.remaining}s`
                   ) : (
-                    "Resend verification email"
+                    "Resend email"
                   )}
                 </Button>
+                <p className="text-xs text-gray-500">
+                  Didn&apos;t get it? Check your spam folder.
+                </p>
               </div>
             </div>
           )}

@@ -19,6 +19,7 @@ import {
   FieldError,
   FieldGroup,
 } from "@/components/ui/field";
+import { useResendCooldown } from "@/hooks/use-resend-cooldown";
 
 const formSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address" }),
@@ -35,6 +36,9 @@ const SignInView = () => {
   // "verify your email" panel with a resend button.
   const [verifyEmail, setVerifyEmail] = useState<string | null>(null);
   const [resending, setResending] = useState(false);
+  const resendCooldown = useResendCooldown(
+    `resend-cooldown:sign-in:${verifyEmail ?? "pending"}`,
+  );
   // Toggles password visibility in the sign-in form (eye icon).
   const [showPassword, setShowPassword] = useState(false);
 
@@ -90,30 +94,23 @@ const SignInView = () => {
 
   // Resend the verification email for the address that was blocked by 403.
   const handleResendVerification = async () => {
-    if (!verifyEmail) return;
+    if (!verifyEmail || resending || resendCooldown.active) return;
     setResending(true);
     try {
       const { error } = await authClient.sendVerificationEmail({
         email: verifyEmail,
         callbackURL: "/",
       });
-      setResending(false);
       if (error) {
-        toast.error("Could not resend verification email", {
-          description:
-            error.message || "Please check the email and try again.",
-          duration: 5000,
-        });
+        toast.error("Could not send verification email. Please try again.");
         return;
       }
-      toast.success("Verification email sent!", {
-        description: `Check ${verifyEmail} for the link. It expires in 1 hour.`,
-      });
+      resendCooldown.start();
+      toast.success("Verification email sent. Check your inbox and spam folder.");
     } catch {
+      toast.error("Could not send verification email. Please try again.");
+    } finally {
       setResending(false);
-      toast.error("Unexpected Error", {
-        description: "An unexpected error occurred. Please try again later.",
-      });
     }
   };
 
@@ -263,20 +260,27 @@ const SignInView = () => {
                     </p>
                   </div>
                 </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={resending}
-                  onClick={handleResendVerification}
-                  className="h-10 rounded-xl border-amber-300 hover:bg-amber-100 text-amber-800 font-semibold text-sm transition-all flex items-center justify-center gap-2"
-                >
-                  {resending ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="size-4" />
-                  )}
-                  Resend verification email
-                </Button>
+                <div className="flex flex-col gap-1.5">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={resending || resendCooldown.active}
+                    onClick={handleResendVerification}
+                    className="h-10 rounded-xl border-amber-300 hover:bg-amber-100 text-amber-800 font-semibold text-sm transition-all flex items-center justify-center gap-2"
+                  >
+                    {resending ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <RefreshCw className="size-4" />
+                    )}
+                    {resendCooldown.active
+                      ? `Resend in ${resendCooldown.remaining}s`
+                      : "Resend email"}
+                  </Button>
+                  <p className="text-xs text-amber-700/90">
+                    Didn&apos;t get it? Check your spam folder.
+                  </p>
+                </div>
               </div>
             )}
 

@@ -2,8 +2,13 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db } from "@/db"
 import * as schema from "@/db/schema"
-import { sendPasswordResetEmail, sendVerificationEmail } from "@/lib/email"
+import {
+  sendChangeEmailConfirmation,
+  sendPasswordResetEmail,
+  sendVerificationEmail,
+} from "@/lib/email"
 import { after } from "next/server"
+import { createAuthMiddleware, sendVerificationEmailFn } from "better-auth/api"
 import { seedStarterAgent } from "@/lib/seed-starter-agent"
 
 /**
@@ -46,6 +51,40 @@ const trustedOrigins = [
     .filter((origin) => origin.length > 0);
 
 export const auth = betterAuth({
+    hooks: {
+        after: createAuthMiddleware(async (ctx) => {
+            if (ctx.path === "/sign-up/email") {
+                const returned = ctx.context.returned as { user?: { id: string; email: string; name?: string | null; emailVerified?: boolean } } | null;
+                const user = returned?.user;
+
+                if (user?.id) {
+                    after(async () => {
+                        try {
+                            await seedStarterAgent(user.id);
+                        } catch {
+                            // seedStarterAgent never throws; guard defensively.
+                        }
+
+                        // Fallback: ensure verification email is sent if Better-Auth's
+                        // built-in sign-up send path did not invoke the callback.
+                        if (!user.emailVerified && user.email) {
+                            try {
+                                const fallbackUser = { ...user, emailVerified: false };
+                                await ctx.context.runInBackgroundOrAwait(
+                                    sendVerificationEmailFn(
+                                        ctx as unknown as Parameters<typeof sendVerificationEmailFn>[0],
+                                        fallbackUser as unknown as Parameters<typeof sendVerificationEmailFn>[1],
+                                    )
+                                );
+                            } catch {
+                                // send path logs its own failures; never block/fail signup.
+                            }
+                        }
+                    });
+                }
+            }
+        }),
+    },
     session: {
         // Cache the session in a short-lived signed cookie so auth.api.getSession
         // avoids a DB round-trip on every request (cuts /api/chat auth latency).
@@ -62,14 +101,10 @@ export const auth = betterAuth({
         user: {
             create: {
                 after: async (user) => {
-                    // Run seeding after the response so it never delays signup, while
-                    // staying alive on serverless runtimes (same pattern as email).
-                    // seedStarterAgent catches all errors and never rethrows.
+                    // Run after response/transaction work; seedStarterAgent is idempotent,
+                    // retries on transient FK visibility issues, and never throws.
                     after(() => {
-                        void seedStarterAgent(user.id).catch(() => {
-                            // Defense in depth: seedStarterAgent must not throw, but
-                            // this ensures the hook can never fail signup.
-                        });
+                        void seedStarterAgent(user.id);
                     });
                 },
             },
@@ -138,19 +173,18 @@ export const auth = betterAuth({
     emailVerification: {
         /**
          * Email the user their verification link. Called by Better-Auth after
-         * signup (sendOnSignUp) and whenever the link is resent. Same
-         * fire-and-forget-with-logged-failure pattern as the reset email so a
-         * slow email provider never blocks or reveals timing of the auth route.
+         * signup (sendOnSignUp) and whenever the link is resent. Sent via
+         * Brevo through the email helper, which never throws and logs masked,
+         * non-sensitive details. Kept inside after() so the auth response is
+         * not delayed while work stays alive on serverless runtimes.
          */
         sendVerificationEmail: async ({ user, url }) => {
             if (!user.email) return;
-            const to = user.email;
             after(() => {
-                sendVerificationEmail({ to, url }).catch((error) => {
-                    console.error(
-                        `[auth] Failed to send verification email to ${to}:`,
-                        error,
-                    );
+                void sendVerificationEmail({
+                    to: user.email,
+                    name: user.name,
+                    url,
                 });
             });
         },
@@ -168,6 +202,18 @@ export const auth = betterAuth({
          */
         changeEmail: {
             enabled: true,
+            sendChangeEmailConfirmation: async ({ user, newEmail, url }) => {
+                // Confirmation is sent to the current account email.
+                if (!user.email) return;
+                after(() => {
+                    void sendChangeEmailConfirmation({
+                        to: user.email,
+                        name: user.name,
+                        newEmail,
+                        url,
+                    });
+                });
+            },
         },
         /**
          * Custom profile field (see `src/db/schema.ts` `user.bio`). Declared
@@ -192,22 +238,20 @@ export const auth = betterAuth({
          * Deliberately NOT awaited (fire-and-forget) so the auth endpoint's
          * response time does not reveal whether the email exists in the DB —
          * Better-Auth's guidance for avoiding timing-attack-prone behavior.
-         * Failures are logged, never surfaced to the caller.
+         * The email helper never throws and logs only masked, non-sensitive details.
          */
         sendResetPassword: async ({ user, token }) => {
             if (!user.email) return;
 
             const url = buildPasswordResetUrl(token);
-            const to = user.email;
 
             // Run after the response is sent so email delivery doesn't block or
             // reveal timing, while staying alive on serverless runtimes.
             after(() => {
-                sendPasswordResetEmail({ to, url }).catch((error) => {
-                    console.error(
-                        `[auth] Failed to send password reset email to ${to}:`,
-                        error,
-                    );
+                void sendPasswordResetEmail({
+                    to: user.email,
+                    name: user.name,
+                    url,
                 });
             });
         },

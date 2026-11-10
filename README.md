@@ -68,7 +68,7 @@ Create a `.env` file at the project root and fill the values according to the ta
 | `STREAM_VIDEO_SECRET_KEY` | Stream Video secret key | `xxxxx` |
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | GitHub OAuth (optional) | `Iv…` |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth (optional) | `…` |
-| `RESEND_API_KEY` / `RESEND_FROM_EMAIL` | Password‑reset & verification emails via Resend (optional; skipped if the key is missing) | `re_…` |
+| `BREVO_API_KEY` / `BREVO_SENDER_EMAIL` / `BREVO_SENDER_NAME` | Transactional emails (verification, reset, change-email) via Brevo; sender must be verified; free plan 300/day | `xkeysib-…` |
 | `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis, rate‑limits `/api/chat` | `…` |
 | `NEXT_PUBLIC_APP_URL` | Public app URL (webhooks, tRPC base, reset links) | `http://localhost:3000` |
 
@@ -88,9 +88,10 @@ GITHUB_CLIENT_SECRET=your-github-client-secret
 GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret
 
-# --- Email (Resend) ----------------------------------------------
-RESEND_API_KEY=re_xxxxxxxxxxxx
-RESEND_FROM_EMAIL="Nexa AI <no-reply@yourdomain.com>"
+# --- Email (Brevo) -----------------------------------------------
+BREVO_API_KEY=
+BREVO_SENDER_EMAIL=
+BREVO_SENDER_NAME=Nexa AI
 
 # --- App / Stream Video ------------------------------------------
 NEXT_PUBLIC_APP_URL=your-next-public-app-url

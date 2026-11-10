@@ -45,7 +45,7 @@ A signed‑in user can:
 | RPC / data | **tRPC v11** (`@trpc/server`, `@trpc/client`, `@trpc/react-query`, `@trpc/tanstack-react-query`) with **superjson** transformer; **TanStack React Query v5** |
 | Database | **Neon PostgreSQL** (`@neondatabase/serverless`) + **Drizzle ORM 0.45**; migrations via **drizzle-kit** (`db:generate`, `db:migrate`); `db:push` exists for local prototyping only |
 | Auth | **Better‑Auth 1.6.11** (email/password, GitHub + Google OAuth, email verification, password reset, email change, account linking) with Drizzle adapter |
-| Email | **Resend** (`resend`) for verification and password‑reset emails (fire‑and‑forget via `after()`); graceful behavior depends on env configuration |
+| Email | **Brevo** (REST API via `fetch`, no SDK dependency) for transactional emails (verification, password reset, change-email confirmation). Sends are wrapped in `after()`, never throw, and log masked/non-sensitive details; dev-only action-link fallback when not configured or send fails in development |
 | Rate limiting | **Upstash** (`@upstash/ratelimit`, `@upstash/redis`) — applied to `/api/chat` (per‑user sliding window) |
 | Video / calls | **Stream Video** (`@stream-io/video-react-sdk` client, `@stream-io/node-sdk` server) — call creation, tokens, recordings/transcriptions listing, webhooks |
 | LLM / AI | **Mistral API** (`api.mistral.ai`) — model from `MODEL_NAME` (default `mistral-small-latest`). `/api/chat` streams SSE; summaries use JSON mode + zod validation/retry/fallback |
@@ -108,7 +108,7 @@ Routes/pages: `/sign-in`, `/sign-up`, `/forgot-password`, `/reset-password`, `/v
 
 - **Email + password** sign‑in/sign‑up (react-hook-form + zod; password min length enforced in UI; Better‑Auth handles hashing/credentials).
 - **OAuth** sign‑in with **GitHub** and **Google** (`callbackURL: "/"`).
-- **Email verification**: verification email flow via Better‑Auth + Resend; `sendOnSignUp` enabled; auto sign‑in after verification configured; sign‑in blocked for unverified users (`requireEmailVerification: true`). `/verify-email` handles the verification callback/UX (including expired/resend patterns as implemented in the module).
+- **Email verification**: verification emails sent via Better‑Auth + Brevo; `sendOnSignUp` enabled; auto sign‑in after verification configured; sign‑in blocked for unverified users (`requireEmailVerification: true`). `/verify-email` handles verification; sign-up/sign-in/verify-email surfaces include **Resend email** with a 60s cooldown (sessionStorage-persisted) and spam-folder hint. Send failures are logged (masked) while signup/auth flows remain safe.
 - **Forgot/reset password**: `/forgot-password` requests reset; reset URL is built to Better‑Auth’s callback (`/api/auth/reset-password/:token` → redirects to `/reset-password` with token/error). `resetPasswordTokenExpiresIn: 3600`, `revokeSessionsOnPasswordReset: true`.
 - **Session persistence** via Better‑Auth cookies. Session cookie cache is **disabled** in code (`session.cookieCache.enabled = false`) to avoid oversized cookies (e.g., large avatar data URLs).
 - **Sign out** from dashboard user menu and command palette.
@@ -192,7 +192,7 @@ tRPC: `home.hello`, `home.getDashboardData`, `home.getSystemHealth` (protected).
 - **Upcoming meetings** and **recent activity feed**.
 - **Quick launch** shortcuts (agent/meeting/call actions in UI).
 - **AI Insights**: client‑side, rule‑based recommendations derived from metrics (not LLM‑generated).
-- **System status monitor**: pings Neon DB (latency) and reports configured/not‑configured status (no external probe calls) for **Resend**, **Upstash**, and **Sentry** env presence. Polled in UI as implemented.
+- **System status monitor**: pings Neon DB (latency) and reports configured/not‑configured status (no external probe calls) for **Brevo** (email, when `BREVO_API_KEY` + `BREVO_SENDER_EMAIL` are set), **Upstash**, and **Sentry** env presence. Polled in UI as implemented.
 
 ### 4.9 Dashboard shell & UX
 
@@ -242,14 +242,14 @@ Protected under dashboard layout (and included in proxy protected paths).
 Better‑Auth is configured with a **Drizzle adapter** over the project schema and:
 
 - **`trustedOrigins`** from env: `BETTER_AUTH_URL` + optional comma‑separated `TRUSTED_ORIGINS` (trimmed/filtered).
-- **`emailAndPassword.enabled: true`**, **`requireEmailVerification: true`**, reset token expiry 3600s, **`revokeSessionsOnPasswordReset: true`**. `sendResetPassword` sends via Resend inside `after()` (non‑blocking) using a reset URL routed through Better‑Auth’s callback.
-- **`emailVerification`**: `sendVerificationEmail` via Resend in `after()`, **`sendOnSignUp: true`**, **`autoSignInAfterVerification: true`**, `expiresIn: 3600`.
+- **`emailAndPassword.enabled: true`**, **`requireEmailVerification: true`**, reset token expiry 3600s, **`revokeSessionsOnPasswordReset: true`**. `sendResetPassword` sends via Brevo inside `after()` (non‑blocking, never throws) using a reset URL routed through Better‑Auth’s callback.
+- **`emailVerification`**: `sendVerificationEmail` via Brevo in `after()`, **`sendOnSignUp: true`**, **`autoSignInAfterVerification: true`**, `expiresIn: 3600`. `user.changeEmail.sendChangeEmailConfirmation` is wired to Brevo (confirmation sent to the current account email). Email logs contain only template/status/Brevo code/message/messageId/duration/masked recipient; dev-only action links are printed only when `NODE_ENV !== "production"` and send fails or Brevo is not configured.
 - **`user.changeEmail.enabled: true`** and **`user.additionalFields.bio`** (string).
 - **`account.accountLinking`**: enabled for `google`/`github`. The source contains detailed comments about verification/linking tradeoffs; the active config sets **`requireLocalEmailVerified: true`** and `trustedProviders: ["google","github"]`.
 - **`session.cookieCache.enabled: false`** (disabled to prevent 431 from oversized session cookies when avatars were stored as large data URLs). A DB hook rejects oversized `data:` avatar images on user update.
 - **`databaseHooks.user.update.before`** rejects `data:` images > 100 KB.
 
-Key env vars (typical): `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `GITHUB_CLIENT_ID/SECRET`, `GOOGLE_CLIENT_ID/SECRET`, `RESEND_API_KEY`/`RESEND_FROM_EMAIL`, `MISTRAL_API_KEY`, `MODEL_NAME`, Stream keys, `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN`, `NEXT_PUBLIC_APP_URL`, optional `TRUSTED_ORIGINS`, `DEV_ALLOWED_ORIGINS`, `ADMIN_EMAILS`.
+Key env vars (typical): `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `GITHUB_CLIENT_ID/SECRET`, `GOOGLE_CLIENT_ID/SECRET`, `BREVO_API_KEY`/`BREVO_SENDER_EMAIL`/`BREVO_SENDER_NAME`, `MISTRAL_API_KEY`, `MODEL_NAME`, Stream keys, `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN`, `NEXT_PUBLIC_APP_URL`, optional `TRUSTED_ORIGINS`, `DEV_ALLOWED_ORIGINS`, `ADMIN_EMAILS`. Brevo: sender/domain must be verified; free plan is 300 emails/day total.
 
 ### 5.2 Auth API mounting
 
@@ -335,7 +335,8 @@ nexa-ai/
 
 ## 8. Known limitations & roadmap
 
-1. **No billing/payments.** Billing UI and plan enforcement are not implemented.
+1. **Transactional email (Brevo):** free plan is 300 emails/day total; sender/domain must be verified in Brevo. Email sends are logged with masked/non-sensitive details only; a dev-only action-link fallback is printed when `NODE_ENV !== "production"` and Brevo is not configured or a send fails.
+2. **No billing/payments.** Billing UI and plan enforcement are not implemented.
 2. **Rate limiting is narrow.** Only `/api/chat` uses Upstash; tRPC mutations and auth endpoints are not covered by the same limiter strategy.
 3. **System health is partial.** DB is actively pinged; other services are reported as configured/not configured based on env vars (no live probes). No Sentry SDK integration is evident in runtime code from this scan.
 4. **AI Insights are rule-based**, not LLM-generated.
