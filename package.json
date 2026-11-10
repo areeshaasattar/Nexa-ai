@@ -13,6 +13,7 @@
     "test:webhook-replay": "tsx scripts/test-webhook-replay.ts",
     "test:seed-starter-agent": "tsx scripts/test-seed-starter-agent.ts",
     "test:email": "tsx scripts/test-email.ts",
+    "test:limits": "tsx scripts/test-limits.ts",
     "seed:starter-agent": "tsx scripts/backfill-starter-agent.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",

@@ -198,13 +198,19 @@ export const useVoiceAssistant = ({ agentId, meetingId }: UseVoiceAssistantProps
         });
 
         if (response.status === 429) {
-          toast.error("You're sending messages too fast", {
-            description: "Please wait a moment before trying again.",
-          });
-          setMessages((prev) => [
-            ...prev,
-            { role: 'ai', content: "Message rate limit hit — give me a few seconds, then try again." },
-          ]);
+          let body: { error?: string; message?: string; retryAfterSeconds?: number } | null = null;
+          try {
+            body = await response.json();
+          } catch {
+            body = null;
+          }
+          const isDaily = body?.error === "daily_limit";
+          const message = body?.message || (isDaily
+            ? "You have used today's voice limit. Try again tomorrow."
+            : "Slow down a little.");
+          toast.error(message);
+          stopListening();
+          // Leave UI in a usable idle state; do not auto-retry and do not persist blocked requests.
           return;
         }
 
@@ -297,7 +303,7 @@ export const useVoiceAssistant = ({ agentId, meetingId }: UseVoiceAssistantProps
         setIsProcessing(false);
       }
     },
-    [isProcessing, agentId, logInteraction, voiceEnabled, speakMessage, stopSpeaking],
+    [isProcessing, agentId, meetingId, logInteraction, voiceEnabled, speakMessage, stopSpeaking, stopListening],
   );
 
   // Latest-ref: the SpeechRecognition effect is registered once ([] deps) but we

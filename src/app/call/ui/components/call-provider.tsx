@@ -9,6 +9,7 @@ import {
   Call,
 } from '@stream-io/video-react-sdk';
 import { useEffect, useRef, useState, ReactNode } from 'react';
+import { toast } from 'sonner';
 import { CallConnect } from './call-connect';
 
 interface StreamCallProviderProps {
@@ -17,10 +18,18 @@ interface StreamCallProviderProps {
 }
 
 export const StreamCallProvider = ({ children, meetingId }: StreamCallProviderProps) => {
-  const { data: token, isLoading: isTokenLoading } = trpc.meetings.getToken.useQuery(
+  const tokenQuery = trpc.meetings.getToken.useQuery(
     { id: meetingId },
-    { refetchOnWindowFocus: false },
+    { refetchOnWindowFocus: false, retry: false },
   );
+  const token = tokenQuery.data;
+  const isTokenLoading = tokenQuery.isLoading;
+
+  useEffect(() => {
+    if (tokenQuery.error) {
+      toast.error(tokenQuery.error.message);
+    }
+  }, [tokenQuery.error]);
   const { data: session, isLoading: isSessionLoading } = trpc.meetings.getSession.useQuery(undefined, {
     refetchOnWindowFocus: false,
   });
@@ -99,6 +108,11 @@ export const StreamCallProvider = ({ children, meetingId }: StreamCallProviderPr
         setCall(newCall);
       } catch (error) {
         console.error('Failed to initialize call:', error);
+        const message =
+          error && typeof error === "object" && "message" in error && typeof (error as { message?: unknown }).message === "string"
+            ? (error as { message: string }).message
+            : "Failed to join call.";
+        toast.error(message);
       }
     };
 

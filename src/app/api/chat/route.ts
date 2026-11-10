@@ -4,77 +4,72 @@ import { agents, meetings, conversationMessages } from "@/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import { checkChatRateLimit } from "@/lib/rate-limit";
+import { checkLimit } from "@/lib/rate-limit";
+import { LIMITS } from "@/lib/limits";
 import { z } from "zod";
 
 export async function POST(req: Request) {
   try {
-    // Resolve the authenticated user. The route is called from the browser
-    // (the voice assistant) with the session cookie, so grab the user id from
-    // the session — it both gates access and keys the per-user rate limit.
-    // (The route previously had no auth check at all, so any anonymous caller
-    // could burn the Mistral API key; this closes that hole while reusing the
-    // exact session mechanism used elsewhere in the app.)
-    const t0 = Date.now();
     const session = await auth.api.getSession({
       headers: await headers(),
     });
-    const tAuth = Date.now();
     if (!session?.user?.id) {
-      console.log(JSON.stringify({ event: "chat.auth_failed", ms: tAuth - t0 }));
       return NextResponse.json(
         { error: "You must be signed in to use the chat." },
         { status: 401 },
       );
     }
     const userId = session.user.id;
-    console.log(JSON.stringify({ event: "chat.auth_ok", userId, ms: tAuth - t0 }));
-
-    // Per-user rate limit, enforced before any Mistral work so a single user
-    // can't hammer the API and run up the bill. 429 carries Retry-After (secs)
-    // and X-RateLimit-Remaining so the client can react intelligently.
-    const tRate0 = Date.now();
-    const rateLimit = await checkChatRateLimit(userId);
-    const tRate = Date.now();
-    console.log(JSON.stringify({ event: "chat.rate_limit", userId, ms: tRate - tRate0, success: rateLimit.success }));
-    if (!rateLimit.success) {
-      return NextResponse.json(
-        {
-          error: "Too many requests. Please wait a moment before sending another message.",
-          rateLimit: {
-            limit: rateLimit.limit,
-            remaining: rateLimit.remaining,
-            reset: rateLimit.reset,
-          },
-        },
-        {
-          status: 429,
-          headers: {
-            "Retry-After": String(
-              Math.max(1, Math.ceil((rateLimit.reset - Date.now()) / 1000)),
-            ),
-            "X-RateLimit-Remaining": String(rateLimit.remaining),
-          },
-        },
-      );
-    }
 
     const body = await req.json().catch(() => null);
-
     const chatInputSchema = z.object({
       prompt: z.string().trim().min(1).max(2000),
       agentId: z.string().min(1).max(64),
       meetingId: z.string().min(1).max(64),
     });
-
     const parsed = chatInputSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid input" }, { status: 400 });
     }
     const { prompt, agentId, meetingId } = parsed.data;
+
+    // Rate limits BEFORE any Mistral call and before loading history/DB work.
+    const minuteLimit = await checkLimit("chat.minute", userId);
+    if (!minuteLimit.allowed) {
+      return NextResponse.json(
+        {
+          error: "rate_limited",
+          message: "Slow down a little. Try again shortly.",
+          retryAfterSeconds: minuteLimit.retryAfterSeconds,
+        },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(minuteLimit.retryAfterSeconds),
+          },
+        },
+      );
+    }
+
+    const dayLimit = await checkLimit("chat.day", userId);
+    if (!dayLimit.allowed) {
+      return NextResponse.json(
+        {
+          error: "daily_limit",
+          message: "You have used today's voice limit. Try again tomorrow.",
+          retryAfterSeconds: dayLimit.retryAfterSeconds,
+        },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(dayLimit.retryAfterSeconds),
+          },
+        },
+      );
+    }
+
     const CHAT_HISTORY_MESSAGE_LIMIT = 10;
 
-    const tDb0 = Date.now();
     // Fetch agent, meeting, and history in parallel (independent lookups).
     const [[agent], [meeting], historyRowsRaw] = await Promise.all([
       db.select().from(agents).where(and(eq(agents.id, agentId), eq(agents.userId, userId))),
@@ -86,24 +81,13 @@ export async function POST(req: Request) {
         .orderBy(desc(conversationMessages.createdAt))
         .limit(CHAT_HISTORY_MESSAGE_LIMIT),
     ]);
-    const tDb = Date.now();
 
     if (!agent || !meeting || meeting.agentId !== agentId) {
-      console.log(JSON.stringify({ event: "chat.not_found", ms: tDb - tDb0 }));
       return NextResponse.json({ error: "Agent not found" }, { status: 404 });
     }
-    console.log(
-      JSON.stringify({
-        event: "chat.db_ok",
-        ms: tDb - tDb0,
-        historyCount: historyRowsRaw.length,
-      }),
-    );
-
-    const historyRows = [...historyRowsRaw];
 
     // Reverse to chronological order.
-    const chronological = [...historyRows].reverse();
+    const chronological = [...historyRowsRaw].reverse();
 
     // Guard against duplicating the current prompt if a client already
     // persisted it before calling this route: drop a trailing user message
@@ -139,10 +123,7 @@ export async function POST(req: Request) {
     }
 
     const model = process.env.MODEL_NAME || "mistral-small-latest";
-    const MAX_TOKENS = 300;
-
-    const tLlm0 = Date.now();
-    let firstTokenLogged = false;
+    const MAX_TOKENS = LIMITS.mistral.chatMaxTokens;
 
     const encoder = new TextEncoder();
     const readable = new ReadableStream<Uint8Array>({
@@ -153,7 +134,11 @@ export async function POST(req: Request) {
 
         // Handle client abort.
         const onAbort = () => {
-          try { controller.close(); } catch { /* already closed */ }
+          try {
+            controller.close();
+          } catch {
+            /* already closed */
+          }
         };
         req.signal.addEventListener("abort", onAbort, { once: true });
 
@@ -181,8 +166,7 @@ export async function POST(req: Request) {
           });
 
           if (!mistralRes.ok || !mistralRes.body) {
-            const errText = await mistralRes.text().catch(() => "");
-            console.log(JSON.stringify({ event: "chat.llm_error", status: mistralRes.status }));
+            await mistralRes.text().catch(() => "");
             send({ type: "error", message: "AI provider error" });
             controller.close();
             return;
@@ -210,10 +194,6 @@ export async function POST(req: Request) {
                   const json = JSON.parse(data);
                   const delta = json.choices?.[0]?.delta?.content;
                   if (delta) {
-                    if (!firstTokenLogged) {
-                      firstTokenLogged = true;
-                      console.log(JSON.stringify({ event: "chat.first_token", ms: Date.now() - tLlm0 }));
-                    }
                     fullText += delta;
                     send({ type: "delta", text: delta });
                   }
@@ -227,26 +207,27 @@ export async function POST(req: Request) {
           }
 
           if (req.signal.aborted) {
-            console.log(JSON.stringify({ event: "chat.aborted", replyLen: fullText.length }));
             controller.close();
             return;
           }
 
-          // Persist only after a complete stream.
+          // Persist only after a complete stream (and never for blocked requests).
           if (fullText) {
             await db.insert(conversationMessages).values({ meetingId, role: "user", content: prompt });
             await db.insert(conversationMessages).values({ meetingId, role: "ai", content: fullText });
           }
-          console.log(JSON.stringify({ event: "chat.done", totalMs: Date.now() - t0, replyLen: fullText.length }));
           send({ type: "done" });
-        } catch (err) {
+        } catch {
           if (!req.signal.aborted) {
-            console.log(JSON.stringify({ event: "chat.stream_error" }));
             send({ type: "error", message: "Stream failed" });
           }
         } finally {
           req.signal.removeEventListener("abort", onAbort);
-          try { controller.close(); } catch { /* already closed */ }
+          try {
+            controller.close();
+          } catch {
+            /* already closed */
+          }
         }
       },
     });
