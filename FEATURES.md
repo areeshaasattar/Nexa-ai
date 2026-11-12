@@ -231,9 +231,17 @@ Protected under dashboard layout (and included in proxy protected paths).
 ### 4.13 Scripts & developer tooling
 
 - `npm run dev` / `build` / `start` / `lint`
+- `npm test`: runs the safe no-network, no-DB test scripts (`test:summary`, `test:transcript-parser`, `test:seed-starter-agent`, `test:limits`, `test:chat-errors`, `test:agent-templates`, `test:email`)
 - DB: `db:generate`, `db:migrate`, `db:push` (prototyping), `db:studio`
-- Tests/scripts (tsx): `test:summary`, `test:summary:live`, `test:transcript-parser`, `test:webhook-replay` (replay requires a running dev server), `test:seed-starter-agent`, `test:agent-templates`, `test:limits`
+- Tests/scripts (tsx): `test:summary`, `test:summary:live`, `test:transcript-parser`, `test:webhook-replay` (replay requires a running dev server), `test:seed-starter-agent`, `test:agent-templates`, `test:limits`, `test:chat-errors`, `test:email`
 - `scripts/drop_type.mjs` retained for DB maintenance as documented in history
+
+### 4.14 CI (GitHub Actions)
+
+- `.github/workflows/ci.yml` runs on pushes to `main` and on all pull requests: `npx tsc --noEmit`, `npm run lint`, `npm test`, then `npm run build` on Node 22 with npm caching.
+- The CI job uses only `contents: read`, cancels superseded runs per ref, and fails on lint **errors** (pre-existing warnings are allowed).
+- The build runs with clearly fake dummy environment values (`DATABASE_URL`, auth, Stream, OAuth, Brevo, Mistral, etc.) and unconfigured Upstash, so it never contacts a real service.
+- Live tests (`test:summary:live`, needs a real Mistral key) and `test:webhook-replay` (needs a running server) remain manual and are not part of CI.
 
 ---
 

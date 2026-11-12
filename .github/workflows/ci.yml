@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: Typecheck, lint, test, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # Clearly fake CI placeholders. No real services are contacted.
+      DATABASE_URL: postgresql://ci_user:ci_password@localhost:5432/nexa_ci
+      BETTER_AUTH_SECRET: ci-dummy-secret-not-real-0123456789abcdef
+      BETTER_AUTH_URL: http://localhost:3000
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      NEXT_PUBLIC_STREAM_VIDEO_API_KEY: ci-dummy-stream-api-key
+      STREAM_VIDEO_SECRET_KEY: ci-dummy-stream-secret-key
+      GITHUB_CLIENT_ID: ci-dummy-github-client-id
+      GITHUB_CLIENT_SECRET: ci-dummy-github-client-secret
+      GOOGLE_CLIENT_ID: ci-dummy-google-client-id
+      GOOGLE_CLIENT_SECRET: ci-dummy-google-client-secret
+      BREVO_API_KEY: ci-dummy-brevo-api-key
+      BREVO_SENDER_EMAIL: ci-dummy@example.com
+      BREVO_SENDER_NAME: Nexa AI CI
+      MISTRAL_API_KEY: ci-dummy-mistral-api-key
+      MODEL_NAME: mistral-small-latest
+      # Leave Upstash unconfigured so limiters fail open during the build.
+      UPSTASH_REDIS_REST_URL: ""
+      UPSTASH_REDIS_REST_TOKEN: ""
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
