@@ -15,9 +15,16 @@ import { GeneratedAvatar } from "@/components/generated-avatar";
 import { useAgentsFilter } from "@/app/(dashboard)/agents/hooks/use-agents-filter";
 
 import { DataPagination } from "../components/data-pagination";
+import { AgentTemplateGrid } from "../components/agent-template-card";
+import { useQuickStart } from "../hooks/use-quick-start";
+import type { AgentTemplate } from "@/lib/agent-templates";
 
 export const AgentsView = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [initialTemplate, setInitialTemplate] = useState<AgentTemplate | null>(
+    null,
+  );
+  const quickStart = useQuickStart();
   const [{ search, page, pageSize }, setFilter] = useAgentsFilter();
 
   const agentsQuery = trpc.agents.getMany.useQuery(
@@ -33,11 +40,28 @@ export const AgentsView = () => {
   const total = agentsQuery.data?.total ?? 0;
   const totalPages = agentsQuery.data?.totalPages ?? 0;
 
+  const handleCustomize = (template: AgentTemplate) => {
+    setInitialTemplate(template);
+    setIsDialogOpen(true);
+  };
+
   return (
     <div className="flex flex-col gap-10">
-      <AgentsListHeader onOpenDialog={() => setIsDialogOpen(true)} />
+      <AgentsListHeader
+        onOpenDialog={() => {
+          setInitialTemplate(null);
+          setIsDialogOpen(true);
+        }}
+      />
 
-      <NewAgentDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} />
+      <NewAgentDialog
+        open={isDialogOpen}
+        onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) setInitialTemplate(null);
+        }}
+        initialTemplate={initialTemplate}
+      />
 
       <section>
         <div className="flex items-center justify-between mb-4 px-1">
@@ -80,9 +104,21 @@ export const AgentsView = () => {
               <DataTable
                 columns={columns}
                 data={tableData}
-                onNewAgent={() => setIsDialogOpen(true)}
+                onNewAgent={() => {
+                  setInitialTemplate(null);
+                  setIsDialogOpen(true);
+                }}
                 searchValue={search}
                 onSearchChange={(value) => setFilter({ search: value, page: 1 })}
+                emptyContent={
+                  !search && total === 0 ? (
+                    <AgentTemplateGrid
+                      onTryItNow={quickStart.start}
+                      isPending={quickStart.isPending}
+                      onCustomize={handleCustomize}
+                    />
+                  ) : undefined
+                }
               />
               <div className="border-t border-gray-50 px-4">
                 <DataPagination total={total} totalPages={totalPages} />

@@ -10,6 +10,7 @@ import { meetingStatus as meetingStatusEnum } from "@/db/schema";
 import { streamVideo } from "@/lib/stream-video";
 import { after } from "next/server";
 import { LIMITS } from "@/lib/limits";
+import { AGENT_TEMPLATE_IDS, getAgentTemplate } from "@/lib/agent-templates";
 
 /**
  * Extract safe diagnostics from a Stream SDK error. The SDK throws
@@ -381,6 +382,124 @@ export const meetingsRouter = createTRPCRouter({
       });
 
       return newMeeting;
+    }),
+
+  /**
+   * One-click "Try it now": reuses (or creates) the agent for a template and
+   * schedules an immediate meeting, then the client navigates to the call page.
+   * The client sends only a templateId; all template text is looked up here.
+   */
+  quickStart: protectedProcedure
+    .use(rateLimited("quickStart.hour"))
+    .input(z.object({ templateId: z.enum(AGENT_TEMPLATE_IDS) }))
+    .mutation(async ({ ctx, input }) => {
+      const template = getAgentTemplate(input.templateId);
+      if (!template) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Unknown agent template.",
+        });
+      }
+
+      // Check the meeting quota first: if it is full, do not create an agent
+      // that cannot be used for the meeting we are about to schedule.
+      const [meetingCount] = await db
+        .select({ total: count() })
+        .from(meetings)
+        .where(eq(meetings.userId, ctx.userId));
+
+      if ((meetingCount?.total ?? 0) >= LIMITS.quotas.maxMeetingsPerUser) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: `You reached the limit of ${LIMITS.quotas.maxMeetingsPerUser} meetings. Delete one to create another.`,
+        });
+      }
+
+      // Reuse an agent with exactly the template name (newest first). Its
+      // instruction is never overwritten because the user may have edited it.
+      const [existingAgent] = await db
+        .select({ id: agents.id })
+        .from(agents)
+        .where(and(eq(agents.userId, ctx.userId), eq(agents.name, template.name)))
+        .orderBy(desc(agents.createdAt))
+        .limit(1);
+
+      let agentId = existingAgent?.id;
+      let reusedAgent = Boolean(existingAgent);
+
+      if (!agentId) {
+        // Agent quota check (count-then-insert; same as agents.create).
+        const [agentCount] = await db
+          .select({ total: count() })
+          .from(agents)
+          .where(eq(agents.userId, ctx.userId));
+
+        if ((agentCount?.total ?? 0) >= LIMITS.quotas.maxAgentsPerUser) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: `You reached the limit of ${LIMITS.quotas.maxAgentsPerUser} agents. Delete one to create another.`,
+          });
+        }
+
+        const [newAgent] = await db
+          .insert(agents)
+          .values({
+            name: template.name,
+            instruction: template.instruction,
+            userId: ctx.userId,
+          })
+          .returning();
+
+        agentId = newAgent.id;
+        reusedAgent = false;
+
+        await db.insert(activities).values({
+          userId: ctx.userId,
+          type: "agent_created",
+          title: `Agent Created: ${newAgent.name}`,
+          description: `A new AI agent "${newAgent.name}" has been deployed to your workspace from a template.`,
+        });
+      }
+
+      let meetingId: string;
+      try {
+        const [insertedMeeting] = await db
+          .insert(meetings)
+          .values({
+            name: template.suggestedMeetingName,
+            agentId,
+            userId: ctx.userId,
+            instructions: null,
+            status: "scheduled",
+          })
+          .returning({ id: meetings.id });
+
+        meetingId = insertedMeeting.id;
+      } catch {
+        // neon-http has no interactive transactions, so the agent created
+        // above (if any) stays. Log only ids, never template text.
+        console.error(
+          JSON.stringify({
+            event: "meetings.quickStart.meeting_insert_failed",
+            userId: ctx.userId,
+            templateId: input.templateId,
+            outcome: "meeting_insert_failed",
+          }),
+        );
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Could not start your session. Please try again.",
+        });
+      }
+
+      await db.insert(activities).values({
+        userId: ctx.userId,
+        type: "meeting_created",
+        title: `Meeting Scheduled: ${template.suggestedMeetingName}`,
+        description: `A new meeting "${template.suggestedMeetingName}" has been scheduled.`,
+      });
+
+      return { meetingId, agentId, reusedAgent };
     }),
 
   update: protectedProcedure

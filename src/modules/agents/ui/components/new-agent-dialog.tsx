@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { trpc } from "@/trpc/client";
@@ -19,6 +19,9 @@ import { Field, FieldLabel, FieldError } from "@/components/ui/field";
 import { GeneratedAvatar } from "@/components/generated-avatar";
 import { agentsInsertSchema } from "../../schemas";
 import { z } from "zod";
+import { AGENT_TEMPLATES, type AgentTemplate } from "@/lib/agent-templates";
+import { AgentTemplateGrid } from "./agent-template-card";
+import { useQuickStart } from "../hooks/use-quick-start";
 
 const formSchema = agentsInsertSchema.omit({ userId: true });
 type FormValues = z.infer<typeof formSchema>;
@@ -26,10 +29,17 @@ type FormValues = z.infer<typeof formSchema>;
 interface NewAgentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** When provided, the form is prefilled from this template on open. */
+  initialTemplate?: AgentTemplate | null;
 }
 
-export const NewAgentDialog = ({ open, onOpenChange }: NewAgentDialogProps) => {
+export const NewAgentDialog = ({
+  open,
+  onOpenChange,
+  initialTemplate,
+}: NewAgentDialogProps) => {
   const utils = trpc.useUtils();
+  const quickStart = useQuickStart();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -57,6 +67,37 @@ export const NewAgentDialog = ({ open, onOpenChange }: NewAgentDialogProps) => {
     },
   });
 
+  // Prefill when opened from an empty-state Customize action.
+  useEffect(() => {
+    if (!open || !initialTemplate) return;
+    form.setValue("name", initialTemplate.name, {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
+    form.setValue("instruction", initialTemplate.instruction, {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
+    requestAnimationFrame(() => form.setFocus("name"));
+  }, [open, initialTemplate, form]);
+
+  const handleCustomize = (template: AgentTemplate) => {
+    form.setValue("name", template.name, {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
+    form.setValue("instruction", template.instruction, {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
+    requestAnimationFrame(() => form.setFocus("name"));
+  };
+
+  const handleTryItNow = (template: AgentTemplate) => {
+    quickStart.start(template);
+    onOpenChange(false);
+  };
+
   const onSubmit = (data: FormValues) => {
     createMutation.mutate(data);
   };
@@ -65,7 +106,7 @@ export const NewAgentDialog = ({ open, onOpenChange }: NewAgentDialogProps) => {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className="
-          sm:max-w-[420px] p-0 overflow-hidden rounded-2xl
+          sm:max-w-[420px] max-h-[90vh] overflow-y-auto p-0 rounded-2xl
           border border-[#d4e0d4] bg-white shadow-xl
 
           /* Overlay fade */
@@ -97,6 +138,22 @@ export const NewAgentDialog = ({ open, onOpenChange }: NewAgentDialogProps) => {
                 Deploy agent
               </DialogTitle>
             </DialogHeader>
+          </div>
+        </div>
+
+        {/* Start from a template */}
+        <div className="px-6 pt-5 pb-5 border-b border-[#d4e0d4] bg-[#fafcfa]">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-[#6a9a6a] mb-3">
+            Start from a template
+          </p>
+          <div className="max-h-[232px] overflow-y-auto pr-1">
+            <AgentTemplateGrid
+              templates={AGENT_TEMPLATES}
+              onTryItNow={handleTryItNow}
+              isPending={quickStart.isPending}
+              onCustomize={handleCustomize}
+              variant="compact"
+            />
           </div>
         </div>
 

@@ -73,6 +73,7 @@ async function main() {
   assert.equal(LIMITS.retrySummary.perHourPerUser, 5);
   assert.equal(LIMITS.retrySummary.perDayPerMeeting, 3);
   assert.equal(LIMITS.feedback.createPerHour, 5);
+  assert.equal(LIMITS.quickStart.perHour, 10);
   assert.equal(LIMITS.logVoiceInteraction.perHour, 120);
   assert.equal(LIMITS.email.resendVerificationWindowSeconds, 60);
   assert.equal(LIMITS.email.resendVerificationPerDay, 10);

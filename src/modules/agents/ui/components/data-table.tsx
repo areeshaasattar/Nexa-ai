@@ -7,7 +7,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { SearchIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 
 interface DataTableProps<TData, TValue> {
@@ -16,9 +16,17 @@ interface DataTableProps<TData, TValue> {
   onNewAgent?: () => void;
   searchValue?: string;
   onSearchChange?: (value: string) => void;
+  /** Extra content rendered in the empty state, below the description. */
+  emptyContent?: ReactNode;
 }
 
-function EmptyState({ onNewAgent }: { onNewAgent?: () => void }) {
+function EmptyState({
+  onNewAgent,
+  emptyContent,
+}: {
+  onNewAgent?: () => void;
+  emptyContent?: ReactNode;
+}) {
   return (
     <div className="flex flex-col items-center justify-center py-24 px-6 select-none">
       <div className="relative flex items-center justify-center mb-8">
@@ -53,6 +61,10 @@ function EmptyState({ onNewAgent }: { onNewAgent?: () => void }) {
         Deploy your first agent to start automating tasks and managing meetings.
       </p>
 
+      {emptyContent && (
+        <div className="mb-6 w-full max-w-3xl">{emptyContent}</div>
+      )}
+
       {onNewAgent && (
         <button
           onClick={onNewAgent}
@@ -82,6 +94,7 @@ export function DataTable<TData, TValue>({
   onNewAgent,
   searchValue,
   onSearchChange,
+  emptyContent,
 }: DataTableProps<TData, TValue>) {
   const table = useReactTable({
     data,
@@ -170,7 +183,7 @@ export function DataTable<TData, TValue>({
           ))}
         </div>
       ) : (
-        <EmptyState onNewAgent={onNewAgent} />
+        <EmptyState onNewAgent={onNewAgent} emptyContent={emptyContent} />
       )}
     </div>
   );

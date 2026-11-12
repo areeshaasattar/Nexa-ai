@@ -119,6 +119,7 @@ Routes/pages: `/sign-in`, `/sign-up`, `/forgot-password`, `/reset-password`, `/v
 tRPC: `agents.getMany`, `getOne`, `create`, `update`, `remove` (all `protectedProcedure`, owner‑scoped).
 
 - **Create** agent (name + instruction/system prompt).
+- **Templates**: five ready-made agent templates (`brainstorm-partner`, `interview-coach`, `language-tutor`, `sales-call-practice`, `standup-buddy`) defined in `src/lib/agent-templates.ts`. The create-agent dialog shows a **“Start from a template”** section above the blank form; **Customize** prefills name and instruction for editing before deploy. Empty states on `/agents` also surface the template grid. The Brainstorm Partner starter template is unchanged and remains the one seeded for new users.
 - **List** with pagination + search (name/instruction, case‑insensitive) and live **meeting count**.
 - **View** agent details.
 - **Edit** name/instruction.
@@ -128,9 +129,10 @@ tRPC: `agents.getMany`, `getOne`, `create`, `update`, `remove` (all `protectedPr
 
 ### 4.3 Meetings (`/meetings`, `/meetings/[meetingId]`)
 
-tRPC: `meetings.getMany`, `getOne`, `create`, `update`, `remove`, plus call/summary/message helpers.
+tRPC: `meetings.getMany`, `getOne`, `create`, `quickStart`, `update`, `remove`, plus call/summary/message helpers.
 
 - **Schedule** meeting (name, agent, optional instructions; schema supports scheduling fields as implemented).
+- **One-click quick start** (`meetings.quickStart`): from any template card, **Try it now** reuses the user’s existing agent whose name exactly matches the template (newest first, instruction left untouched) or creates it from the server-side template, then schedules a meeting named from the template (`status: scheduled`, no meeting-level instructions) and returns `{ meetingId, agentId, reusedAgent }`. The client sends only `templateId`; template text is never accepted from the client. Rate-limited to **10/hour per user** (`quickStart.hour`) and subject to the same agent/meeting quotas as the normal create mutations. The meetings empty state offers a starter-template **Try it now** plus a link to browse templates on `/agents`.
 - **List** with pagination, text search, **status filter**, **agent filter** (joins agent name; computes duration in SQL where applicable).
 - **Detail view (“Meeting Intelligence”)**: status, timing/duration, agent, instructions, recording/transcript links when present, and summary UI.
 - **Structured summary rendering**: when `summaryData` is present/valid, renders sections (overview, decisions, action items, topics, open questions) with **Copy as Markdown** support and fallback/insufficient states. Legacy meetings with only `summary` text still render.
@@ -230,7 +232,7 @@ Protected under dashboard layout (and included in proxy protected paths).
 
 - `npm run dev` / `build` / `start` / `lint`
 - DB: `db:generate`, `db:migrate`, `db:push` (prototyping), `db:studio`
-- Tests/scripts (tsx): `test:summary`, `test:summary:live`, `test:transcript-parser`, `test:webhook-replay` (replay requires a running dev server)
+- Tests/scripts (tsx): `test:summary`, `test:summary:live`, `test:transcript-parser`, `test:webhook-replay` (replay requires a running dev server), `test:seed-starter-agent`, `test:agent-templates`, `test:limits`
 - `scripts/drop_type.mjs` retained for DB maintenance as documented in history
 
 ---
@@ -347,6 +349,7 @@ nexa-ai/
 10. **Stream transcript speaker mapping is limited** (primarily owner mapping today); multi-participant naming needs richer member resolution.
 11. **Avatar storage**: large `data:` avatars are blocked; durable fix is object storage for avatar URLs (cookie cache should remain off until avatars are URL-based/small).
 12. **Production webhook reliability depends on Stream dashboard config** (URL, events like `call.transcription_ready`, secret alignment) and reachable public endpoint.
+13. **Language tutor quality depends on browser speech recognition and text-to-speech language support**; there is no language picker yet.
 
 ### Limits (from `src/lib/limits.ts`)
 
@@ -357,6 +360,7 @@ nexa-ai/
 | Get call token | 60/hour per user |
 | Retry summary | 5/hour per user; 3/day per meeting (`userId:meetingId`) |
 | Feedback create | 5/hour per user |
+| Quick start | 10/hour per user (one-click template agent + meeting) |
 | Log voice interaction | 120/hour per user |
 | Email resend (verification) | 1 per 60 seconds per user/email key; 10/day per user/email key |
 | Global Brevo budget | 250 emails/day (UTC day key), checked before Brevo calls |

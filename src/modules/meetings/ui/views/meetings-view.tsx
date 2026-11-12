@@ -31,8 +31,15 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { DataPagination } from "@/modules/agents/ui/components/data-pagination";
+import { useQuickStart } from "@/modules/agents/ui/hooks/use-quick-start";
+import {
+  getAgentTemplate,
+  STARTER_AGENT_TEMPLATE_ID,
+} from "@/lib/agent-templates";
 import { toast } from "sonner";
 import Link from "next/link";
+
+const STARTER_TEMPLATE = getAgentTemplate(STARTER_AGENT_TEMPLATE_ID);
 
 const StatusBadge = ({ status }: { status: string }) => {
   const styles =
@@ -72,6 +79,7 @@ export const MeetingsView = () => {
   const [{ search, status, agentId, page, pageSize }, setFilter] =
     useMeetingsFilter();
   const utils = trpc.useUtils();
+  const quickStart = useQuickStart();
 
   const meetingsQuery = trpc.meetings.getMany.useQuery(
     {
@@ -211,14 +219,33 @@ export const MeetingsView = () => {
                         <p className="text-sm font-medium text-gray-400">
                           No sessions scheduled yet.
                         </p>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setIsDialogOpen(true)}
-                          className="rounded-lg border-[#d4e0d4] text-[#3B6D11] hover:bg-[#f0f4f0]"
-                        >
-                          Schedule First Meeting
-                        </Button>
+                        <div className="flex flex-wrap items-center justify-center gap-2">
+                          {STARTER_TEMPLATE && (
+                            <Button
+                              size="sm"
+                              onClick={() => quickStart.start(STARTER_TEMPLATE)}
+                              disabled={quickStart.isPending}
+                              className="rounded-lg bg-[#3B6D11] text-white hover:bg-[#2f5a0d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B6D11] focus-visible:ring-offset-2"
+                            >
+                              <PlayCircleIcon className="size-3.5" />
+                              Try it now
+                            </Button>
+                          )}
+                          <Link
+                            href="/agents"
+                            className="inline-flex h-8 items-center rounded-lg border border-[#d4e0d4] px-3 text-sm font-medium text-[#3B6D11] transition-colors hover:bg-[#f0f4f0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B6D11] focus-visible:ring-offset-2"
+                          >
+                            Browse templates
+                          </Link>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setIsDialogOpen(true)}
+                            className="rounded-lg border-[#d4e0d4] text-[#3B6D11] hover:bg-[#f0f4f0]"
+                          >
+                            Schedule First Meeting
+                          </Button>
+                        </div>
                       </div>
                     </td>
                   </tr>

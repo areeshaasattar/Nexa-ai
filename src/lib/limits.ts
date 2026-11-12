@@ -30,6 +30,10 @@ export const LIMITS = {
     /** Per-user hourly cap on feedback submissions. */
     createPerHour: 5,
   },
+  quickStart: {
+    /** Per-user hourly cap on one-click template meeting creation. */
+    perHour: 10,
+  },
   logVoiceInteraction: {
     /** Per-user hourly cap on voice interaction metric writes. */
     perHour: 120,
