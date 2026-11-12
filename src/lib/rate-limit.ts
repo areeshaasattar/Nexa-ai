@@ -11,6 +11,7 @@ export type RateLimitName =
   | "retrySummary.hour"
   | "retrySummary.dayPerMeeting"
   | "feedback.create.hour"
+  | "quickStart.hour"
   | "logVoiceInteraction.hour"
   | "email.resendVerification.window"
   | "email.resendVerification.day"
@@ -43,6 +44,7 @@ const LIMITER_CONFIG: Record<RateLimitName, LimiterConfig> = {
   "retrySummary.hour": { tokens: LIMITS.retrySummary.perHourPerUser, window: "1 h", kind: "sliding", prefix: "nexa:rl:retrySummary.hour" },
   "retrySummary.dayPerMeeting": { tokens: LIMITS.retrySummary.perDayPerMeeting, window: "1 d", kind: "fixed", prefix: "nexa:rl:retrySummary.dayPerMeeting" },
   "feedback.create.hour": { tokens: LIMITS.feedback.createPerHour, window: "1 h", kind: "sliding", prefix: "nexa:rl:feedback.create.hour" },
+  "quickStart.hour": { tokens: LIMITS.quickStart.perHour, window: "1 h", kind: "sliding", prefix: "nexa:rl:quickStart.hour" },
   "logVoiceInteraction.hour": { tokens: LIMITS.logVoiceInteraction.perHour, window: "1 h", kind: "sliding", prefix: "nexa:rl:logVoiceInteraction.hour" },
   "email.resendVerification.window": { tokens: 1, window: "60 s", kind: "sliding", prefix: "nexa:rl:email.resendVerification.window" },
   "email.resendVerification.day": { tokens: LIMITS.email.resendVerificationPerDay, window: "1 d", kind: "fixed", prefix: "nexa:rl:email.resendVerification.day" },

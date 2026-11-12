@@ -12,6 +12,7 @@
     "test:transcript-parser": "tsx scripts/test-transcript-parser.ts",
     "test:webhook-replay": "tsx scripts/test-webhook-replay.ts",
     "test:seed-starter-agent": "tsx scripts/test-seed-starter-agent.ts",
+    "test:agent-templates": "tsx scripts/test-agent-templates.ts",
     "test:email": "tsx scripts/test-email.ts",
     "test:limits": "tsx scripts/test-limits.ts",
     "test:chat-errors": "tsx scripts/test-chat-errors.ts",

@@ -13,8 +13,6 @@ import {
   shouldRetryProviderFailure,
 } from "@/lib/chat-provider-errors";
 
-export { mapProviderError, shouldRetryProviderFailure };
-
 function sleep(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
 }
