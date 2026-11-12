@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "npm run test:summary && npm run test:transcript-parser && npm run test:seed-starter-agent && npm run test:limits && npm run test:chat-errors && npm run test:agent-templates && npm run test:email",
     "test:summary": "tsx scripts/test-summary.ts",
     "test:summary:live": "tsx scripts/test-summary-live.ts",
     "test:transcript-parser": "tsx scripts/test-transcript-parser.ts",
