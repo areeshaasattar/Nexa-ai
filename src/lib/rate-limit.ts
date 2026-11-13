@@ -26,6 +26,7 @@ export interface CheckLimitResult {
 
 export interface RateLimitBackend {
   limit(name: RateLimitName, key: string): Promise<{ success: boolean; limit: number; remaining: number; reset: number }>;
+  getRemaining?: (name: RateLimitName, key: string) => Promise<{ limit: number; remaining: number; reset: number }>;
 }
 
 type LimiterConfig = {
@@ -184,6 +185,55 @@ export async function checkLimit(name: RateLimitName, key: string): Promise<Chec
   } catch {
     // Fail open on limiter errors (including global email budget and daily chat cap).
     console.warn(JSON.stringify({ event: "rate_limit.error", limiter: name, allowed: true }));
+    return failOpenResult(name);
+  }
+}
+
+export async function getRemainingLimit(
+  name: RateLimitName,
+  key: string,
+): Promise<CheckLimitResult> {
+  if (testBackend) {
+    try {
+      if (testBackend.getRemaining) {
+        const res = await testBackend.getRemaining(name, key);
+        const allowed = (res.remaining ?? 0) > 0;
+        return toResult(name, {
+          success: allowed,
+          remaining: res.remaining,
+          reset: res.reset,
+          limit: res.limit,
+        });
+      }
+      // No peek support in test backend; conservatively allow without consuming.
+      return failOpenResult(name);
+    } catch {
+      console.warn(JSON.stringify({ event: "rate_limit.error", limiter: name, mode: "test_fail_open_peek" }));
+      return failOpenResult(name);
+    }
+  }
+
+  if (!hasUpstashEnv()) {
+    logMissingConfigOnce();
+    return failOpenResult(name);
+  }
+
+  try {
+    const limiter = getLimiter(name);
+    if (!limiter) {
+      logMissingConfigOnce();
+      return failOpenResult(name);
+    }
+    const res = await (limiter as unknown as { getRemaining: (id: string) => Promise<{ limit: number; remaining: number; reset: number }> }).getRemaining(key);
+    const allowed = (res.remaining ?? 0) > 0;
+    return toResult(name, {
+      success: allowed,
+      remaining: res.remaining,
+      reset: res.reset,
+      limit: res.limit,
+    });
+  } catch {
+    console.warn(JSON.stringify({ event: "rate_limit.error", limiter: name, allowed: true, op: "getRemaining" }));
     return failOpenResult(name);
   }
 }

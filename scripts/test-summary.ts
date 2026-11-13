@@ -326,6 +326,8 @@ await test("short source returns insufficient without calling the model", async 
     },
   });
   assert.equal(calls, 0);
+  assert.equal(result.status, "ok");
+  assert.ok(result.data);
   assert.equal(result.data.meta?.kind, "insufficient");
   assert.equal(result.data.overview, "Not enough conversation to summarize.");
   assert.equal(storedSummaryDataSchema.safeParse(result.data).success, true);
@@ -343,6 +345,8 @@ await test("invalid output is retried once and then stored as a flagged fallback
     },
   });
   assert.equal(calls, 2);
+  assert.equal(result.status, "ok");
+  assert.ok(result.data);
   assert.equal(result.usedFallback, true);
   assert.equal(result.data.meta?.kind, "fallback");
   assert.equal(result.validationErrors.length, 2);
@@ -360,6 +364,8 @@ await test("invalid then valid output succeeds on the retry with no fallback", a
     },
   });
   assert.equal(calls, 2);
+  assert.equal(result.status, "ok");
+  assert.ok(result.data);
   assert.equal(result.usedFallback, false);
   assert.equal(result.attempts, 2);
   assert.equal(result.data.meta?.kind, "structured");
@@ -377,6 +383,8 @@ await test("prompt injection text stays data and cannot add schema fields", asyn
     source: injected,
     callModel: async () => JSON.stringify(VALID_SUMMARY),
   });
+  assert.equal(result.status, "ok");
+  assert.ok(result.data);
   assert.equal(result.data.meta?.kind, "structured");
   assert.deepEqual(Object.keys(result.data).sort(), [
     "actionItems",

@@ -7,6 +7,9 @@ import { after } from "next/server";
 import zlib from "node:zlib";
 import { generateMeetingSummary } from "@/lib/meeting-summary";
 
+// Webhook-triggered summary generation may run with provider backoff in after().
+export const maxDuration = 60;
+
 /**
  * Insert a dashboard activity once per meeting: webhook events can be
  * delivered more than once, so the metadata column carries the meeting id

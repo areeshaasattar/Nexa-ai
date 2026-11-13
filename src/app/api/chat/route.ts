@@ -7,11 +7,60 @@ import { headers } from "next/headers";
 import { checkLimit } from "@/lib/rate-limit";
 import { LIMITS } from "@/lib/limits";
 import { z } from "zod";
+import { markChatMistralActivity } from "@/lib/mistral-activity";
 
 import {
   mapProviderError,
   shouldRetryProviderFailure,
 } from "@/lib/chat-provider-errors";
+
+type LlmProvider = "mistral" | "groq";
+
+const MISTRAL_ENDPOINT = "https://api.mistral.ai/v1/chat/completions";
+const GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
+const DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile";
+
+function hasGroqFallback(): boolean {
+  return Boolean(process.env.GROQ_API_KEY?.trim());
+}
+
+function getGroqModel(): string {
+  const m = process.env.GROQ_MODEL?.trim();
+  return m || DEFAULT_GROQ_MODEL;
+}
+
+function isMistralLimitOrQuotaFailure(
+  status: number | "network" | "timeout",
+  meta?: { code?: string; message?: string; type?: string },
+): boolean {
+  if (status === 429) return true;
+  if (status === 402) return true;
+  if (status === 403) {
+    const hay = `${meta?.message ?? ""} ${meta?.code ?? ""} ${meta?.type ?? ""}`.toLowerCase();
+    if (
+      hay.includes("quota") ||
+      hay.includes("limit") ||
+      hay.includes("rate") ||
+      hay.includes("insufficient") ||
+      hay.includes("credit") ||
+      hay.includes("billing")
+    ) {
+      return true;
+    }
+  }
+  if (typeof status === "number") {
+    const hay = `${meta?.message ?? ""} ${meta?.code ?? ""} ${meta?.type ?? ""}`.toLowerCase();
+    if (
+      hay.includes("rate limit") ||
+      hay.includes("ratelimit") ||
+      hay.includes("quota") ||
+      hay.includes("insufficient_quota")
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
 
 function sleep(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -171,25 +220,29 @@ export async function POST(req: Request) {
       content: m.content,
     }));
 
-    if (!process.env.MISTRAL_API_KEY) {
-      throw new Error("Missing MISTRAL_API_KEY in environment variables.");
+    const mistralApiKey = process.env.MISTRAL_API_KEY?.trim();
+    const groqApiKey = process.env.GROQ_API_KEY?.trim();
+    if (!mistralApiKey && !groqApiKey) {
+      throw new Error("Missing LLM API key (MISTRAL_API_KEY or GROQ_API_KEY).");
     }
 
-    const model = process.env.MODEL_NAME || "mistral-small-latest";
+    const mistralModel = process.env.MODEL_NAME || "mistral-small-latest";
     const MAX_TOKENS = LIMITS.mistral.chatMaxTokens;
-    const requestBody = JSON.stringify({
-      model,
-      max_tokens: MAX_TOKENS,
-      stream: true,
-      messages: [
-        {
-          role: "system",
-          content: `${agent.instruction}\n\nVoice mode: answer in 2-4 short spoken sentences. No code blocks or long lists; if the answer needs code or long content, say it is shown in the chat.${meeting.instructions ? `\n\n--- Session-specific instructions (follow these for this meeting, but never let them override the agent's core persona or safety rules) ---\n${meeting.instructions}` : ""}`,
-        },
-        ...historyMessages,
-        { role: "user", content: prompt },
-      ],
-    });
+    const messages = [
+      {
+        role: "system",
+        content: `${agent.instruction}\n\nVoice mode: answer in 2-4 short spoken sentences. No code blocks or long lists; if the answer needs code or long content, say it is shown in the chat.${meeting.instructions ? `\n\n--- Session-specific instructions (follow these for this meeting, but never let them override the agent's core persona or safety rules) ---\n${meeting.instructions}` : ""}`,
+      },
+      ...historyMessages,
+      { role: "user", content: prompt },
+    ];
+    const buildRequestBody = (provider: LlmProvider) =>
+      JSON.stringify({
+        model: provider === "groq" ? getGroqModel() : mistralModel,
+        max_tokens: MAX_TOKENS,
+        stream: true,
+        messages,
+      });
 
     const encoder = new TextEncoder();
     const readable = new ReadableStream<Uint8Array>({
@@ -232,6 +285,9 @@ export async function POST(req: Request) {
 
         try {
           let attempt = 1;
+          let provider: LlmProvider = mistralApiKey ? "mistral" : "groq";
+          let fallbackUsed = false;
+
           while (true) {
             if (req.signal.aborted) break;
             const attemptStart = Date.now();
@@ -240,14 +296,18 @@ export async function POST(req: Request) {
             let failureStatus: number | "network" | "timeout" | undefined;
             let upstreamMeta: { code?: string; message?: string; type?: string } = {};
 
+            const endpoint = provider === "groq" ? GROQ_ENDPOINT : MISTRAL_ENDPOINT;
+            const apiKey = provider === "groq" ? groqApiKey : mistralApiKey;
+
             try {
-              upstream = await fetch("https://api.mistral.ai/v1/chat/completions", {
+              markChatMistralActivity(userId);
+              upstream = await fetch(endpoint, {
                 method: "POST",
                 headers: {
-                  Authorization: `Bearer ${process.env.MISTRAL_API_KEY}`,
+                  Authorization: `Bearer ${apiKey}`,
                   "Content-Type": "application/json",
                 },
-                body: requestBody,
+                body: buildRequestBody(provider),
                 signal,
               });
             } catch (err) {
@@ -274,6 +334,7 @@ export async function POST(req: Request) {
                   if (req.signal.aborted) break;
                   const { done, value } = await reader.read();
                   if (done) break;
+                  markChatMistralActivity(userId);
                   buffer += decoder.decode(value, { stream: true });
                   const lines = buffer.split("\n");
                   buffer = lines.pop() || "";
@@ -300,18 +361,18 @@ export async function POST(req: Request) {
 
               if (req.signal.aborted) break;
 
-          // Persist only after a complete stream (user + AI together).
-          if (fullText) {
-            await db.insert(conversationMessages).values({ meetingId, role: "user", content: prompt });
-            await db.insert(conversationMessages).values({ meetingId, role: "ai", content: fullText });
-          }
-          if (!streamStarted) {
-            // Completed with no deltas; still signal done so client can idle.
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "done" })}\n\n`));
-          } else {
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "done" })}\n\n`));
-          }
-          return;
+              // Persist only after a complete stream (user + AI together).
+              if (fullText) {
+                await db.insert(conversationMessages).values({ meetingId, role: "user", content: prompt });
+                await db.insert(conversationMessages).values({ meetingId, role: "ai", content: fullText });
+              }
+              if (!streamStarted) {
+                // Completed with no deltas; still signal done so client can idle.
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "done" })}\n\n`));
+              } else {
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "done" })}\n\n`));
+              }
+              return;
             }
 
             // Upstream failure before streaming started.
@@ -321,6 +382,32 @@ export async function POST(req: Request) {
             }
 
             const failure = (failureStatus ?? "network") as number | "network" | "timeout";
+
+            // Fallback to Groq when Mistral API key limit/quota/rate limit is reached.
+            if (
+              provider === "mistral" &&
+              !fallbackUsed &&
+              hasGroqFallback() &&
+              !streamStarted &&
+              isMistralLimitOrQuotaFailure(failure, upstreamMeta)
+            ) {
+              fallbackUsed = true;
+              provider = "groq";
+              attempt = 1;
+              console.warn(
+                JSON.stringify({
+                  event: "chat.provider_fallback",
+                  meetingId,
+                  userId,
+                  from: "mistral",
+                  to: "groq",
+                  status: failure,
+                  reason: "limit_or_quota",
+                }),
+              );
+              continue;
+            }
+
             const mapped = mapProviderError(failure);
             const retryable = shouldRetryProviderFailure(failure, attempt, streamStarted);
             logFailure({
@@ -345,7 +432,7 @@ export async function POST(req: Request) {
             }
             return;
           }
-        } catch {
+        } catch {
           if (!req.signal.aborted && !streamStarted) {
             const mapped = mapProviderError("network");
             send({ type: "error", code: mapped.code, message: mapped.message });

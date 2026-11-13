@@ -109,11 +109,14 @@ async function main() {
       source: parsed.text,
       callModel,
     });
+    assert.equal(result.status, "ok");
+    assert.ok(result.data);
     console.log(
       JSON.stringify(
         {
           kind: result.data.meta?.kind,
           attempts: result.attempts,
+          providerAttempts: result.providerAttempts,
           usedFallback: result.usedFallback,
           summary: result.data,
         },
@@ -126,6 +129,8 @@ async function main() {
       source: parsed.text,
       callModel: async () => JSON.stringify(CANNED_SUMMARY),
     });
+    assert.equal(result.status, "ok");
+    assert.ok(result.data);
     assert.equal(result.data.meta?.kind, "structured");
     assert.equal(result.data.decisions.length, 1);
     assert.equal(result.data.actionItems.length, 2);
@@ -134,6 +139,7 @@ async function main() {
         {
           kind: result.data.meta?.kind,
           attempts: result.attempts,
+          providerAttempts: result.providerAttempts,
           usedFallback: result.usedFallback,
           summary: result.data,
         },

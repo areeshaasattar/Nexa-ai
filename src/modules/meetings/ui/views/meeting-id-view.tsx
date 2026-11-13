@@ -82,7 +82,11 @@ export const MeetingIdView = ({ meetingId }: MeetingIdViewProps) => {
     {
       refetchInterval: (query) => {
         const data = query.state.data;
-        if (data?.status === "completed" && !data?.summary && !summaryTimedOut) {
+        if (
+          data?.status === "completed" &&
+          !data?.summary &&
+          (!summaryTimedOut || data?.summaryError === "provider_busy")
+        ) {
           return 5000;
         }
         return false;
@@ -292,7 +296,22 @@ export const MeetingIdView = ({ meetingId }: MeetingIdViewProps) => {
                   <ClipboardListIcon className="size-6" />
                 </div>
                 <div className="flex flex-col">
-                  {meeting.summaryError ? (
+                  {meeting.summaryError === "provider_busy" ? (
+                    <>
+                      <p className="text-sm font-bold text-gray-500 uppercase tracking-widest">Summary pending</p>
+                      <p className="text-xs text-gray-400 max-w-[260px] mt-1">
+                        The AI is busy. We will keep this meeting&apos;s summary pending. Try again in a minute.
+                      </p>
+                      <Button
+                        size="sm"
+                        className="mt-3 rounded-lg text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                        onClick={() => retrySummaryMutation.mutate({ id: meeting.id })}
+                        disabled={retrySummaryMutation.isPending}
+                      >
+                        {retrySummaryMutation.isPending ? "Retrying..." : "Retry summary"}
+                      </Button>
+                    </>
+                  ) : meeting.summaryError ? (
                     <>
                       <p className="text-sm font-bold text-red-500 uppercase tracking-widest">Summary failed</p>
                       <p className="text-xs text-gray-400 max-w-[240px] mt-1">{meeting.summaryError}</p>

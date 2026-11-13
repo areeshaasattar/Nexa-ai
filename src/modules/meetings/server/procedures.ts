@@ -11,6 +11,7 @@ import { streamVideo } from "@/lib/stream-video";
 import { after } from "next/server";
 import { LIMITS } from "@/lib/limits";
 import { AGENT_TEMPLATE_IDS, getAgentTemplate } from "@/lib/agent-templates";
+import { checkLimit, getRemainingLimit } from "@/lib/rate-limit";
 
 /**
  * Extract safe diagnostics from a Stream SDK error. The SDK throws
@@ -672,9 +673,7 @@ export const meetingsRouter = createTRPCRouter({
       // 6. Trigger summary generation after the response is sent so it doesn't
       // block endCall, while keeping the work alive on serverless runtimes.
       after(() => {
-        generateMeetingSummary(input.id).catch((error) => {
-          console.error(`generateMeetingSummary failed for meeting ${input.id}:`, error);
-        });
+        void generateMeetingSummary(input.id, { trigger: "endCall" });
       });
 
       return updatedMeeting;
@@ -682,20 +681,16 @@ export const meetingsRouter = createTRPCRouter({
 
   /**
    * Manually retry summary generation for a completed meeting. Owner-scoped.
-   * Clears any previous error before attempting again.
+   * Quota: hourly cap on ATTEMPTS (pre-consumed), daily cap on
+   * non-provider-failure retries per meeting (consumed only when outcome is
+   * not provider_busy).
    */
   retrySummary: protectedProcedure
     .use(rateLimited("retrySummary.hour"))
     .input(z.object({ id: z.string() }))
-    .use(
-      rateLimited("retrySummary.dayPerMeeting", (ctx, input) => {
-        const id = (input as { id?: string } | undefined)?.id ?? "unknown";
-        return `${ctx.userId}:${id}`;
-      }),
-    )
     .mutation(async ({ ctx, input }) => {
       const [meeting] = await db
-        .select()
+        .select({ id: meetings.id })
         .from(meetings)
         .where(and(eq(meetings.id, input.id), eq(meetings.userId, ctx.userId)));
 
@@ -706,12 +701,30 @@ export const meetingsRouter = createTRPCRouter({
         });
       }
 
+      const dailyKey = `${ctx.userId}:${input.id}`;
+      const daily = await getRemainingLimit("retrySummary.dayPerMeeting", dailyKey);
+      if (!daily.allowed) {
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: "You have reached today's retry limit for this meeting. Try again later.",
+        });
+      }
+
       await db
         .update(meetings)
         .set({ summaryError: null })
         .where(and(eq(meetings.id, input.id), eq(meetings.userId, ctx.userId)));
 
-      await generateMeetingSummary(input.id, { force: true });
-      return { success: true };
+      const result = await generateMeetingSummary(input.id, {
+        force: true,
+        trigger: "retry",
+      });
+
+      // Do not charge daily non-provider-failure quota for provider_busy.
+      if (result.outcome !== "provider_busy") {
+        await checkLimit("retrySummary.dayPerMeeting", dailyKey);
+      }
+
+      return { success: true, outcome: result.outcome };
     }),
 });

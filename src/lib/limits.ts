@@ -21,9 +21,9 @@ export const LIMITS = {
     perHour: 60,
   },
   retrySummary: {
-    /** Per-user hourly cap on manual summary retries. */
-    perHourPerUser: 5,
-    /** Per-meeting daily cap on manual summary retries (keyed by userId:meetingId). */
+    /** Per-user hourly cap on manual summary retry ATTEMPTS (provider-busy retries allowed, loosely capped). */
+    perHourPerUser: 15,
+    /** Per-meeting daily cap on manual summary retries that are not provider-busy outcomes. */
     perDayPerMeeting: 3,
   },
   feedback: {
