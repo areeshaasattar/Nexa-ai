@@ -23,6 +23,8 @@ const callModel = createMistralSummaryCaller({
 async function run(name: string, source: string): Promise<StoredMeetingSummary> {
   console.log(`\n=== ${name} ===`);
   const result = await generateStructuredSummaryFromSource({ source, callModel });
+  assert.equal(result.status, "ok");
+  assert.ok(result.data, "expected summary data");
   assert.equal(
     storedSummaryDataSchema.safeParse(result.data).success,
     true,
@@ -33,6 +35,7 @@ async function run(name: string, source: string): Promise<StoredMeetingSummary> 
       {
         kind: result.data.meta?.kind,
         attempts: result.attempts,
+        providerAttempts: result.providerAttempts,
         usedFallback: result.usedFallback,
         validationErrors: result.validationErrors,
         summary: result.data,
@@ -161,6 +164,8 @@ const tiny = await generateStructuredSummaryFromSource({
   source: "Sarah: Hi. Marcus: Hello, quick check-in.",
   callModel,
 });
+assert.equal(tiny.status, "ok");
+assert.ok(tiny.data);
 assert.equal(tiny.data.meta?.kind, "insufficient");
 assert.equal(tiny.attempts, 0);
 console.log("PASS 10-second/too-short source produced the insufficient state");
