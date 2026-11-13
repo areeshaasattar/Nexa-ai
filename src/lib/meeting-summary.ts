@@ -15,6 +15,7 @@ import {
 } from "./summary-schema";
 import { parseStreamTranscript } from "./transcript-parser";
 import { user } from "@/db/schema";
+import { maybeSendSummaryEmail } from "./summary-email";
 
 const TRANSCRIPT_CHAR_CAP = 12000;
 
@@ -212,6 +213,13 @@ export async function generateMeetingSummary(
         summarySource: sourceLabel,
       })
       .where(eq(meetings.id, meetingId));
+
+    // Attempt to email the owner once per meeting. Runs only after a
+    // successful persist, inside the same after() context as the generator
+    // call sites, and never affects summary generation or its result.
+    void maybeSendSummaryEmail(meetingId).catch(() => {
+      // maybeSendSummaryEmail must never throw, but keep a defensive guard.
+    });
 
     console.log(
       JSON.stringify({

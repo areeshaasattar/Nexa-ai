@@ -284,12 +284,18 @@ export const auth = betterAuth({
             },
         },
         /**
-         * Custom profile field (see `src/db/schema.ts` `user.bio`). Declared
-         * here so the Drizzle adapter persists it and `updateUser({ bio })`
-         * from the client is accepted + returned on the session user.
+         * Custom profile fields (see `src/db/schema.ts`). Declared here so the
+         * Drizzle adapter persists them and `updateUser(...)` from the client is
+         * accepted + returned on the session user.
          */
         additionalFields: {
             bio: { type: "string", defaultValue: "" },
+            summaryEmailsEnabled: {
+                type: "boolean",
+                required: false,
+                defaultValue: true,
+                input: true,
+            },
         },
     },
     emailAndPassword: {

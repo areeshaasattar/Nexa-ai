@@ -148,7 +148,9 @@ export const SettingsView = ({ defaultTab }: SettingsViewProps) => {
             <ProfileTab user={user} onSessionRefetch={refetch} />
           )}
           {tab === "security" && <SecurityTab />}
-          {tab === "account" && <AccountTab user={user} />}
+          {tab === "account" && (
+            <AccountTab user={user} onSessionRefetch={refetch} />
+          )}
         </>
       )}
     </div>

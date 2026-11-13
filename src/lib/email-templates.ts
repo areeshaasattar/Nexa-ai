@@ -4,13 +4,19 @@ export type EmailTemplate = {
   text: string;
 };
 
-function escapeHtml(value: string): string {
+export function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+function truncate(value: string, max: number): string {
+  if (value.length <= max) return value;
+  if (max <= 1) return value.slice(0, max);
+  return `${value.slice(0, max - 1)}…`;
 }
 
 function safeName(name: string | undefined | null): string {
@@ -167,5 +173,144 @@ export function changeEmailConfirmationEmail({
     "",
     "If you did not request this, you can ignore this email.",
   ].join("\n");
+  return { subject, html, text };
+}
+
+function capItems<T>(items: T[], limit = 8): T[] {
+  return items.slice(0, limit);
+}
+
+function capText(value: string, max = 300): string {
+  return truncate(value, max);
+}
+
+export function summaryEmail({
+  name,
+  meetingName,
+  durationText,
+  overview,
+  decisions,
+  actionItems,
+  topics,
+  openQuestions,
+  meetingUrl,
+  settingsUrl,
+}: {
+  name?: string | null;
+  meetingName: string;
+  durationText?: string | null;
+  overview: string;
+  decisions: string[];
+  actionItems: Array<{ task: string; owner: string | null; dueDate: string | null }>;
+  topics: string[];
+  openQuestions: string[];
+  meetingUrl: string;
+  settingsUrl: string;
+}): EmailTemplate {
+  const subject = `Summary: ${truncate(meetingName, 80)}`;
+  const who = escapeHtml(safeName(name));
+  const safeMeetingName = escapeHtml(truncate(meetingName, 80));
+  const safeOverview = escapeHtml(truncate(overview, 1200));
+  const safeDuration = durationText ? escapeHtml(truncate(durationText, 80)) : null;
+
+  const sectionsHtml: string[] = [];
+  const sectionsText: string[] = [];
+
+  sectionsHtml.push(
+    `<p style="margin:0 0 12px;">Hi ${who},</p>` +
+      `<p style="margin:0 0 12px;">Your meeting summary for <strong>${safeMeetingName}</strong>${safeDuration ? ` (${safeDuration})` : ""} is ready.</p>`,
+  );
+  sectionsText.push(`Hi ${safeName(name)},`, "", `Your meeting summary for "${truncate(meetingName, 80)}"${durationText ? ` (${durationText})` : ""} is ready.`);
+
+  if (overview.trim()) {
+    sectionsHtml.push(
+      `<h2 style="margin:20px 0 8px;font-size:16px;line-height:1.4;color:#111827;">Overview</h2>` +
+        `<p style="margin:0 0 12px;color:#374151;">${safeOverview}</p>`,
+    );
+    sectionsText.push("", "Overview", truncate(overview, 1200));
+  }
+
+  if (decisions.length > 0) {
+    const items = capItems(decisions).map((d) => capText(d, 300));
+    sectionsHtml.push(
+      `<h2 style="margin:20px 0 8px;font-size:16px;line-height:1.4;color:#111827;">Decisions</h2>` +
+        `<ul style="margin:0 0 12px;padding-left:20px;color:#374151;">${items
+          .map((d) => `<li style="margin:0 0 6px;">${escapeHtml(d)}</li>`)
+          .join("")}</ul>`,
+    );
+    sectionsText.push("", "Decisions", ...items.map((d) => `- ${d}`));
+  }
+
+  if (actionItems.length > 0) {
+    const items = capItems(actionItems).map((item) => ({
+      task: capText(item.task, 300),
+      owner: item.owner ? capText(item.owner, 100) : null,
+      dueDate: item.dueDate ? capText(item.dueDate, 100) : null,
+    }));
+    sectionsHtml.push(
+      `<h2 style="margin:20px 0 8px;font-size:16px;line-height:1.4;color:#111827;">Action items</h2>` +
+        `<ul style="margin:0 0 12px;padding-left:20px;color:#374151;">${items
+          .map((item) => {
+            const meta: string[] = [];
+            if (item.owner) meta.push(`Owner: ${escapeHtml(item.owner)}`);
+            if (item.dueDate) meta.push(`Due: ${escapeHtml(item.dueDate)}`);
+            const suffix = meta.length > 0 ? ` <span style="color:#6b7280;">(${meta.join(", ")})</span>` : "";
+            return `<li style="margin:0 0 6px;">${escapeHtml(item.task)}${suffix}</li>`;
+          })
+          .join("")}</ul>`,
+    );
+    sectionsText.push(
+      "",
+      "Action items",
+      ...items.map((item) => {
+        const meta: string[] = [];
+        if (item.owner) meta.push(`Owner: ${item.owner}`);
+        if (item.dueDate) meta.push(`Due: ${item.dueDate}`);
+        return `- ${item.task}${meta.length > 0 ? ` (${meta.join(", ")})` : ""}`;
+      }),
+    );
+  }
+
+  if (topics.length > 0) {
+    const items = capItems(topics).map((t) => capText(t, 300));
+    sectionsHtml.push(
+      `<h2 style="margin:20px 0 8px;font-size:16px;line-height:1.4;color:#111827;">Topics</h2>` +
+        `<ul style="margin:0 0 12px;padding-left:20px;color:#374151;">${items
+          .map((t) => `<li style="margin:0 0 6px;">${escapeHtml(t)}</li>`)
+          .join("")}</ul>`,
+    );
+    sectionsText.push("", "Topics", ...items.map((t) => `- ${t}`));
+  }
+
+  if (openQuestions.length > 0) {
+    const items = capItems(openQuestions).map((q) => capText(q, 300));
+    sectionsHtml.push(
+      `<h2 style="margin:20px 0 8px;font-size:16px;line-height:1.4;color:#111827;">Open questions</h2>` +
+        `<ul style="margin:0 0 12px;padding-left:20px;color:#374151;">${items
+          .map((q) => `<li style="margin:0 0 6px;">${escapeHtml(q)}</li>`)
+          .join("")}</ul>`,
+    );
+    sectionsText.push("", "Open questions", ...items.map((q) => `- ${q}`));
+  }
+
+  const footer = `You are receiving this because summary emails are on for your account. Turn them off in Settings: <a href="${escapeHtml(settingsUrl)}" style="color:#166534;text-decoration:underline;">${escapeHtml(settingsUrl)}</a>`;
+
+  const html = layout({
+    title: "Meeting summary ready",
+    body: sectionsHtml.join(""),
+    buttonLabel: "View full meeting",
+    url: meetingUrl,
+    footer,
+  });
+
+  const text = [
+    subject,
+    ...sectionsText,
+    "",
+    `View full meeting: ${meetingUrl}`,
+    "",
+    `You are receiving this because summary emails are on for your account. Turn them off in Settings: ${settingsUrl}`,
+  ].join("\n");
+
   return { subject, html, text };
 }
