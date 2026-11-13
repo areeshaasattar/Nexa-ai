@@ -202,12 +202,8 @@ export async function generateMeetingSummary(
       return { outcome: "insufficient" };
     }
 
-    // 5. Call LLM with provider backoff/retries and a shared attempt budget.
-    // Mistral is primary; on limit/quota/rate-limit failures the summary caller
-    // can fall back to Groq when GROQ_API_KEY is configured.
-    const mistralApiKey = process.env.MISTRAL_API_KEY?.trim();
-    const groqApiKey = process.env.GROQ_API_KEY?.trim();
-    if (!mistralApiKey && !groqApiKey) {
+    // 5. Call LLM (Mistral primary, Groq fallback) for a structured summary.
+    if (!process.env.MISTRAL_API_KEY?.trim() && !process.env.GROQ_API_KEY?.trim()) {
       throw new Error("missing_llm_api_key");
     }
     const model = process.env.MODEL_NAME || "mistral-small-latest";
@@ -216,7 +212,6 @@ export async function generateMeetingSummary(
       source,
       meetingId,
       model,
-      apiKey: mistralApiKey || groqApiKey || "",
     });
 
     if (result.status === "provider_busy") {
