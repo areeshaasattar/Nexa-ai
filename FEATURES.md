@@ -62,13 +62,13 @@ A signed‑in user can:
 
 ## 3. Database schema
 
-Defined in `src/db/schema.ts` (PostgreSQL). Migrations are committed under `drizzle/` (`0000` baseline, `0001` feedback, `0002` `meetings.summary_data`). Apply with `npm run db:migrate`.
+Defined in `src/db/schema.ts` (PostgreSQL). Migrations are committed under `drizzle/` (`0000` baseline, `0001` feedback, `0002` `meetings.summary_data`, `0003` summary email columns). Apply with `npm run db:migrate`.
 
 ### Better‑Auth tables
 
 | Table | Purpose / notable columns |
 |---|---|
-| `user` | `id`, `name`, `email` (unique), `emailVerified`, `image`, `bio`, timestamps |
+| `user` | `id`, `name`, `email` (unique), `emailVerified`, `image`, `bio`, `summaryEmailsEnabled` (boolean, default `true`), timestamps |
 | `session` | `token` (unique), `expiresAt`, `userId` (FK → user, cascade), `ipAddress`, `userAgent` |
 | `account` | OAuth/password accounts: `accountId`, `providerId`, `userId`, tokens, `password` |
 | `verification` | Verification/reset identifiers: `identifier`, `value`, `expiresAt` |
@@ -78,7 +78,7 @@ Defined in `src/db/schema.ts` (PostgreSQL). Migrations are committed under `driz
 | Table | Purpose / notable columns |
 |---|---|
 | `agents` | `id` (nanoid), `name`, `instruction`, `userId` (owner, cascade). Index on `userId` |
-| `meetings` | `name`, `userId`, `agentId` (cascade), `instructions`, `status` (enum), `startedAt`, `endedAt`, `transcriptUrl`, `summary` (legacy text overview), `summaryData` (nullable `jsonb`, typed as `StoredMeetingSummary`), `summaryError`, `summarySource`, `recordingUrl`, timestamps. Index on `userId` |
+| `meetings` | `name`, `userId`, `agentId` (cascade), `instructions`, `status` (enum), `startedAt`, `endedAt`, `transcriptUrl`, `summary` (legacy text overview), `summaryData` (nullable `jsonb`, typed as `StoredMeetingSummary`), `summaryError`, `summarySource`, `summaryEmailSentAt` (nullable timestamp, idempotency claim for summary email), `recordingUrl`, timestamps. Index on `userId` |
 | `activities` | Activity feed: `userId`, `type` (enum), `title`, `description`, `metadata` (text/JSON string). Index on `userId` |
 | `conversation_messages` | Per‑meeting chat history: `meetingId` (cascade), `role` (`user` \| `ai`), `content`. Index on `meetingId` |
 | `voice_interactions` | Dashboard voice metrics: `userId`, `meetingId`, `duration`, `responseTime` (stored as text). Index on `userId` |
@@ -174,7 +174,8 @@ Key files: `src/lib/meeting-summary.ts`, `src/lib/summary-schema.ts`, `src/lib/s
 - **Short calls**: insufficient-source path stores `meta.kind = "insufficient"` without hallucinating.
 - **Persistence**: writes `summaryData` (jsonb) and `summary` (overview text) plus `summarySource`/`summaryError` as applicable.
 - **Idempotency & triggers**: generated from Stream webhook handling and from `endCall` (both in `after()` patterns). Owner‑scoped `retrySummary` forces regeneration.
-- **Logging**: structured logs use IDs/lengths/timings/statuses; transcript/summary content is not logged.
+- **Summary email (once per meeting)**: after a normal structured summary is successfully persisted (`meta.kind === "structured"`), `maybeSendSummaryEmail` atomically claims `meetings.summaryEmailSentAt` (single conditional update) before sending via Brevo `sendEmail()` (`template: "meeting_summary"`). Skipped when: already sent, owner opted out, summary missing/invalid, kind is not normal (insufficient or flagged fallback), no meaningful content, meeting/user missing, or `endedAt` is more than 24 hours ago (`too_old`). On send failure (including `daily_email_budget_exceeded`) the claim is released so a later regeneration can retry; failures never affect summary generation. Regenerations/retries do not send a second email once claimed.
+- **Logging**: structured logs use IDs/lengths/timings/statuses and masked recipient for emails; transcript/summary content and full emails are not logged.
 
 ### 4.7 Stream webhooks — `POST /api/webhooks/stream`
 
@@ -210,7 +211,7 @@ Protected under dashboard layout (and included in proxy protected paths).
 
 - **Profile** tab: update name/bio (`authClient.updateUser`), avatar upload (client validation: max 2 MB, PNG/JPEG/WebP; rejects oversized `data:` URLs; server hook also rejects oversized `data:` images), change email via verification (`authClient.changeEmail`).
 - **Security** tab: change password (`authClient.changePassword`, revokes other sessions) with strength UI; sign out.
-- **Account** tab: read‑only account details (display name, email, member since, role/owner display).
+- **Account** tab: read‑only account details (display name, email, member since, role/owner display) plus a **Summary emails** toggle (“Email me the summary after each meeting”) stored on `user.summaryEmailsEnabled` via Better-Auth `additionalFields`/`authClient.updateUser`, with optimistic UI and toast feedback. Sent only to the account email.
 - **Billing tab is not present** (removed; no payment integration).
 
 ### 4.11 Feedback storage & admin review
@@ -231,9 +232,9 @@ Protected under dashboard layout (and included in proxy protected paths).
 ### 4.13 Scripts & developer tooling
 
 - `npm run dev` / `build` / `start` / `lint`
-- `npm test`: runs the safe no-network, no-DB test scripts (`test:summary`, `test:transcript-parser`, `test:seed-starter-agent`, `test:limits`, `test:chat-errors`, `test:agent-templates`, `test:email`)
+- `npm test`: runs the safe no-network, no-DB test scripts (`test:summary`, `test:transcript-parser`, `test:seed-starter-agent`, `test:limits`, `test:chat-errors`, `test:agent-templates`, `test:email`, `test:summary-email`)
 - DB: `db:generate`, `db:migrate`, `db:push` (prototyping), `db:studio`
-- Tests/scripts (tsx): `test:summary`, `test:summary:live`, `test:transcript-parser`, `test:webhook-replay` (replay requires a running dev server), `test:seed-starter-agent`, `test:agent-templates`, `test:limits`, `test:chat-errors`, `test:email`
+- Tests/scripts (tsx): `test:summary`, `test:summary:live`, `test:transcript-parser`, `test:webhook-replay` (replay requires a running dev server), `test:seed-starter-agent`, `test:agent-templates`, `test:limits`, `test:chat-errors`, `test:email`, `test:summary-email`
 - `scripts/drop_type.mjs` retained for DB maintenance as documented in history
 
 ### 4.14 CI (GitHub Actions)
@@ -345,7 +346,7 @@ nexa-ai/
 
 ## 8. Known limitations & roadmap
 
-1. **Transactional email (Brevo):** free plan is 300 emails/day total; sender/domain must be verified in Brevo. Email sends are logged with masked/non-sensitive details only; a dev-only action-link fallback is printed when `NODE_ENV !== "production"` and Brevo is not configured or a send fails. A global daily email budget (250/day safety margin) is enforced in `sendEmail()` before calling Brevo.
+1. **Transactional email (Brevo):** free plan is 300 emails/day total; sender/domain must be verified in Brevo. Email sends are logged with masked/non-sensitive details only; a dev-only action-link fallback is printed when `NODE_ENV !== "production"` and Brevo is not configured or a send fails. A global daily email budget (250/day safety margin) is enforced in `sendEmail()` before calling Brevo (shared by auth emails and summary emails). Summary emails go only to the meeting owner, and a summary regenerated after the first email does not re-send.
 2. **No billing/payments.** Billing UI and plan enforcement are not implemented.
 3. **Rate limiting / quotas / caps:** Centralized in `src/lib/limits.ts` and enforced via Upstash-backed limiters (`src/lib/rate-limit.ts`) for `/api/chat` (per-minute + daily), tRPC mutations (`meetings.createCall` hourly+daily, `meetings.getToken`, `meetings.retrySummary` per-user hourly + per-meeting daily, `meetings.logVoiceInteraction`, `feedback.create`), Better-Auth auth endpoint rules (secondary-storage backed by Upstash when configured), global Brevo daily budget, and per-user quotas (max agents/meetings) plus input/text caps and Mistral `max_tokens`/Stream call limits where supported. **Limits fail open** when Upstash is unconfigured or errors at runtime (with structured logs) so the app remains available.
 4. **System health is partial.** DB is actively pinged; other services are reported as configured/not configured based on env vars (no live probes). No Sentry SDK integration is evident in runtime code from this scan.

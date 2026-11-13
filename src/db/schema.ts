@@ -12,13 +12,16 @@ export const user = pgTable("user", {
     .notNull(),
   image: text("image"),
   bio: text("bio"),
+  summaryEmailsEnabled: boolean("summary_emails_enabled")
+    .$defaultFn(() => true)
+    .notNull(),
   createdAt: timestamp("created_at")
     .$defaultFn(() => /* @__PURE__ */ new Date())
     .notNull(),
   updatedAt: timestamp("updated_at")
     .$defaultFn(() => /* @__PURE__ */ new Date())
     .notNull(),
-    
+
 });
 
 export const session = pgTable(
@@ -126,6 +129,7 @@ export const meetings = pgTable(
     summaryData: jsonb("summary_data").$type<StoredMeetingSummary>(),
     summaryError: text("summary_error"),
     summarySource: text("summary_source"),
+    summaryEmailSentAt: timestamp("summary_email_sent_at"),
     recordingUrl: text("recording_url"),
     createdAt: timestamp("created_at")
       .$defaultFn(() => new Date())
