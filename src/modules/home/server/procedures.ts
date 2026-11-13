@@ -235,6 +235,25 @@ export const homeRouter = createTRPCRouter({
       latency:
         process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN ? "configured" : "not configured",
     });
+    const primaryLlmName =
+      process.env.LLM_PRIMARY?.trim().toLowerCase() === "groq" ? "groq" : "mistral";
+    const primaryLlmConfigured =
+      primaryLlmName === "groq"
+        ? Boolean(process.env.GROQ_API_KEY?.trim() && process.env.GROQ_MODEL_NAME?.trim())
+        : Boolean(process.env.MISTRAL_API_KEY?.trim());
+    services.push({
+      name: `Primary LLM (${primaryLlmName})`,
+      status: primaryLlmConfigured ? "online" : "offline",
+      latency: primaryLlmConfigured ? "configured" : "not configured",
+    });
+    services.push({
+      name: "Fallback LLM (Groq)",
+      status: process.env.GROQ_API_KEY && process.env.GROQ_MODEL_NAME ? "online" : "offline",
+      latency:
+        process.env.GROQ_API_KEY && process.env.GROQ_MODEL_NAME
+          ? "configured"
+          : "not configured",
+    });
 
     return { services };
   })

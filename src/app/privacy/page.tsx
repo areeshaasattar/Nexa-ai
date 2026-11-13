@@ -24,13 +24,14 @@ export default function PrivacyPage() {
         <p>
           Data is used to provide the service: authentication, video calls, AI agent responses,
           meeting summaries, and dashboard analytics. Prompts and transcripts are sent to the Mistral
-          API for processing. Recordings and transcripts are stored and served by Stream Video.
+          API for processing, and may be processed by Groq as a fallback provider when Mistral is
+          unavailable. Recordings and transcripts are stored and served by Stream Video.
         </p>
         <h2 className="text-lg font-semibold mt-6">Third parties</h2>
         <p>
-          Neon (database), Stream Video (video, recording, transcription), Mistral (LLM), Brevo
-          (email), Upstash (rate limiting), and optionally Sentry (error reporting). Each processes
-          data under their own terms.
+          Neon (database), Stream Video (video, recording, transcription), Mistral (LLM), Groq (LLM
+          fallback), Brevo (email), Upstash (rate limiting), and optionally Sentry (error reporting).
+          Each processes data under their own terms.
         </p>
         <h2 className="text-lg font-semibold mt-6">Cookies</h2>
         <p>

@@ -66,6 +66,7 @@ export const LIMITS = {
     feedbackMessageMax: 1000,
   },
   mistral: {
+    // Applies to all providers (Mistral primary + Groq fallback); do not rename.
     /** Max completion tokens for /api/chat (voice replies are 1-3 short spoken sentences). */
     chatMaxTokens: 250,
   },

@@ -48,7 +48,7 @@ A signed‑in user can:
 | Email | **Brevo** (REST API via `fetch`, no SDK dependency) for transactional emails (verification, password reset, change-email confirmation). Sends are wrapped in `after()`, never throw, and log masked/non-sensitive details; dev-only action-link fallback when not configured or send fails in development |
 | Rate limiting | **Upstash** (`@upstash/ratelimit`, `@upstash/redis`) — applied to `/api/chat` (per‑user sliding window) |
 | Video / calls | **Stream Video** (`@stream-io/video-react-sdk` client, `@stream-io/node-sdk` server) — call creation, tokens, recordings/transcriptions listing, webhooks |
-| LLM / AI | **Mistral API** (`api.mistral.ai`) — model from `MODEL_NAME` (default `mistral-small-latest`). `/api/chat` streams SSE; summaries use JSON mode + zod validation/retry/fallback |
+| LLM / AI | **Mistral API** (`api.mistral.ai`) primary - model from `MODEL_NAME` (default `mistral-small-latest`); optional **Groq** fallback (`api.groq.com`) when `LLM_FALLBACK_ENABLED` is not "false" and `GROQ_API_KEY` + `GROQ_MODEL_NAME` are set. `/api/chat` streams SSE; summaries use JSON mode + zod validation/retry/fallback |
 | UI | **shadcn/ui** primitives + **Tailwind CSS v4**, **lucide-react**, **framer-motion**, **sonner** (toasts), **react-markdown** + **remark-gfm** |
 | Charts | **apexcharts** + **react-apexcharts** used in dashboard/home components; **recharts** is also installed (and `src/components/ui/chart.tsx` uses Recharts primitives) — chart-library consolidation is not complete |
 | Forms / validation | **react-hook-form**, **zod v4** |
@@ -56,7 +56,7 @@ A signed‑in user can:
 | Routing guard | **`src/proxy.ts`** (Next.js 16 proxy/middleware pattern) — optimistic cookie‑presence redirect only; real auth is server/tRPC |
 | Misc | `nanoid`, `date-fns`, `react-icons`, `next-themes`, `cmdk`, `vaul`, `embla-carousel-react`, `tsx` (test scripts) |
 
-**Important:** AI features are implemented against **Mistral only** in the current code (`/api/chat`, summary generation). There is no provider-switching layer.
+**Important:** AI features use Mistral as primary with an optional Groq fallback layer (`src/lib/llm.ts`). Output style can differ between providers, and transcripts/prompts may be processed by the fallback provider (Groq) when Mistral is unavailable.
 
 ---
 
@@ -260,7 +260,7 @@ Better‑Auth is configured with a **Drizzle adapter** over the project schema a
 - **`session.cookieCache.enabled: false`** (disabled to prevent 431 from oversized session cookies when avatars were stored as large data URLs). A DB hook rejects oversized `data:` avatar images on user update.
 - **`databaseHooks.user.update.before`** rejects `data:` images > 100 KB.
 
-Key env vars (typical): `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `GITHUB_CLIENT_ID/SECRET`, `GOOGLE_CLIENT_ID/SECRET`, `BREVO_API_KEY`/`BREVO_SENDER_EMAIL`/`BREVO_SENDER_NAME`, `MISTRAL_API_KEY`, `MODEL_NAME`, Stream keys, `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN`, `NEXT_PUBLIC_APP_URL`, optional `TRUSTED_ORIGINS`, `DEV_ALLOWED_ORIGINS`, `ADMIN_EMAILS`. Brevo: sender/domain must be verified; free plan is 300 emails/day total.
+Key env vars (typical): `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `GITHUB_CLIENT_ID/SECRET`, `GOOGLE_CLIENT_ID/SECRET`, `BREVO_API_KEY`/`BREVO_SENDER_EMAIL`/`BREVO_SENDER_NAME`, `MISTRAL_API_KEY`, `MODEL_NAME`, `LLM_PRIMARY` (`mistral` default or `groq`), `GROQ_API_KEY`, `GROQ_MODEL_NAME`, `LLM_FALLBACK_ENABLED`, Stream keys, `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN`, `NEXT_PUBLIC_APP_URL`, optional `TRUSTED_ORIGINS`, `DEV_ALLOWED_ORIGINS`, `ADMIN_EMAILS`. Brevo: sender/domain must be verified; free plan is 300 emails/day total.
 
 ### 5.2 Auth API mounting
 
