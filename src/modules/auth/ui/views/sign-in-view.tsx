@@ -57,13 +57,12 @@ const SignInView = () => {
         {
           email: data.email,
           password: data.password,
-          callbackURL: "/",
+          callbackURL: "/dashboard",
         },
         {
           onRequest: () => setLoading(true),
           onSuccess: () => {
-            router.push("/");
-            setLoading(false);
+            router.push("/dashboard");            setLoading(false);
             toast.success("Welcome back!", {
               description: "You have successfully signed in.",
             });
@@ -99,7 +98,7 @@ const SignInView = () => {
     try {
       const { error } = await authClient.sendVerificationEmail({
         email: verifyEmail,
-        callbackURL: "/",
+        callbackURL: "/dashboard",
       });
       if (error) {
         toast.error("Could not send verification email. Please try again.");
@@ -124,7 +123,7 @@ const SignInView = () => {
       await authClient.signIn.social(
         {
           provider,
-          callbackURL: "/",
+          callbackURL: "/dashboard",
         },
         {
           onRequest: () => setSocialLoading(provider),

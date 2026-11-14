@@ -11,6 +11,10 @@ import { DashboardSidebar } from "./ui/components/dashboard-sidebar";
 import { DashboardNavbar } from "./ui/components/dashboard-navbar";
 import { ShortcutsModal } from "./ui/components/shortcuts-modal";
 
+export const metadata = {
+  robots: { index: false, follow: false },
+};
+
 interface Props {
   children: React.ReactNode;
 }

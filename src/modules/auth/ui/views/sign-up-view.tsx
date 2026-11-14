@@ -55,7 +55,7 @@ const SignUpView = () => {
     try {
       const { error } = await authClient.sendVerificationEmail({
         email: submittedEmail,
-        callbackURL: "/",
+        callbackURL: "/dashboard",
       });
       if (error) {
         toast.error("Could not send verification email. Please try again.");
@@ -92,7 +92,7 @@ const SignUpView = () => {
           email: data.email,
           password: data.password,
           name: data.name,
-          callbackURL: "/",
+          callbackURL: "/dashboard",
         },
         {
           onRequest: () => setLoading(true),
@@ -128,7 +128,7 @@ const SignUpView = () => {
       await authClient.signIn.social(
         {
           provider,
-          callbackURL: "/",
+          callbackURL: "/dashboard",
         },
         {
           onRequest: () => setSocialLoading(provider),
@@ -427,11 +427,8 @@ const SignUpView = () => {
                 <div className="size-2 rounded-full bg-white animate-ping"></div>
               </div>
               <div className="flex-1">
-                <p className="text-xs font-bold uppercase tracking-widest text-green-200">
-                  Community Choice
-                </p>
                 <p className="text-sm font-medium">
-                  Top rated AI platform 2026
+                  Talk to AI agents in live calls. Get clean summaries after.
                 </p>
               </div>
             </div>

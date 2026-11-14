@@ -4,10 +4,10 @@ import { getSessionCookie } from "better-auth/cookies";
 /**
  * Proxy (Next.js 16's renamed middleware).
  *
- * SECURITY NOTE — this is an OPTIMISTIC check ONLY:
+ * SECURITY NOTE - this is an OPTIMISTIC check ONLY:
  * `getSessionCookie()` does NOT validate the session (expiry, revocation,
  * tampering). It only checks that a `better-auth.session_token` cookie is
- * present in the request — no DB round-trip. Real protection comes from
+ * present in the request - no DB round-trip. Real protection comes from
  * tRPC's `protectedProcedure` and from the server-side
  * `auth.api.getSession()` checks in the (dashboard) and /call layouts.
  */
@@ -16,7 +16,8 @@ const AUTH_PAGES = new Set(["/sign-in", "/sign-up"]);
 
 function isProtectedPath(pathname: string): boolean {
   return (
-    pathname === "/" ||
+    pathname === "/dashboard" ||
+    pathname.startsWith("/dashboard/") ||
     pathname === "/agents" ||
     pathname.startsWith("/agents/") ||
     pathname === "/meetings" ||
@@ -39,8 +40,12 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  if (pathname === "/") {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
   if (AUTH_PAGES.has(pathname)) {
-    return NextResponse.redirect(new URL("/", request.url));
+    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
   return NextResponse.next();

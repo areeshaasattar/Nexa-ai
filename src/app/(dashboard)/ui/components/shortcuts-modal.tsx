@@ -112,7 +112,7 @@ export function ShortcutsModal() {
                   icon={<LayoutDashboardIcon className="h-4 w-4" />}
                   iconBg="bg-blue-50 text-blue-600"
                   label="Dashboard"
-                  onSelect={() => runCommand(() => router.push("/"))}
+                  onSelect={() => runCommand(() => router.push("/dashboard"))}
                 />
                 <CommandRow
                   icon={<VideoIcon className="h-4 w-4" />}

@@ -28,8 +28,7 @@ const VerifyEmailView = () => {
   const resendCooldown = useResendCooldown("resend-cooldown:verify-email");
 
   const token = searchParams.get("token");
-  const callbackURL = searchParams.get("callbackURL") || "/";
-
+  const callbackURL = searchParams.get("callbackURL") || "/dashboard";
   useEffect(() => {
     if (!token) {
       // Deferred to a microtask so we don't call setState synchronously
@@ -74,7 +73,7 @@ const VerifyEmailView = () => {
     try {
       const { error } = await authClient.sendVerificationEmail({
         email: resendEmail.trim(),
-        callbackURL: "/",
+        callbackURL: "/dashboard",
       });
       if (error) {
         toast.error("Could not send verification email. Please try again.");

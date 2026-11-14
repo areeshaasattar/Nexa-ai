@@ -9,6 +9,7 @@ export const appRouter = createTRPCRouter({
   hello: homeRouter.hello,
   getDashboardData: homeRouter.getDashboardData,
   getSystemHealth: homeRouter.getSystemHealth,
+  getOnboarding: homeRouter.getOnboarding,
   agents: agentsRouter,
   meetings: meetingsRouter,
   feedback: feedbackRouter,

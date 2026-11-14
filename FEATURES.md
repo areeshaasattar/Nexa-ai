@@ -272,7 +272,7 @@ Key env vars (typical): `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`,
 
 ### 5.4 Route protection (layered)
 
-1. **`src/proxy.ts` (optimistic)**: checks cookie presence with `getSessionCookie()` (no validation/DB). Protects `/`, `/agents*`, `/meetings*`, `/call*`, `/settings*`; redirects unauthenticated to `/sign-in`; redirects authenticated users away from `/sign-in`/`/sign-up` to `/`.
+1. **`src/proxy.ts` (optimistic)**: checks cookie presence with `getSessionCookie()` (no validation/DB). Protects `/dashboard*`, `/agents*`, `/meetings*`, `/call*`, `/settings*`; redirects unauthenticated to `/sign-in`; redirects authenticated users on `/` or `/sign-in`/`/sign-up` to `/dashboard`.
 2. **Server layouts**: dashboard and call layouts perform real `auth.api.getSession()` checks and redirect when missing.
 3. **tRPC context** (`src/trpc/init.ts`): resolves `userId` from session; **`protectedProcedure`** throws `UNAUTHORIZED` without `userId`. tRPC uses **superjson**.
 4. **Ownership scoping**: procedures filter by `ctx.userId` (and meeting ownership checks where needed). `/api/chat` also enforces session + agent/meeting ownership/assignment. Sensitive fields are minimized in responses (e.g., `meetings.getSession` returns minimal user fields).
@@ -393,5 +393,12 @@ This codebase has gone through multiple hardening/fix passes (all reflected in c
 - Structured summaries: `summaryData` jsonb, schema validation, retry-once + flagged fallback, owner sanitization, decision/action-item dedupe guard.
 - UX/security fixes: removed fake billing UI, added `/terms` and `/privacy`, protected `/settings` in proxy, superjson transformer, hydration-safe date formatting, oversized session cookie mitigation.
 - Feedback: persisted `feedback` table + admin-only review (`/admin/feedback`, `ADMIN_EMAILS`).
+
+### Landing page and onboarding checklist
+
+- Public marketing landing page at `/` (`src/app/page.tsx`): static server component, no auth/DB. Navbar, hero with "Example" product mock, how-it-works, features, templates preview (from `AGENT_TEMPLATES`), good-to-know, FAQ (native details), final CTA, footer. Metadata via Next.js Metadata API; `robots.ts` and `sitemap.ts` included.
+- Signed-in dashboard moved to `/dashboard` (`src/app/(dashboard)/dashboard/page.tsx`). Proxy redirects authenticated `/` to `/dashboard` and protected paths require auth.
+- Dismissible first-run checklist on the dashboard (`src/modules/home/ui/components/onboarding-checklist.tsx`) backed by `home.getOnboarding` and `computeOnboardingSteps` (`src/modules/home/lib/onboarding.ts`). Dismissal stored in `localStorage` keyed by user id.
+- Limitations: landing page has no screenshots or social proof (intentional); `localStorage` used only to remember checklist dismissal.
 
 *Detailed chronological issue logs previously lived in this file; they were condensed here to keep the document current and maintainable. Use git history and `drizzle/` migrations for deeper provenance.*
