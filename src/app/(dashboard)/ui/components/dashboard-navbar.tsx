@@ -1,191 +1,102 @@
 "use client";
 
-import React, { useState } from "react";
-import { SidebarTrigger } from "@/components/ui/sidebar";
-import { SearchIcon } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { useEffect, useState } from "react";
+import { format } from "date-fns";
+import { useRouter } from "next/navigation";
+import { Search, Bell, Plus, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
-import { toast } from "sonner";
-import { trpc } from "@/trpc/client";
-import { usePathname } from "next/navigation";
-import DashboardUserButton from "./Dashboard-user-button";
 
-const openShortcuts = () => {
-  window.dispatchEvent(new CustomEvent("open-shortcuts"));
-};
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { trpc } from "@/trpc/client";
+import { authClient } from "@/lib/auth-client";
+import { ShortcutsModal } from "./shortcuts-modal";
+import { NewMeetingDialog } from "@/modules/meetings/ui/components/new-meeting-dialog";
 
 export const DashboardNavbar = () => {
-  const pathname = usePathname();
-  const [feedbackOpen, setFeedbackOpen] = useState(false);
-  const [feedbackType, setFeedbackType] = useState<"bug" | "idea" | "other">("idea");
-  const [feedbackText, setFeedbackText] = useState("");
-  const [feedbackRating, setFeedbackRating] = useState<number | undefined>(undefined);
-  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
 
-  const submitMutation = trpc.feedback.create.useMutation({
-    onSuccess: () => {
-      toast.success("Thanks for your feedback!");
-      setFeedbackOpen(false);
-      setFeedbackText("");
-      setFeedbackRating(undefined);
-      setFeedbackType("idea");
-    },
-    onError: (err) => {
-      toast.error(err.message || "Failed to submit feedback");
-    },
-  });
+  const [newMeetingOpen, setNewMeetingOpen] = useState(false);
+  const [bellOpen, setBellOpen] = useState(false);
 
-  const handleSubmitFeedback = () => {
-    submitMutation.mutate({
-      type: feedbackType,
-      message: feedbackText,
-      rating: feedbackRating,
-      pageUrl: pathname ?? undefined,
-    });
-  };
+  const { data: session } = authClient.useSession();
+  const { data: activity } = trpc.getRecentActivity.useQuery(undefined, { staleTime: 30_000 });
+
+  const firstName = session?.user?.name?.split(" ")[0] || "there";
+  // hydration-safe date: render after mount
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    queueMicrotask(() => setMounted(true));
+  }, []);
+
+  const dateLabel = mounted ? format(new Date(), "EEEE, MMMM d, yyyy") : "";
+
   return (
-    <header
-      className={cn(
-        "sticky top-0 z-50",
-        "h-16 w-full",
-        "bg-white border-b border-gray-200 shadow-sm",
-        "flex items-center justify-between px-4 md:px-6 shrink-0",
-      )}
-    >
-      <div className="flex items-center gap-3">
-        <SidebarTrigger className="bg-gray-50 hover:bg-emerald-50 hover:text-emerald-700 transition-colors rounded-lg h-9 w-9 flex items-center justify-center border border-gray-200 shadow-sm" />
-
-        <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 rounded-full border border-emerald-100 text-emerald-700 text-[11px] font-semibold">
-          <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          System Online
-        </div>
+    <header className="flex items-center justify-between gap-4 border-b border-slate-200 bg-white px-4 py-3 md:px-6">
+      <div className="min-w-0">
+        <h1 className="text-xl font-semibold text-slate-900 sm:text-2xl">
+          Welcome back, {firstName}
+        </h1>
+        <p className="text-xs text-slate-500 sm:text-sm">{dateLabel}</p>
       </div>
 
-      <div className="flex-1 max-w-lg mx-3 lg:mx-5 hidden sm:block">
+      <div className="hidden flex-1 items-center justify-center md:flex">
         <button
           type="button"
-          onClick={openShortcuts}
-          className={cn(
-            "group relative flex w-full items-center gap-3 rounded-xl",
-            "border border-gray-200 bg-gray-50 px-3.5 py-2",
-            "text-left text-sm shadow-sm transition-all duration-200",
-            "hover:border-green-400 hover:bg-white hover:shadow-md hover:shadow-green-100",
-            "focus:outline-none",
-          )}
+          onClick={() => window.dispatchEvent(new Event("open-shortcuts"))}
+          className="flex w-full max-w-md items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-500 hover:bg-slate-100"
         >
-          <SearchIcon className="h-4 w-4 shrink-0 text-gray-400 group-hover:text-green-600 transition-colors" />
-          <span className="flex-1 text-sm text-gray-400 group-hover:text-gray-500 transition-colors select-none">
-            Search everything...
-          </span>
-          <kbd className="inline-flex items-center rounded-md border border-gray-200 bg-white px-1.5 py-0.5 text-[11px] font-semibold text-gray-400 shadow-sm group-hover:border-green-200 group-hover:bg-green-50 group-hover:text-green-600 transition-colors">
-            ⌘K
-          </kbd>
+          <Search className="size-4" />
+          <span className="flex-1 text-left">Search...</span>
+          <kbd className="rounded bg-white px-1.5 py-0.5 text-[10px] font-medium text-slate-500">⌘K</kbd>
         </button>
       </div>
 
-      <div className="flex items-center gap-2.5">
-        <button
-          onClick={openShortcuts}
-          className="flex sm:hidden items-center justify-center h-9 w-9 rounded-lg border border-gray-200 bg-gray-50 text-gray-500 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-300 transition-all shadow-sm"
-          aria-label="Open search"
+      <div className="flex items-center gap-2">
+        <Button
+          size="sm"
+          onClick={() => setNewMeetingOpen(true)}
+          className="bg-emerald-600 hover:bg-emerald-700 text-white"
         >
-          <SearchIcon className="h-4 w-4" />
-        </button>
+          <Plus className="size-4" />
+          <span className="hidden sm:inline">New meeting</span>
+        </Button>
 
-        <button
-          onClick={() => setFeedbackOpen(true)}
-          className="hidden lg:flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-white bg-green-600 hover:bg-green-700 shadow-md shadow-green-600/20 transition-all active:scale-95"
-        >
-          <span>Feedback</span>
-        </button>
-
-        {/* Feedback Dialog */}
-        <Dialog open={feedbackOpen} onOpenChange={setFeedbackOpen}>
-          <DialogContent className="sm:max-w-[420px] p-0 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl">
-            <div className="px-6 pt-6 pb-4 border-b border-gray-100">
-              <DialogHeader className="p-0 space-y-0.5">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">
-                  Nexa AI
-                </p>
-                <DialogTitle className="text-base font-semibold text-gray-900 leading-tight">
-                  Send Feedback
-                </DialogTitle>
-              </DialogHeader>
-            </div>
-            <div className="px-6 pt-4 pb-6 space-y-4">
-              <div className="flex gap-2">
-                {(["bug", "idea", "other"] as const).map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => setFeedbackType(t)}
-                    className={`rounded-lg px-3 py-1.5 text-xs font-medium border ${
-                      feedbackType === t
-                        ? "bg-green-600 text-white border-green-600"
-                        : "bg-gray-50 text-gray-600 border-gray-200"
-                    }`}
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
-              <Textarea
-                placeholder="Tell us what's on your mind..."
-                value={feedbackText}
-                onChange={(e) => setFeedbackText(e.target.value)}
-                className="min-h-[120px] rounded-xl border-gray-200 bg-gray-50 text-sm focus:bg-white resize-none"
-              />
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-500">Rating (optional):</span>
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <button
-                    key={n}
-                    type="button"
-                    onClick={() => setFeedbackRating(n)}
-                    className={`size-7 rounded-md text-xs border ${
-                      feedbackRating === n
-                        ? "bg-green-600 text-white border-green-600"
-                        : "bg-gray-50 text-gray-600 border-gray-200"
-                    }`}
-                  >
-                    {n}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <DialogFooter className="px-6 pb-6 border-t border-gray-100 pt-4 flex flex-row items-center justify-end gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setFeedbackOpen(false)}
-                className="rounded-lg border-gray-200 text-gray-600 h-9 px-4 text-xs"
-              >
-                Cancel
+        <Popover open={bellOpen} onOpenChange={setBellOpen}>
+          <PopoverTrigger
+            render={
+              <Button variant="ghost" size="icon" aria-label="Activity">
+                <Bell className="size-4" />
               </Button>
-              <Button
-                size="sm"
-                onClick={handleSubmitFeedback}
-                disabled={!feedbackText.trim() || submitMutation.isPending}
-                className="rounded-lg bg-green-600 hover:bg-green-700 text-white h-9 px-5 text-xs font-medium"
-              >
-                {feedbackSubmitted ? "Sending…" : "Submit"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            }
+          />
+          <PopoverContent className="w-80">
+            <div className="space-y-2">
+              <div className="font-semibold">Recent activity</div>
+              {(activity ?? []).length === 0 ? (
+                <p className="text-sm text-slate-500">No recent activity.</p>
+              ) : (
+                <ul className="space-y-2 max-h-72 overflow-auto">
+                  {(activity ?? []).map((a) => (
+                    <li key={a.id} className="text-sm">
+                      <div className="font-medium">{a.title}</div>
+                      {a.description && <div className="text-xs text-slate-500">{a.description}</div>}
+                      <div className="text-xs text-slate-400">{new Date(a.createdAt).toLocaleString()}</div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
 
-        <DashboardUserButton variant="header" />
+        <Button variant="ghost" size="sm" className="gap-1">
+          <span className="hidden sm:inline">{session?.user?.name}</span>
+          <ChevronDown className="size-4" />
+        </Button>
       </div>
+
+      <ShortcutsModal />
+      <NewMeetingDialog open={newMeetingOpen} onOpenChange={setNewMeetingOpen} />
+
     </header>
   );
 };
-
-export default DashboardNavbar;

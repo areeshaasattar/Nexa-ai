@@ -10,10 +10,11 @@ export const appRouter = createTRPCRouter({
   getDashboardData: homeRouter.getDashboardData,
   getSystemHealth: homeRouter.getSystemHealth,
   getOnboarding: homeRouter.getOnboarding,
+  getOverview: homeRouter.getOverview,
+  getRecentActivity: homeRouter.getRecentActivity,
   agents: agentsRouter,
   meetings: meetingsRouter,
   feedback: feedbackRouter,
 });
-
 
 export type AppRouter = typeof appRouter;
