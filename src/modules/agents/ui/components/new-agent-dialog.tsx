@@ -106,7 +106,7 @@ export const NewAgentDialog = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className="
-          sm:max-w-[420px] max-h-[90vh] overflow-y-auto p-0 rounded-2xl
+          sm:max-w-[420px] p-0 rounded-2xl
           border border-[#d4e0d4] bg-white shadow-xl
 
           /* Overlay fade */

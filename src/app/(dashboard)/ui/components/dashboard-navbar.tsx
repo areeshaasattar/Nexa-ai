@@ -8,7 +8,7 @@ import { Search, Bell, Plus, ChevronDown, Calendar, Play, CheckCircle, Bot, File
 import { Button } from "@/components/ui/button";
 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { activityIconName, relativeTime, shouldHideDescription } from "@/modules/home/lib/activity";
 import { trpc } from "@/trpc/client";
 import { authClient } from "@/lib/auth-client";
@@ -153,10 +153,14 @@ export const DashboardNavbar = () => {
             }
           />
           <DropdownMenuContent align="end" sideOffset={6} collisionPadding={8} className="w-56 bg-white border border-slate-200 shadow-lg">
-            <DropdownMenuLabel className="truncate">
-              <div className="text-sm font-medium text-slate-900 truncate">{session?.user?.name}</div>
-              <div className="text-xs text-slate-500 truncate">{session?.user?.email}</div>
-            </DropdownMenuLabel>
+            {/* Base UI requires Menu.GroupLabel to render inside Menu.Group
+                (it throws `MenuGroupRootContext is missing` otherwise). */}
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>
+                <div className="text-sm font-medium text-slate-900 truncate">{session?.user?.name}</div>
+                <div className="text-xs text-slate-500 truncate">{session?.user?.email}</div>
+              </DropdownMenuLabel>
+            </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem render={<Link href="/settings" className="cursor-pointer">Settings</Link>} />
             <DropdownMenuSeparator />

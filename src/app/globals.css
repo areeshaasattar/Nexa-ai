@@ -29,17 +29,22 @@
   --color-input: #e2e8f0;
   --color-ring: #10b981;
 
-  /* ── Sidebar — dark emerald brand ─────────────────────────────────────── */
-  --color-sidebar: #052e16;
-  --color-sidebar-foreground: #dcfce7;
-  --color-sidebar-primary: #10b981;
-  --color-sidebar-primary-foreground: #052e16;
-  --color-sidebar-accent: rgba(255, 255, 255, 0.08);
-  --color-sidebar-accent-foreground: #ffffff;
-  --color-sidebar-border: rgba(255, 255, 255, 0.14);
-  --color-sidebar-muted: #064e3b;
-  --color-sidebar-muted-foreground: #86efac;
-  --color-sidebar-ring: #10b981;
+  /* 🔰 Sidebar - light surface with emerald brand accents ───────
+     Consumed by `src/components/ui/sidebar.tsx` (dashboard shell only).
+     accent = emerald-100 (brand green ≈12% tint on white), accent
+     foreground = emerald-800 (dark brand green). Nav state colors are
+     mirrored in `src/components/layout/sidebar-theme.ts`, which the
+     contrast test (`scripts/test-contrast.ts`) asserts against. */
+  --color-sidebar: #ffffff;
+  --color-sidebar-foreground: #0f172a;
+  --color-sidebar-primary: #059669;
+  --color-sidebar-primary-foreground: #ffffff;
+  --color-sidebar-accent: #d1fae5;
+  --color-sidebar-accent-foreground: #065f46;
+  --color-sidebar-border: #e2e8f0;
+  --color-sidebar-muted: #f8fafc;
+  --color-sidebar-muted-foreground: #64748b;
+  --color-sidebar-ring: #059669;
 
   --radius: 0.75rem;
 }

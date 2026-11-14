@@ -29,6 +29,7 @@ import { useSignOut } from "@/hooks/use-sign-out";
 import { toast } from "sonner";
 import { useState } from "react";
 import { STARTER_AGENT_TEMPLATE_ID } from "@/lib/agent-templates";
+import { SIDEBAR_NAV_THEME } from "@/components/layout/sidebar-theme";
 
 const mainNav = [
   { icon: LayoutDashboardIcon, label: "Dashboard", href: "/dashboard" },
@@ -50,22 +51,7 @@ export const DashboardSidebar = () => {
   });
 
   return (
-    <Sidebar
-      className="border-r border-slate-200 bg-white text-slate-900"
-      style={
-        {
-          "--sidebar-background": "#ffffff",
-          "--sidebar": "#ffffff",
-          "--sidebar-foreground": "#0f172a",
-          "--sidebar-primary": "#059669",
-          "--sidebar-primary-foreground": "#ffffff",
-          "--sidebar-accent": "#ecfdf5",
-          "--sidebar-accent-foreground": "#065f46",
-          "--sidebar-border": "#e2e8f0",
-          "--sidebar-ring": "#10b981",
-        } as React.CSSProperties
-      }
-    >
+    <Sidebar className="border-r border-slate-200 bg-white text-slate-900">
       <div className="flex h-full w-full flex-col bg-white">
         <SidebarHeader className="p-6 pb-4">
           <Link href="/dashboard" className="flex items-center gap-3 group">
@@ -92,13 +78,17 @@ export const DashboardSidebar = () => {
                       <SidebarMenuButton
                         isActive={isActive}
                         render={
-                          <Link href={item.href} aria-current={isActive ? "page" : undefined} className="flex items-center gap-3">
-                            <item.icon className={`size-5 ${isActive ? "text-emerald-600" : "text-slate-400"}`} />
-                            <span className={`font-medium ${isActive ? "font-semibold" : ""}`}>{item.label}</span>
+                          <Link
+                            href={item.href}
+                            aria-current={isActive ? "page" : undefined}
+                            className={SIDEBAR_NAV_THEME.classes.itemLink}
+                          >
+                            <item.icon />
+                            <span>{item.label}</span>
                           </Link>
                         }
-                        className={`h-11 px-4 rounded-xl transition-all duration-200 ${
-                          isActive ? "bg-emerald-50 text-emerald-700" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                        className={`${SIDEBAR_NAV_THEME.classes.itemButton} ${
+                          isActive ? SIDEBAR_NAV_THEME.classes.itemButtonActive : ""
                         }`}
                       />
                     </SidebarMenuItem>
