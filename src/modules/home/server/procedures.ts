@@ -189,6 +189,55 @@ export const homeRouter = createTRPCRouter({
     };
   }),
 
+  getOnboarding: protectedProcedure.query(async ({ ctx }) => {
+    const userId = ctx.userId;
+
+    const [agentCountRow] = await db
+      .select({ count: count() })
+      .from(agents)
+      .where(eq(agents.userId, userId));
+
+    const [meetingCountRow] = await db
+      .select({ count: count() })
+      .from(meetings)
+      .where(eq(meetings.userId, userId));
+
+    const [joinedRow] = await db
+      .select({ count: count() })
+      .from(meetings)
+      .where(
+        and(
+          eq(meetings.userId, userId),
+          sql`(${meetings.startedAt} IS NOT NULL OR ${meetings.status} IN ('ongoing','completed'))`,
+        ),
+      );
+
+    const [summaryRow] = await db
+      .select({ count: count() })
+      .from(meetings)
+      .where(and(eq(meetings.userId, userId), sql`${meetings.summaryData} IS NOT NULL`));
+
+    const [firstMeeting] = await db
+      .select({ id: meetings.id })
+      .from(meetings)
+      .where(eq(meetings.userId, userId))
+      .orderBy(meetings.createdAt)
+      .limit(1);
+
+    const agentCount = Number(agentCountRow?.count ?? 0);
+    const meetingCount = Number(meetingCountRow?.count ?? 0);
+    const hasJoinedCall = Number(joinedRow?.count ?? 0) > 0;
+    const hasSummary = Number(summaryRow?.count ?? 0) > 0;
+
+    return {
+      agentCount,
+      meetingCount,
+      hasJoinedCall,
+      hasSummary,
+      firstMeetingId: firstMeeting?.id ?? null,
+    };
+  }),
+
   getSystemHealth: protectedProcedure.query(async () => {
     const start = Date.now();
 

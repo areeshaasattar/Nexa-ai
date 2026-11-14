@@ -58,7 +58,7 @@ export const DashboardSidebar = () => {
       {/* This inner wrapper ensures bg is solid on mobile sheet/drawer */}
       <div className="flex h-full w-full flex-col bg-green-950">
         <SidebarHeader className="p-6 pb-4">
-          <Link href="/" className="flex items-center gap-3 group">
+          <Link href="/dashboard" className="flex items-center gap-3 group">
             <div>
               <Image
                 src="/logo.svg"

@@ -30,6 +30,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { NewMeetingDialog } from "@/modules/meetings/ui/components/new-meeting-dialog";
 import { useDashboard } from "@/hooks/useDashboard";
+import { OnboardingChecklist } from "../components/onboarding-checklist";
 import { cn } from "@/lib/utils";
 
 // ─── animation variants ───────────────────────────────────────────────────────
@@ -248,6 +249,7 @@ export const HomeView = () => {
       animate="show"
       className="mx-auto w-full max-w-[1440px] flex flex-col gap-6 lg:gap-8"
     >
+      <OnboardingChecklist />
       {/* ── BAND A · HERO (full width) ───────────────────────────────────── */}
       <Section>
         <HeroSection
