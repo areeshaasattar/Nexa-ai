@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
+import { BrandLogo } from "@/components/brand-logo";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -205,13 +206,7 @@ const VerifyEmailView = () => {
 
           <div className="relative z-10 flex flex-col items-center text-center">
             <div className="">
-              <Image
-                src="/logo.svg"
-                alt="Logo"
-                width={80}
-                height={80}
-                className="invert brightness-0" style={{ height: "auto" }}
-              />
+              <BrandLogo variant="onDark" width={80} height={80} />
             </div>
 
             <h2 className="text-5xl font-black tracking-tighter mb-4 drop-shadow-sm">

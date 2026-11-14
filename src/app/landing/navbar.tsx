@@ -1,5 +1,5 @@
 import Link from "next/link";
-import Image from "next/image";
+import { BrandLogo } from "@/components/brand-logo";
 import { LandingMobileMenu } from "../landing-mobile-menu";
 
 export function LandingNavbar() {
@@ -10,14 +10,7 @@ export function LandingNavbar() {
         aria-label="Primary"
       >
         <Link href="/" className="flex items-center gap-2">
-          <Image
-            src="/logo.svg"
-            alt="Nexa AI"
-            width={32}
-            height={32}
-            className="h-8 w-8 invert brightness-0"
-            style={{ height: "auto" }}
-          />
+          <BrandLogo variant="onDark" width={32} height={32} className="h-8 w-8" />
           <span className="text-lg font-bold tracking-tight text-white">Nexa AI</span>
         </Link>
 

@@ -21,10 +21,11 @@ import {
   SparklesIcon,
 } from "lucide-react";
 import Image from "next/image";
+import { BrandLogo } from "@/components/brand-logo";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import DashboardUserButton from "./Dashboard-user-button";
 import { trpc } from "@/trpc/client";
+import { useSignOut } from "@/hooks/use-sign-out";
 import { toast } from "sonner";
 import { useState } from "react";
 import { STARTER_AGENT_TEMPLATE_ID } from "@/lib/agent-templates";
@@ -39,6 +40,7 @@ const mainNav = [
 export const DashboardSidebar = () => {
   const pathname = usePathname();
   const [quickLoading, setQuickLoading] = useState(false);
+  const { signOut, isSigningOut } = useSignOut();
   const quickStart = trpc.meetings.quickStart.useMutation({
     onSuccess: (data) => {
       toast.success("Meeting created");
@@ -48,18 +50,26 @@ export const DashboardSidebar = () => {
   });
 
   return (
-    <Sidebar className="border-r border-slate-200 bg-white text-slate-900">
+    <Sidebar
+      className="border-r border-slate-200 bg-white text-slate-900"
+      style={
+        {
+          "--sidebar-background": "#ffffff",
+          "--sidebar": "#ffffff",
+          "--sidebar-foreground": "#0f172a",
+          "--sidebar-primary": "#059669",
+          "--sidebar-primary-foreground": "#ffffff",
+          "--sidebar-accent": "#ecfdf5",
+          "--sidebar-accent-foreground": "#065f46",
+          "--sidebar-border": "#e2e8f0",
+          "--sidebar-ring": "#10b981",
+        } as React.CSSProperties
+      }
+    >
       <div className="flex h-full w-full flex-col bg-white">
         <SidebarHeader className="p-6 pb-4">
           <Link href="/dashboard" className="flex items-center gap-3 group">
-            <Image
-              src="/logo.svg"
-              alt="Nexa AI"
-              width={36}
-              height={36}
-              className="h-9 w-9"
-              style={{ height: "auto" }}
-            />
+            <BrandLogo variant="onLight" width={36} height={36} />
             <div className="flex flex-col">
               <span className="font-bold text-xl tracking-tight text-slate-900">Nexa AI</span>
               <span className="text-[10px] uppercase tracking-widest text-emerald-600 font-semibold">Intelligence</span>
@@ -71,7 +81,7 @@ export const DashboardSidebar = () => {
           <SidebarSeparator className="bg-slate-200" />
         </div>
 
-        <SidebarContent className="px-3 py-2">
+        <SidebarContent className="px-3 py-2 overflow-y-auto [&::-webkit-scrollbar]:hidden">
           <SidebarGroup>
             <SidebarGroupContent>
               <SidebarMenu className="gap-1">
@@ -82,9 +92,9 @@ export const DashboardSidebar = () => {
                       <SidebarMenuButton
                         isActive={isActive}
                         render={
-                          <Link href={item.href} className="flex items-center gap-3">
+                          <Link href={item.href} aria-current={isActive ? "page" : undefined} className="flex items-center gap-3">
                             <item.icon className={`size-5 ${isActive ? "text-emerald-600" : "text-slate-400"}`} />
-                            <span className="font-medium">{item.label}</span>
+                            <span className={`font-medium ${isActive ? "font-semibold" : ""}`}>{item.label}</span>
                           </Link>
                         }
                         className={`h-11 px-4 rounded-xl transition-all duration-200 ${
@@ -99,13 +109,13 @@ export const DashboardSidebar = () => {
           </SidebarGroup>
         </SidebarContent>
 
-        <SidebarFooter className="p-4 space-y-3">
-          <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+        <SidebarFooter className="p-3 space-y-2">
+          <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3">
             <div className="flex items-center gap-2 text-emerald-700">
               <SparklesIcon className="size-4" />
-              <span className="text-sm font-semibold">Start a session in one click</span>
+              <span className="text-xs font-semibold">Start a session in one click</span>
             </div>
-            <p className="mt-1 text-xs text-slate-600">Try a ready-made template agent.</p>
+            <p className="mt-0.5 text-[11px] text-slate-600">Try a ready-made template agent.</p>
             <button
               type="button"
               disabled={quickLoading || quickStart.isPending}
@@ -116,7 +126,7 @@ export const DashboardSidebar = () => {
                   { onSettled: () => setQuickLoading(false) },
                 );
               }}
-              className="mt-3 w-full rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+              className="mt-2 w-full rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
             >
               {quickLoading || quickStart.isPending ? "Starting..." : "Try it now"}
             </button>
@@ -128,24 +138,18 @@ export const DashboardSidebar = () => {
                 render={
                   <button
                     type="button"
-                    onClick={() => {
-                      // sign out via auth client
-                      fetch("/api/auth/sign-out", { method: "POST" }).then(() => {
-                        window.location.href = "/";
-                      });
-                    }}
+                    disabled={isSigningOut}
+                    onClick={() => signOut()}
                     className="flex items-center gap-3"
                   >
                     <LogOutIcon className="size-5 text-slate-400" />
-                    <span className="font-medium">Log out</span>
+                    <span className="font-medium">{isSigningOut ? "Signing out..." : "Log out"}</span>
                   </button>
                 }
-                className="h-11 px-4 rounded-xl text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                className="h-10 px-4 rounded-xl text-slate-600 hover:bg-slate-50 hover:text-slate-900"
               />
             </SidebarMenuItem>
           </SidebarMenu>
-
-          <DashboardUserButton />
         </SidebarFooter>
       </div>
     </Sidebar>
