@@ -20,10 +20,10 @@ import {
   LogOutIcon,
   SparklesIcon,
 } from "lucide-react";
-import Image from "next/image";
 import { BrandLogo } from "@/components/brand-logo";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Button } from "@/components/ui/button";
 import { trpc } from "@/trpc/client";
 import { useSignOut } from "@/hooks/use-sign-out";
 import { toast } from "sonner";
@@ -51,23 +51,30 @@ export const DashboardSidebar = () => {
   });
 
   return (
-    <Sidebar className="border-r border-slate-200 bg-white text-slate-900">
-      <div className="flex h-full w-full flex-col bg-white">
-        <SidebarHeader className="p-6 pb-4">
-          <Link href="/dashboard" className="flex items-center gap-3 group">
-            <BrandLogo variant="onLight" width={36} height={36} />
-            <div className="flex flex-col">
-              <span className="font-bold text-xl tracking-tight text-slate-900">Nexa AI</span>
-              <span className="text-[10px] uppercase tracking-widest text-emerald-600 font-semibold">Intelligence</span>
-            </div>
+    <Sidebar className="border-r border-border bg-surface text-text">
+      <div className="flex h-full w-full flex-col bg-surface">
+        <SidebarHeader className="p-4 pb-3 flex-row items-center justify-between gap-3">
+          <Link href="/dashboard" className="flex items-center gap-2 group flex-1 min-w-0">
+            <BrandLogo variant="onLight" width={28} height={28} />
+            <span className="font-semibold text-base truncate text-text">Nexa AI</span>
           </Link>
+          <SidebarMenuButton
+            render={
+              <button
+                type="button"
+                aria-label="Toggle sidebar"
+                className="text-text-muted hover:text-text focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg"
+              />
+            }
+            className="h-9 w-9 p-0"
+          />
         </SidebarHeader>
 
-        <div className="px-6 py-2">
-          <SidebarSeparator className="bg-slate-200" />
+        <div className="px-4 py-2">
+          <SidebarSeparator className="bg-border" />
         </div>
 
-        <SidebarContent className="px-3 py-2 overflow-y-auto [&::-webkit-scrollbar]:hidden">
+        <SidebarContent className="px-2 py-2 overflow-y-auto [&::-webkit-scrollbar]:hidden">
           <SidebarGroup>
             <SidebarGroupContent>
               <SidebarMenu className="gap-1">
@@ -83,13 +90,18 @@ export const DashboardSidebar = () => {
                             aria-current={isActive ? "page" : undefined}
                             className={SIDEBAR_NAV_THEME.classes.itemLink}
                           >
-                            <item.icon />
-                            <span>{item.label}</span>
+                            <item.icon className="size-4.5" />
+                            <span className="text-sm font-medium">{item.label}</span>
                           </Link>
                         }
-                        className={`${SIDEBAR_NAV_THEME.classes.itemButton} ${
-                          isActive ? SIDEBAR_NAV_THEME.classes.itemButtonActive : ""
-                        }`}
+                        className={cn(
+                          SIDEBAR_NAV_THEME.classes.itemButton,
+                          isActive && SIDEBAR_NAV_THEME.classes.itemButtonActive,
+                          isActive ? "bg-brand-100 text-brand-800" : "text-text-muted hover:bg-brand-50"
+                        )}
+                        style={{
+                          color: isActive ? SIDEBAR_NAV_THEME.colors.activeText : SIDEBAR_NAV_THEME.colors.inactiveText,
+                        }}
                       />
                     </SidebarMenuItem>
                   );
@@ -99,14 +111,16 @@ export const DashboardSidebar = () => {
           </SidebarGroup>
         </SidebarContent>
 
-        <SidebarFooter className="p-3 space-y-2">
-          <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3">
-            <div className="flex items-center gap-2 text-emerald-700">
-              <SparklesIcon className="size-4" />
-              <span className="text-xs font-semibold">Start a session in one click</span>
+        <SidebarFooter className="mt-auto p-3 space-y-2">
+          <div className="rounded-lg border border-brand-200 bg-brand-50 p-4">
+            <div className="flex items-start gap-2 mb-2">
+              <SparklesIcon className="size-4 text-brand-600 shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-text">Start a session in one click</div>
+                <p className="mt-1 text-xs text-text-muted line-clamp-1">Try a ready-made template agent.</p>
+              </div>
             </div>
-            <p className="mt-0.5 text-[11px] text-slate-600">Try a ready-made template agent.</p>
-            <button
+            <Button
               type="button"
               disabled={quickLoading || quickStart.isPending}
               onClick={() => {
@@ -116,10 +130,12 @@ export const DashboardSidebar = () => {
                   { onSettled: () => setQuickLoading(false) },
                 );
               }}
-              className="mt-2 w-full rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+              variant="default"
+              size="sm"
+              className="w-full mt-3"
             >
               {quickLoading || quickStart.isPending ? "Starting..." : "Try it now"}
-            </button>
+            </Button>
           </div>
 
           <SidebarMenu>
@@ -130,13 +146,13 @@ export const DashboardSidebar = () => {
                     type="button"
                     disabled={isSigningOut}
                     onClick={() => signOut()}
-                    className="flex items-center gap-3"
+                    className="flex items-center gap-3 text-text-muted hover:text-text"
                   >
-                    <LogOutIcon className="size-5 text-slate-400" />
-                    <span className="font-medium">{isSigningOut ? "Signing out..." : "Log out"}</span>
+                    <LogOutIcon className="size-4" />
+                    <span className="text-sm font-medium">{isSigningOut ? "Signing out..." : "Log out"}</span>
                   </button>
                 }
-                className="h-10 px-4 rounded-xl text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                className="h-10 px-3 rounded-lg text-text-muted hover:bg-brand-50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               />
             </SidebarMenuItem>
           </SidebarMenu>
@@ -145,3 +161,5 @@ export const DashboardSidebar = () => {
     </Sidebar>
   );
 };
+
+import { cn } from "@/lib/utils";

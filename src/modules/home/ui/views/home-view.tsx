@@ -23,6 +23,8 @@ import {
   TrendingDown,
   TrendingUp,
   Video,
+  Clock,
+  Dot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { GeneratedAvatar } from "@/components/generated-avatar";
@@ -30,6 +32,7 @@ import { NewMeetingDialog } from "@/modules/meetings/ui/components/new-meeting-d
 import { OnboardingChecklist } from "../components/onboarding-checklist";
 import { computeTrend, buildStatusBreakdown, buildInsights } from "@/modules/home/lib/dashboard-data";
 import { StatusMonitor } from "../components/status-monitor";
+import { Badge } from "@/components/ui/badge";
 
 const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
@@ -55,30 +58,28 @@ function StatCard({
   icon: React.ComponentType<{ className?: string }>;
 }) {
   return (
-    <Card className="rounded-2xl">
-      <CardContent className="p-5">
-        <div className="flex items-start justify-between">
-          <span className="flex size-9 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
-            <Icon className="size-4" aria-hidden="true" />
+    <Card className="rounded-xl flex flex-col justify-between min-h-28">
+      <CardContent className="p-4 flex flex-col justify-between flex-1">
+        <div className="flex items-start justify-between mb-2">
+          <span className="flex size-10 items-center justify-center rounded-lg border border-brand-200 text-brand-600">
+            <Icon className="size-5" aria-hidden="true" />
           </span>
           {trend && trend.label !== "none" && (
-            <span
-              className={cn(
-                "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
-                trend.label === "up" && "bg-emerald-100 text-emerald-700",
-                trend.label === "down" && "bg-red-100 text-red-700",
-                trend.label === "new" && "bg-slate-100 text-slate-600",
-              )}
+            <Badge
+              variant={trend.label === "up" ? "success" : trend.label === "down" ? "destructive" : "neutral"}
+              className="text-xs"
             >
-              {trend.label === "up" && <TrendingUp className="size-3" aria-hidden="true" />}
-              {trend.label === "down" && <TrendingDown className="size-3" aria-hidden="true" />}
+              {trend.label === "up" && <TrendingUp className="size-2" aria-hidden="true" />}
+              {trend.label === "down" && <TrendingDown className="size-2" aria-hidden="true" />}
               {trend.label === "new" ? "New" : trend.percent !== null ? `${trend.percent}%` : ""}
-            </span>
+            </Badge>
           )}
         </div>
-        <div className="mt-3 text-3xl font-bold tracking-tight">{value}</div>
-        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</div>
-        {sub && <div className="mt-1 text-xs text-slate-500">{sub}</div>}
+        <div className="space-y-1">
+          <div className="text-2xl font-bold tracking-tight">{value}</div>
+          <div className="text-xs font-semibold uppercase tracking-wide text-text-muted">{title}</div>
+          {sub && <div className="mt-1.5 text-xs text-text-muted truncate">{sub}</div>}
+        </div>
       </CardContent>
     </Card>
   );
@@ -98,7 +99,6 @@ export const HomeView = () => {
   const isLoading = hello.isLoading || overview.isLoading;
 
   const trendMeetings = data ? computeTrend(data.totals.meetings, data.previous.meetings) : { percent: null, label: "none" as const };
-  // summaries trend not tracked separately; use meetings trend? spec: trend on cards 1 and 3. We'll show trend on meetings only (no prev summaries). Show "New" if summariesReady>0 and meetings prev 0? Keep none for summaries to avoid invention.
   const trendSummaries = { percent: null, label: "none" as const };
 
   const statusBreakdown = data ? buildStatusBreakdown(data.statusBreakdown) : null;
@@ -130,13 +130,13 @@ export const HomeView = () => {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <Skeleton className="h-8 w-48" />
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <Skeleton className="h-8 w-48 rounded-lg" />
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           {[...Array(4)].map((_, i) => (
-            <Skeleton key={i} className="h-28 rounded-2xl" />
+            <Skeleton key={i} className="h-28 rounded-xl" />
           ))}
         </div>
-        <Skeleton className="h-72 rounded-2xl" />
+        <Skeleton className="h-72 rounded-xl" />
       </div>
     );
   }
@@ -145,7 +145,7 @@ export const HomeView = () => {
     return (
       <div className="flex items-center justify-center min-h-[40vh]">
         <div className="text-center space-y-3">
-          <p className="text-sm font-medium text-slate-700">Failed to load dashboard.</p>
+          <p className="text-sm font-medium text-text">Failed to load dashboard.</p>
           <Button onClick={() => overview.refetch()}>Retry</Button>
         </div>
       </div>
@@ -158,8 +158,8 @@ export const HomeView = () => {
     <div className="space-y-6">
       <OnboardingChecklist />
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      {/* Stat cards - 4 columns */}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <StatCard
           title="Total meetings"
           value={data?.totals.meetings ?? 0}
@@ -185,20 +185,21 @@ export const HomeView = () => {
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Left column */}
-        <div className="space-y-6 lg:col-span-2">
-          {/* Activity chart */}
-          <Card className="rounded-2xl">
-            <CardHeader className="flex flex-row items-center justify-between">
+      {/* Main grid: left 8 cols, right 4 cols */}
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+        {/* Left column (col-span-8) */}
+        <div className="space-y-6 xl:col-span-8">
+          {/* Row 1: Activity chart */}
+          <Card className="rounded-xl">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
               <div>
-                <CardTitle>Meeting activity</CardTitle>
-                <CardDescription>Meetings and voice interactions over time.</CardDescription>
+                <CardTitle className="text-base">Meeting activity</CardTitle>
+                <CardDescription className="text-xs mt-1">Meetings and voice interactions over time.</CardDescription>
               </div>
               <select
                 value={range}
                 onChange={(e) => setRange(e.target.value as Range)}
-                className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm"
+                className="rounded-full border border-border bg-surface-soft px-3 py-2 text-sm font-medium text-text-muted outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 aria-label="Range"
               >
                 {RANGE_OPTIONS.map((o) => (
@@ -208,27 +209,29 @@ export const HomeView = () => {
                 ))}
               </select>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-0">
               {hasActivity ? (
                 <Chart
                   options={{
                     chart: { toolbar: { show: false }, animations: { enabled: !window.matchMedia("(prefers-reduced-motion: reduce)").matches } },
-                    colors: ["#052e16", "#10b981"],
-                    stroke: { curve: "smooth", width: 3 },
-                    fill: { type: "gradient", gradient: { shadeIntensity: 1, opacityFrom: 0.35, opacityTo: 0 } },
-                    xaxis: { categories },
-                    grid: { strokeDashArray: 4, borderColor: "#e2e8f0" },
-                    legend: { position: "top" },
-                    tooltip: { shared: true, intersect: false },
-                  }}
+                    colors: ["#14533a", "#55b884"],
+                    stroke: { curve: "smooth", width: 2 },
+                    fill: { type: "gradient", gradient: { shadeIntensity: 1, opacityFrom: 0.28, opacityTo: 0, stops: [0, 100] } },
+                    xaxis: { categories, axisBorder: { show: false }, axisTicks: { show: false }, labels: { style: { colors: "#7b8b83", fontSize: "11px" } } },
+                    grid: { strokeDashArray: 4, borderColor: "#e1ece5", yaxis: { lines: { show: true } }, xaxis: { lines: { show: false } } },
+                    legend: { show: false },
+                    tooltip: { shared: true, intersect: false, theme: "light", style: { background: "#ffffff", borderRadius: "12px" }, y: { formatter: (value: number) => value.toString() } },
+                    dataLabels: { enabled: false },
+                    markers: { size: 0, hover: { size: 5, sizeOffset: 3, color: "#ffffff", strokeColor: "#55b884", strokeWidth: 1 } },
+                  } as any}
                   series={activitySeries}
                   type="area"
-                  height={300}
+                  height={240}
                 />
               ) : (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
-                  <p className="text-sm text-slate-500">No activity in this range.</p>
-                  <Button asChild size="sm" className="mt-3 bg-emerald-600 hover:bg-emerald-700 text-white">
+                  <p className="text-sm text-text-muted">No activity in this range.</p>
+                  <Button asChild size="sm" className="mt-3">
                     <Link href="/agents">Try a template</Link>
                   </Button>
                 </div>
@@ -239,153 +242,209 @@ export const HomeView = () => {
             </CardContent>
           </Card>
 
-          {/* Recent meetings */}
-          <Card className="rounded-2xl">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Recent meetings</CardTitle>
-              <Link href="/meetings" className="text-sm text-emerald-600 hover:underline">
+          {/* Row 2: Recent meetings */}
+          <Card className="rounded-xl">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <div>
+                <CardTitle className="text-base">Recent meetings</CardTitle>
+                <CardDescription className="text-xs mt-1">Latest sessions</CardDescription>
+              </div>
+              <Link href="/meetings" className="text-xs font-medium text-brand-700 hover:text-brand-800">
                 View all
               </Link>
             </CardHeader>
-            <CardContent className="space-y-3">
-              {(data?.recentMeetings ?? []).length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-10 text-center">
-                  <p className="text-sm text-slate-500">No meetings yet.</p>
-                  <Button asChild size="sm" className="mt-3 bg-emerald-600 hover:bg-emerald-700 text-white">
-                    <Link href="/agents">Try a template</Link>
-                  </Button>
-                </div>
-              ) : (
-                (data?.recentMeetings ?? []).map((m: { id: string; name: string; status: string; startedAt: string | null; createdAt: string; agentName: string; hasSummary: boolean; recordingUrl: string | null }, i: number) => (
-                  <div key={m.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 p-3">
-                    <div className="flex min-w-0 items-center gap-3">
-                      <span className="text-xs font-semibold text-slate-400">{i + 1}</span>
-                      <GeneratedAvatar seed={m.agentName} className="size-8" />
-                      <div className="min-w-0">
-                        <Link href={`/meetings/${m.id}`} className="block truncate font-medium hover:underline" title={m.name}>
-                          {m.name}
-                        </Link>
-                        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                          <span className={cn("rounded-full px-2 py-0.5", m.status === "completed" && "bg-emerald-100 text-emerald-700", m.status === "ongoing" && "bg-blue-100 text-blue-700", m.status === "scheduled" && "bg-slate-100 text-slate-600")}>
-                            {m.status}
-                          </span>
-                          {m.hasSummary && (
-                            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700">Summary ready</span>
-                          )}
-                          <span>{m.startedAt ? new Date(m.startedAt).toLocaleDateString() : new Date(m.createdAt).toLocaleDateString()}</span>
-                          {m.agentName && <span>· {m.agentName}</span>}
+            <CardContent>
+              <div className="space-y-3">
+                {(data?.recentMeetings ?? []).slice(0, 4).length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-10 text-center">
+                    <p className="text-sm text-text-muted">No meetings yet.</p>
+                    <Button asChild size="sm" className="mt-3">
+                      <Link href="/agents">Try a template</Link>
+                    </Button>
+                  </div>
+                ) : (
+                  (data?.recentMeetings ?? []).slice(0, 4).map((m: { id: string; name: string; status: string; startedAt: string | null; createdAt: string; agentName: string; hasSummary: boolean; recordingUrl: string | null }, i: number) => (
+                    <div key={m.id} className="flex items-start justify-between gap-3 rounded-lg border border-border bg-surface-soft p-4 hover:shadow-sm transition-shadow">
+                      <div className="flex min-w-0 items-start gap-3 flex-1">
+                        <span className="text-xs font-semibold text-text-muted mt-0.5">{String(i + 1).padStart(2, '0')}.</span>
+                        <div className="min-w-0 flex-1">
+                          <Link href={`/meetings/${m.id}`} className="block truncate font-medium text-sm text-brand-700 hover:underline" title={m.name}>
+                            {m.name}
+                          </Link>
+                          <div className="flex flex-wrap items-center gap-2 mt-2 text-xs text-text-muted">
+                            <Badge variant={m.status === "completed" ? "success" : m.status === "ongoing" ? "default" : "neutral"} className="text-xs">
+                              {m.status}
+                            </Badge>
+                            {m.hasSummary && (
+                              <Badge variant="default" className="text-xs">
+                                <FileText className="size-2 mr-1" />
+                                Summary ready
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2 mt-2 text-xs text-text-muted">
+                            <span className="flex items-center gap-1">
+                              <Calendar className="size-3" />
+                              {m.startedAt ? new Date(m.startedAt).toLocaleDateString("en-US", { year: "2-digit", month: "short", day: "numeric" }) : new Date(m.createdAt).toLocaleDateString("en-US", { year: "2-digit", month: "short", day: "numeric" })}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Bot className="size-3" />
+                              {m.agentName}
+                            </span>
+                          </div>
                         </div>
                       </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {m.recordingUrl && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            asChild
+                          >
+                            <a
+                              href={m.recordingUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              aria-label="Play recording"
+                            >
+                              <Play className="size-4" />
+                            </a>
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {m.recordingUrl && (
-                        <a
-                          href={m.recordingUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex size-8 items-center justify-center rounded-full border border-slate-200 text-slate-600 hover:bg-slate-50"
-                          aria-label="Play recording"
-                        >
-                          <Play className="size-3.5" />
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                ))
-              )}
+                  ))
+                )}
+              </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Right column */}
-        <div className="space-y-6">
+        {/* Right column (col-span-4) */}
+        <div className="space-y-6 xl:col-span-4">
           {/* Status donut */}
-          <Card className="rounded-2xl">
-            <CardHeader>
-              <CardTitle>Meeting status</CardTitle>
+          <Card className="rounded-xl">
+            <CardHeader className="space-y-0">
+              <CardTitle className="text-base">Meeting status</CardTitle>
             </CardHeader>
             <CardContent>
               {statusBreakdown && statusBreakdown.total > 0 ? (
-                <div className="flex items-center gap-4">
+                <div className="flex flex-col items-center gap-4">
                   <Chart
                     options={{
                       chart: { type: "donut" },
                       labels: ["Completed", "Ongoing", "Scheduled"],
-                      colors: ["#052e16", "#10b981", "#86efac"],
+                      colors: ["#0f3d2b", "#2f9e68", "#b9e6cb"],
                       legend: { show: false },
                       dataLabels: { enabled: false },
-                    }}
+                      plotOptions: { pie: { donut: { size: "65%" } } },
+                      stroke: { width: 0 },
+                    } as any}
                     series={[statusBreakdown.completed, statusBreakdown.ongoing, statusBreakdown.scheduled]}
                     type="donut"
-                    height={180}
+                    height={160}
                   />
-                  <div className="space-y-1 text-sm">
-                    <div>Completed {statusBreakdown.percentages.completed}%</div>
-                    <div>Ongoing {statusBreakdown.percentages.ongoing}%</div>
-                    <div>Scheduled {statusBreakdown.percentages.scheduled}%</div>
-                    <div className="font-semibold">Total {statusBreakdown.total}</div>
+                  <div className="w-full space-y-2 text-sm">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Dot className="size-2 text-brand-900 fill-current" />
+                        <span>Completed</span>
+                      </div>
+                      <span className="font-medium">{statusBreakdown.percentages.completed}%</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Dot className="size-2 text-brand-500 fill-current" />
+                        <span>Ongoing</span>
+                      </div>
+                      <span className="font-medium">{statusBreakdown.percentages.ongoing}%</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Dot className="size-2 text-brand-200 fill-current" />
+                        <span>Scheduled</span>
+                      </div>
+                      <span className="font-medium">{statusBreakdown.percentages.scheduled}%</span>
+                    </div>
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-slate-500">No meetings yet.</p>
+                <p className="text-sm text-text-muted text-center py-8">No meetings yet.</p>
               )}
             </CardContent>
           </Card>
 
           {/* Insights */}
-          <Card className="rounded-2xl">
-            <CardHeader>
-              <CardTitle>Insights</CardTitle>
+          <Card className="rounded-xl">
+            <CardHeader className="space-y-0">
+              <CardTitle className="text-base">Insights</CardTitle>
+              <CardDescription className="text-xs mt-1">Suggestions from your activity</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-2">
-              {insights.map((ins) => (
-                <div key={ins.id} className="text-sm text-slate-700">
-                  {ins.href ? (
-                    <Link href={ins.href} className="text-emerald-600 hover:underline">
-                      {ins.text}
-                    </Link>
-                  ) : (
-                    ins.text
-                  )}
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          {/* Upcoming */}
-          <Card className="rounded-2xl">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Upcoming</CardTitle>
-              <Link href="/meetings" className="text-sm text-emerald-600 hover:underline">
-                View all
-              </Link>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {(data?.upcomingMeetings ?? []).length === 0 ? (
-                <p className="text-sm text-slate-500">No upcoming meetings.</p>
+            <CardContent>
+              {insights.length === 0 ? (
+                <p className="text-sm text-text-muted">You are all caught up.</p>
               ) : (
-                (data?.upcomingMeetings ?? []).map((m: { id: string; name: string; agentName: string }) => (
-                  <div key={m.id} className="flex items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="truncate font-medium" title={m.name}>{m.name}</div>
-                      <div className="text-xs text-slate-500">{m.agentName}</div>
+                <div className="space-y-3">
+                  {insights.map((ins) => (
+                    <div key={ins.id} className="rounded-lg border border-brand-200 bg-brand-50 p-3.5">
+                      <div className="flex gap-3">
+                        <span className="flex size-9 items-center justify-center rounded-lg border border-brand-200 text-brand-600 shrink-0">
+                          <FileText className="size-5" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          {ins.href ? (
+                            <Link href={ins.href} className="block font-medium text-sm text-text hover:underline">
+                              {ins.text}
+                            </Link>
+                          ) : (
+                            <div className="font-medium text-sm text-text">{ins.text}</div>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <Button asChild size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white">
-                      <Link href={`/call/${m.id}`}>Join</Link>
-                    </Button>
-                  </div>
-                ))
+                  ))}
+                </div>
               )}
             </CardContent>
           </Card>
 
-          {/* System status compact */}
-          <Card className="rounded-2xl">
-            <CardHeader>
-              <CardTitle>System status</CardTitle>
+          {/* Upcoming */}
+          <Card className="rounded-xl">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <div>
+                <CardTitle className="text-base">Upcoming</CardTitle>
+                <CardDescription className="text-xs mt-1">Next scheduled meetings</CardDescription>
+              </div>
+              <Link href="/meetings" className="text-xs font-medium text-brand-700 hover:text-brand-800">
+                View all
+              </Link>
             </CardHeader>
             <CardContent>
-              <StatusMonitor items={health?.data?.services ?? []} />
+              <div className="space-y-2">
+                {(data?.upcomingMeetings ?? []).slice(0, 4).length === 0 ? (
+                  <p className="text-sm text-text-muted text-center py-8">No upcoming meetings.</p>
+                ) : (
+                  (data?.upcomingMeetings ?? []).slice(0, 4).map((m: { id: string; name: string; agentName: string; scheduledAt?: string }, idx: number) => (
+                    <div key={m.id} className="flex items-center justify-between gap-3 p-3 rounded-lg hover:bg-brand-50 transition-colors">
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate font-medium text-sm" title={m.name}>{m.name}</div>
+                        <div className="text-xs text-text-muted mt-1 flex items-center gap-1">
+                          <Clock className="size-3" />
+                          {m.agentName}
+                        </div>
+                      </div>
+                      <Button
+                        asChild
+                        size="sm"
+                        variant={idx === 0 ? "default" : "outline"}
+                        className={idx === 0 ? "rounded-full" : "rounded-full"}
+                      >
+                        <Link href={`/call/${m.id}`}>Join</Link>
+                      </Button>
+                    </div>
+                  ))
+                )}
+              </div>
             </CardContent>
           </Card>
         </div>

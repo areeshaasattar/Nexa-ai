@@ -28,7 +28,7 @@ import { GeneratedAvatar } from "@/components/generated-avatar";
 import { meetingsInsertSchema } from "../../schemas";
 import { LIMITS } from "@/lib/limits";
 import { z } from "zod";
-import { VideoIcon, BotIcon, ClockIcon, AlertCircleIcon } from "lucide-react";
+import { VideoIcon, BotIcon, AlertCircleIcon } from "lucide-react";
 
 type FormValues = z.infer<typeof meetingsInsertSchema>;
 
@@ -39,9 +39,6 @@ interface NewMeetingDialogProps {
   defaultAgentId?: string;
 }
 
-const inputClass =
-  "h-10 rounded-lg border border-[#a8c8a8] bg-gray-50 text-sm focus:bg-white focus:border-[#3B6D11] focus:ring-1 focus:ring-[#3B6D11]/20 transition-colors placeholder:text-gray-400";
-
 export const NewMeetingDialog = ({
   open,
   onOpenChange,
@@ -49,8 +46,6 @@ export const NewMeetingDialog = ({
 }: NewMeetingDialogProps) => {
   const utils = trpc.useUtils();
   const nameInputRef = useRef<HTMLInputElement | null>(null);
-  // Only fetch agents while the dialog is open — mounting this dialog shell-wide
-  // (shortcuts modal) used to fire this request on every dashboard page load.
   const agentsQuery = trpc.agents.getMany.useQuery(
     { pageSize: 100 },
     { enabled: open, staleTime: 60_000 },
@@ -75,8 +70,6 @@ export const NewMeetingDialog = ({
   const instructionsValue = form.watch("instructions") ?? "";
   const selectedAgent = (agents ?? []).find((agent) => agent.id === agentIdValue);
 
-  // Inline guard: when both bounds are set, end must be after start.
-  // Unchanged behavior when either field is empty or the range is valid.
   const startDate = startedAtValue ? new Date(startedAtValue) : null;
   const endDate = endedAtValue ? new Date(endedAtValue) : null;
   const timeRangeInvalid =
@@ -98,8 +91,6 @@ export const NewMeetingDialog = ({
     },
   });
 
-  // Keep RHF's own ref registration intact while also capturing the element
-  // for the dialog's initialFocus.
   const { ref: nameRegisterRef, ...nameRegisterRest } = form.register("name");
   const setNameRef = (el: HTMLInputElement | null) => {
     nameInputRef.current = el;
@@ -115,41 +106,38 @@ export const NewMeetingDialog = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         initialFocus={nameInputRef}
-        className="max-w-3xl gap-0 p-0 overflow-hidden rounded-2xl border border-[#d4e0d4] bg-white shadow-xl duration-200 ease-out"
+        className="max-w-2xl gap-0 p-0 overflow-hidden rounded-2xl"
       >
-        {/* Fixed header */}
-        <div className="flex shrink-0 items-center gap-4 border-b border-[#d4e0d4] px-6 py-5 pr-12">
-          <div className="shrink-0 w-11 h-11 rounded-xl bg-[#f0f4f0] border border-[#d4e0d4] flex items-center justify-center overflow-hidden text-[#3B6D11]">
+        <DialogHeader className="flex flex-row items-start gap-4 space-y-0 pb-4">
+          <div className="flex size-12 shrink-0 items-center justify-center rounded-lg border border-brand-200 bg-brand-50 text-brand-600">
             <VideoIcon className="size-6" />
           </div>
-          <DialogHeader className="p-0 space-y-0.5 flex-1 min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-[#6a9a6a]">
+          <div className="flex-1 min-w-0 space-y-1">
+            <p className="text-xs font-semibold uppercase tracking-widest text-text-muted">
               Scheduler
             </p>
-            <DialogTitle className="text-base font-semibold text-[#1a2e1a] leading-tight">
+            <DialogTitle className="text-lg font-semibold">
               New meeting
             </DialogTitle>
-          </DialogHeader>
-        </div>
+          </div>
+        </DialogHeader>
 
         <form
           onSubmit={form.handleSubmit(onSubmit)}
           className="flex min-h-0 flex-1 flex-col"
         >
-          {/* Scrollable body */}
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-            <div className="grid gap-6 px-6 py-5 md:grid-cols-2 bg-white">
-              {/* Left column: name, agent, schedule */}
-              <div className="space-y-4">
+            <div className="grid gap-6 px-6 py-5 md:grid-cols-2">
+              {/* Left column */}
+              <div className="space-y-5">
                 <Field orientation="vertical">
-                  <FieldLabel className="text-xs font-medium text-gray-500 mb-1.5">
+                  <FieldLabel className="text-sm font-medium text-text mb-2">
                     Meeting name
                   </FieldLabel>
                   <Input
                     {...nameRegisterRest}
                     ref={setNameRef}
                     placeholder="For example: Weekly planning"
-                    className={inputClass}
                     disabled={createMutation.isPending}
                     maxLength={LIMITS.textCaps.meetingName}
                   />
@@ -159,16 +147,13 @@ export const NewMeetingDialog = ({
                 </Field>
 
                 <Field orientation="vertical">
-                  <FieldLabel className="text-xs font-medium text-gray-500 mb-1.5">
+                  <FieldLabel className="text-sm font-medium text-text mb-2">
                     Agent
                   </FieldLabel>
                   {!agentsLoaded ? (
                     <Select disabled>
-                      <SelectTrigger className={inputClass}>
-                        <div className="flex items-center gap-2">
-                          <BotIcon className="size-3.5 text-gray-400" />
-                          <SelectValue placeholder="Select an agent" />
-                        </div>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Loading agents..." />
                       </SelectTrigger>
                     </Select>
                   ) : hasAgents ? (
@@ -179,34 +164,29 @@ export const NewMeetingDialog = ({
                       }
                       defaultValue={form.getValues("agentId")}
                     >
-                      <SelectTrigger className={inputClass}>
+                      <SelectTrigger>
                         <div className="flex items-center gap-2">
                           {selectedAgent ? (
                             <GeneratedAvatar
                               seed={selectedAgent.name || selectedAgent.id}
-                              style="bottts"
-                              size="sm"
-                              className="size-5 shrink-0"
+                              className="size-4 rounded-full shrink-0"
                             />
                           ) : (
-                            <BotIcon className="size-3.5 text-gray-400" />
+                            <BotIcon className="size-4 text-text-muted" />
                           )}
                           <SelectValue placeholder="Select an agent" />
                         </div>
                       </SelectTrigger>
-                      <SelectContent className="rounded-xl border-[#d4e0d4]">
+                      <SelectContent className="rounded-xl">
                         {(agents ?? []).map((agent) => (
                           <SelectItem
                             key={agent.id}
                             value={agent.id}
-                            className="text-sm rounded-lg cursor-pointer"
                           >
                             <span className="flex items-center gap-2">
                               <GeneratedAvatar
                                 seed={agent.name || agent.id}
-                                style="bottts"
-                                size="sm"
-                                className="size-5 shrink-0"
+                                className="size-4 rounded-full shrink-0"
                               />
                               {agent.name}
                             </span>
@@ -215,13 +195,13 @@ export const NewMeetingDialog = ({
                       </SelectContent>
                     </Select>
                   ) : (
-                    <div className="flex items-center gap-2 rounded-lg border border-[#a8c8a8]/70 bg-gray-50 px-3 py-2.5">
-                      <BotIcon className="size-3.5 text-gray-400 shrink-0" />
-                      <p className="text-xs text-gray-500">
+                    <div className="flex items-center gap-2 rounded-xl border border-brand-200 bg-brand-50 px-3 py-2.5">
+                      <BotIcon className="size-4 text-brand-600 shrink-0" />
+                      <p className="text-xs text-text-muted">
                         You have no agents yet.{" "}
                         <Link
                           href="/agents"
-                          className="font-semibold text-[#3B6D11] underline underline-offset-2 hover:text-[#2f5a0d]"
+                          className="font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800"
                         >
                           Create one in AI Agents
                         </Link>
@@ -235,20 +215,19 @@ export const NewMeetingDialog = ({
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <Field orientation="vertical">
-                    <FieldLabel className="text-xs font-medium text-gray-500 mb-1.5 flex items-center gap-1.5">
-                      <ClockIcon className="size-3" /> Start
+                    <FieldLabel className="text-sm font-medium text-text mb-2">
+                      Start
                     </FieldLabel>
                     <Input
                       type="datetime-local"
                       {...form.register("startedAt")}
-                      className={`${inputClass} text-xs`}
                       disabled={createMutation.isPending}
                     />
                   </Field>
 
                   <Field orientation="vertical">
-                    <FieldLabel className="text-xs font-medium text-gray-500 mb-1.5 flex items-center gap-1.5">
-                      <ClockIcon className="size-3" /> End
+                    <FieldLabel className="text-sm font-medium text-text mb-2">
+                      End
                     </FieldLabel>
                     <Input
                       type="datetime-local"
@@ -257,15 +236,12 @@ export const NewMeetingDialog = ({
                       aria-describedby={
                         timeRangeInvalid ? "new-meeting-end-error" : undefined
                       }
-                      className={`${inputClass} text-xs ${
-                        timeRangeInvalid ? "border-red-400 focus:border-red-500 focus:ring-red-500/20" : ""
-                      }`}
                       disabled={createMutation.isPending}
                     />
                     {timeRangeInvalid && (
                       <p
                         id="new-meeting-end-error"
-                        className="mt-1.5 flex items-center gap-1 text-xs text-red-500"
+                        className="mt-2 flex items-center gap-1 text-xs text-danger"
                       >
                         <AlertCircleIcon className="size-3 shrink-0" aria-hidden="true" />
                         End must be after start.
@@ -277,18 +253,18 @@ export const NewMeetingDialog = ({
 
               {/* Right column: instructions */}
               <Field orientation="vertical" className="flex flex-col">
-                <FieldLabel className="text-xs font-medium text-gray-500 mb-1.5">
+                <FieldLabel className="text-sm font-medium text-text mb-2">
                   Instructions (optional)
                 </FieldLabel>
                 <Textarea
                   {...form.register("instructions")}
                   placeholder="Anything this agent should know for this session"
-                  className="min-h-[160px] flex-1 rounded-lg border border-[#a8c8a8] bg-gray-50 text-sm resize-none focus:bg-white focus:border-[#3B6D11] focus:ring-1 focus:ring-[#3B6D11]/20 transition-colors placeholder:text-gray-400"
+                  className="flex-1"
                   disabled={createMutation.isPending}
                   maxLength={LIMITS.textCaps.meetingInstructions}
                 />
                 <span
-                  className="mt-1 self-end text-[11px] tabular-nums text-gray-400"
+                  className="mt-2 self-end text-xs tabular-nums text-text-muted"
                   aria-hidden="true"
                 >
                   {instructionsValue.length}/{LIMITS.textCaps.meetingInstructions}
@@ -300,22 +276,17 @@ export const NewMeetingDialog = ({
             </div>
           </div>
 
-          {/* Fixed footer: always visible while the body scrolls */}
-          <DialogFooter className="shrink-0 px-6 py-4 border-t border-[#d4e0d4] bg-[#f0f4f0] flex flex-row items-center justify-end gap-2">
+          <DialogFooter className="shrink-0 flex flex-row items-center justify-end gap-3">
             <Button
               type="button"
               variant="outline"
-              size="sm"
               onClick={() => onOpenChange(false)}
-              className="rounded-lg border-[#c4d4c4] bg-transparent text-gray-600 hover:bg-[#e4ede4] text-sm h-9 px-4"
               disabled={createMutation.isPending}
             >
               Cancel
             </Button>
             <Button
               type="submit"
-              size="sm"
-              className="rounded-lg bg-[#3B6D11] hover:bg-[#2f5a0d] text-white text-sm font-medium h-9 px-5 transition-colors disabled:opacity-40 disabled:hover:bg-[#3B6D11]"
               disabled={createMutation.isPending || !hasAgents || timeRangeInvalid}
             >
               {createMutation.isPending

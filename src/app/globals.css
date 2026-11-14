@@ -5,54 +5,119 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 
-  /* ── Semantic design tokens — light theme ───────────────────────────────
-     Mapped to the slate + emerald product palette. These give the shadcn
-     primitives (Card, Sidebar, Badge, Tabs, …) the values their
-     bg-card / text-muted-foreground / ring-foreground utilities expect. */
-  --color-background: #ffffff;
-  --color-foreground: #0f172a;
-  --color-card: #ffffff;
-  --color-card-foreground: #0f172a;
-  --color-popover: #ffffff;
-  --color-popover-foreground: #0f172a;
-  --color-primary: #059669;
+  /* ═══════════════════════════════════════════════════════════════════════════
+     BRAND COLOR PALETTE - Light Green Theme (Nexa AI)
+     One source of truth: brand-50 through brand-950 + utility colors
+     ═══════════════════════════════════════════════════════════════════════════ */
+
+  /* Brand Scale: Green spectrum from soft tint to deep forest */
+  --color-brand-50: #f0faf4;
+  --color-brand-100: #bbd7c4;
+  --color-brand-200: #b9e6cb;
+  --color-brand-300: #8bd3ab;
+  --color-brand-400: #55b884;
+  --color-brand-500: #2f9e68;
+  --color-brand-600: #1f8454;
+  --color-brand-700: #176a44;
+  --color-brand-800: #14533a;
+  --color-brand-900: #0f3d2b;
+  --color-brand-950: #0a2a1e;
+
+  /* Utility Colors */
+  --color-page-bg-start: #f7fcf9;
+  --color-page-bg-end: #eaf6ef;
+  --color-surface: #ffffff;
+  --color-surface-soft: #f7fbf9;
+  --color-border: #e1ece5;
+  --color-border-strong: #cfe0d6;
+  --color-text: #10231a;
+  --color-text-muted: #5a6b62;
+  --color-text-subtle: #7b8b83;
+  --color-danger: #dc2626;
+  --color-danger-soft: #fef2f2;
+
+  /* ── Semantic Design Tokens (mapped from brand scale) ────────────────────
+     These are the tokens shadcn components expect. All map to brand tokens
+     so there's one source of truth. */
+
+  --color-background: var(--color-surface);
+  --color-foreground: var(--color-text);
+
+  --color-card: var(--color-surface);
+  --color-card-foreground: var(--color-text);
+
+  --color-popover: var(--color-surface);
+  --color-popover-foreground: var(--color-text);
+
+  /* Primary: brand-600 with white text */
+  --color-primary: var(--color-brand-600);
   --color-primary-foreground: #ffffff;
-  --color-secondary: #f1f5f9;
-  --color-secondary-foreground: #334155;
-  --color-muted: #f8fafc;
-  --color-muted-foreground: #64748b;
-  --color-accent: #ecfdf5;
-  --color-accent-foreground: #065f46;
-  --color-destructive: #e11d48;
+
+  /* Secondary: soft brand tint */
+  --color-secondary: var(--color-brand-100);
+  --color-secondary-foreground: var(--color-brand-800);
+
+  /* Muted: for disabled, placeholder, subtle text */
+  --color-muted: var(--color-surface-soft);
+  --color-muted-foreground: var(--color-text-muted);
+
+  /* Accent: for highlights, badges, etc. */
+  --color-accent: var(--color-brand-100);
+  --color-accent-foreground: var(--color-brand-800);
+
+  /* Destructive: red for errors, negative actions */
+  --color-destructive: var(--color-danger);
   --color-destructive-foreground: #ffffff;
-  --color-border: #e2e8f0;
-  --color-input: #e2e8f0;
-  --color-ring: #10b981;
 
-  /* 🔰 Sidebar - light surface with emerald brand accents ───────
-     Consumed by `src/components/ui/sidebar.tsx` (dashboard shell only).
-     accent = emerald-100 (brand green ≈12% tint on white), accent
-     foreground = emerald-800 (dark brand green). Nav state colors are
-     mirrored in `src/components/layout/sidebar-theme.ts`, which the
-     contrast test (`scripts/test-contrast.ts`) asserts against. */
-  --color-sidebar: #ffffff;
-  --color-sidebar-foreground: #0f172a;
-  --color-sidebar-primary: #059669;
+  /* Border: from utility colors */
+  --color-border: var(--color-border);
+  --color-input: var(--color-border);
+
+  /* Ring: focus ring color (brand-500) */
+  --color-ring: var(--color-brand-500);
+
+  /* ── Sidebar Tokens (dashboard shell) ──────────────────────────────────
+     Mapped from brand scale for consistent nav theming. */
+  --color-sidebar: var(--color-surface);
+  --color-sidebar-foreground: var(--color-text);
+  --color-sidebar-primary: var(--color-brand-600);
   --color-sidebar-primary-foreground: #ffffff;
-  --color-sidebar-accent: #d1fae5;
-  --color-sidebar-accent-foreground: #065f46;
-  --color-sidebar-border: #e2e8f0;
-  --color-sidebar-muted: #f8fafc;
-  --color-sidebar-muted-foreground: #64748b;
-  --color-sidebar-ring: #059669;
+  --color-sidebar-accent: var(--color-brand-100);
+  --color-sidebar-accent-foreground: var(--color-brand-800);
+  --color-sidebar-border: var(--color-border);
+  --color-sidebar-muted: var(--color-surface-soft);
+  --color-sidebar-muted-foreground: var(--color-text-muted);
+  --color-sidebar-ring: var(--color-brand-500);
 
+  /* Radius scale */
   --radius: 0.75rem;
 }
 
 @layer base {
+  /* Force light theme globally */
+  html {
+    color-scheme: light;
+  }
+
   button:not(:disabled) {
     [role="button"]:not(:disabled) {
       cursor: pointer;
     }
+  }
+
+  /* Toaster styles with brand tokens */
+  .toaster {
+    --normal-bg: var(--color-surface);
+    --normal-text: var(--color-text);
+    --normal-border: var(--color-border);
+    --border-radius: 12px;
+  }
+
+  /* Ensure date/time inputs respect light theme */
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"] {
+    color-scheme: light;
+    accent-color: var(--color-brand-600);
   }
 }

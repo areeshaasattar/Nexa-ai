@@ -172,8 +172,8 @@ export function StructuredSummarySections({
                     <div className="flex flex-wrap items-center gap-2">
                       {item.owner && (
                         <Badge
-                          variant="secondary"
-                          className="bg-[#f0f4f0] text-[#3B6D11] border border-[#d4e0d4]"
+                          variant="neutral"
+                          className="bg-brand-50 text-brand-700 border border-brand-200"
                         >
                           {item.owner}
                         </Badge>

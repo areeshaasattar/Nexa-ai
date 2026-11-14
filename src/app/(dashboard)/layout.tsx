@@ -70,10 +70,12 @@ const Layout = async ({ children }: Props) => {
   return (
     <SidebarProvider>
       <DashboardSidebar />
-      <SidebarInset className="flex flex-col">
+      <SidebarInset className="flex flex-col bg-gradient-to-br from-page-bg-start to-page-bg-end">
         <DashboardNavbar />
-        <div className="flex-1 overflow-y-auto [scrollbar-gutter:stable] bg-slate-50 p-4 md:p-6">
-          {children}
+        <div className="flex-1 overflow-y-auto [scrollbar-gutter:stable] p-6 md:p-8">
+          <div className="mx-auto max-w-7xl">
+            {children}
+          </div>
         </div>
       </SidebarInset>
 
