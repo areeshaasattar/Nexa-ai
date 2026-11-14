@@ -189,6 +189,289 @@ export const homeRouter = createTRPCRouter({
     };
   }),
 
+  getOverview: protectedProcedure
+    .input(z.object({ range: z.enum(["7d", "30d", "12m"]) }))
+    .query(async ({ ctx, input }) => {
+      const userId = ctx.userId;
+      const range = input.range;
+      const now = new Date();
+
+      // Period boundaries (UTC).
+      const days = range === "7d" ? 7 : range === "30d" ? 30 : 365;
+      const isMonth = range === "12m";
+      const currentStart = isMonth
+        ? new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 11, 1))
+        : new Date(now.getTime() - days * 86400000);
+      const previousStart = isMonth
+        ? new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 23, 1))
+        : new Date(currentStart.getTime() - days * 86400000);
+
+      // Total counts.
+      const [meetingsTotal] = await db
+        .select({ c: count() })
+        .from(meetings)
+        .where(eq(meetings.userId, userId));
+      const [agentsTotal] = await db
+        .select({ c: count() })
+        .from(agents)
+        .where(eq(agents.userId, userId));
+      const [summariesTotal] = await db
+        .select({ c: count() })
+        .from(meetings)
+        .where(and(eq(meetings.userId, userId), sql`${meetings.summaryData} IS NOT NULL`));
+      const [voiceTotal] = await db
+        .select({ c: count() })
+        .from(voiceInteractions)
+        .where(eq(voiceInteractions.userId, userId));
+
+      // Status breakdown (all time).
+      const statusRows = await db
+        .select({ status: meetings.status, c: count() })
+        .from(meetings)
+        .where(eq(meetings.userId, userId))
+        .groupBy(meetings.status);
+
+      // Most used agent.
+      const mostUsedRows = await db
+        .select({ agentId: meetings.agentId, agentName: agents.name, c: count() })
+        .from(meetings)
+        .innerJoin(agents, eq(meetings.agentId, agents.id))
+        .where(eq(meetings.userId, userId))
+        .groupBy(meetings.agentId, agents.name)
+        .orderBy(desc(count()))
+        .limit(1);
+
+      // Recent meetings (5).
+      const recentRows = await db
+        .select({
+          id: meetings.id,
+          name: meetings.name,
+          status: meetings.status,
+          startedAt: meetings.startedAt,
+          endedAt: meetings.endedAt,
+          createdAt: meetings.createdAt,
+          agentId: meetings.agentId,
+          agentName: agents.name,
+          summaryData: meetings.summaryData,
+          recordingUrl: meetings.recordingUrl,
+        })
+        .from(meetings)
+        .innerJoin(agents, eq(meetings.agentId, agents.id))
+        .where(eq(meetings.userId, userId))
+        .orderBy(desc(meetings.createdAt))
+        .limit(5);
+
+      // Upcoming (scheduled, 5).
+      const upcomingRows = await db
+        .select({
+          id: meetings.id,
+          name: meetings.name,
+          status: meetings.status,
+          startedAt: meetings.startedAt,
+          createdAt: meetings.createdAt,
+          agentId: meetings.agentId,
+          agentName: agents.name,
+        })
+        .from(meetings)
+        .innerJoin(agents, eq(meetings.agentId, agents.id))
+        .where(and(eq(meetings.userId, userId), eq(meetings.status, "scheduled")))
+        .orderBy(meetings.createdAt)
+        .limit(5);
+
+      // Completed without summary + oldest.
+      const completedNoSummaryRows = await db
+        .select({ id: meetings.id, createdAt: meetings.createdAt })
+        .from(meetings)
+        .where(
+          and(
+            eq(meetings.userId, userId),
+            eq(meetings.status, "completed"),
+            sql`${meetings.summaryData} IS NULL`,
+          ),
+        )
+        .orderBy(meetings.createdAt)
+        .limit(1);
+      const [completedNoSummaryCount] = await db
+        .select({ c: count() })
+        .from(meetings)
+        .where(
+          and(
+            eq(meetings.userId, userId),
+            eq(meetings.status, "completed"),
+            sql`${meetings.summaryData} IS NULL`,
+          ),
+        );
+
+      // Scheduled count.
+      const [scheduledCountRow] = await db
+        .select({ c: count() })
+        .from(meetings)
+        .where(and(eq(meetings.userId, userId), eq(meetings.status, "scheduled")));
+
+      // Last call date.
+      const [lastCallRow] = await db
+        .select({ d: sql<Date | null>`MAX(${meetings.startedAt})` })
+        .from(meetings)
+        .where(eq(meetings.userId, userId));
+
+      // Voice response times (parse defensively).
+      const voiceRows = await db
+        .select({ responseTime: voiceInteractions.responseTime })
+        .from(voiceInteractions)
+        .where(eq(voiceInteractions.userId, userId));
+
+      // Meetings by day/month for current + previous period.
+      const periodStart = previousStart;
+      const meetingsPeriodRows = await db
+        .select({
+          date: isMonth
+            ? sql<string>`to_char(date_trunc('month', ${meetings.createdAt}), 'YYYY-MM')`
+            : sql<string>`to_char(date_trunc('day', ${meetings.createdAt}), 'YYYY-MM-DD')`,
+          c: count(),
+        })
+        .from(meetings)
+        .where(and(eq(meetings.userId, userId), gte(meetings.createdAt, periodStart)))
+        .groupBy(
+          isMonth
+            ? sql`date_trunc('month', ${meetings.createdAt})`
+            : sql`date_trunc('day', ${meetings.createdAt})`,
+        );
+
+      const voicePeriodRows = await db
+        .select({
+          date: isMonth
+            ? sql<string>`to_char(date_trunc('month', ${voiceInteractions.createdAt}), 'YYYY-MM')`
+            : sql<string>`to_char(date_trunc('day', ${voiceInteractions.createdAt}), 'YYYY-MM-DD')`,
+          c: count(),
+        })
+        .from(voiceInteractions)
+        .where(and(eq(voiceInteractions.userId, userId), gte(voiceInteractions.createdAt, periodStart)))
+        .groupBy(
+          isMonth
+            ? sql`date_trunc('month', ${voiceInteractions.createdAt})`
+            : sql`date_trunc('day', ${voiceInteractions.createdAt})`,
+        );
+
+      // Split current vs previous.
+      const currentMeetingRows: { date: string; count: number }[] = [];
+      const previousMeetingCount = meetingsPeriodRows.reduce((acc, r) => {
+        const d = new Date(r.date + (isMonth ? "-01" : ""));
+        if (d >= currentStart) {
+          currentMeetingRows.push({ date: r.date, count: Number(r.c) });
+          return acc;
+        }
+        return acc + Number(r.c);
+      }, 0);
+
+      const currentVoiceRows: { date: string; count: number }[] = [];
+      const previousVoiceCount = voicePeriodRows.reduce((acc, r) => {
+        const d = new Date(r.date + (isMonth ? "-01" : ""));
+        if (d >= currentStart) {
+          currentVoiceRows.push({ date: r.date, count: Number(r.c) });
+          return acc;
+        }
+        return acc + Number(r.c);
+      }, 0);
+
+      // current counts from total? recompute current counts from rows
+
+
+      // avg reply ms
+      let replySum = 0;
+      let replyN = 0;
+      for (const r of voiceRows) {
+        const n = Number(r.responseTime);
+        if (Number.isFinite(n)) {
+          replySum += n;
+          replyN += 1;
+        }
+      }
+      const avgReplyMs = replyN > 0 ? replySum / replyN : null;
+
+      // status breakdown
+      const statusMap = { completed: 0, ongoing: 0, scheduled: 0 };
+      for (const r of statusRows) {
+        if (r.status in statusMap) statusMap[r.status as keyof typeof statusMap] = Number(r.c);
+      }
+
+      const mostUsed = mostUsedRows[0]
+        ? { name: mostUsedRows[0].agentName, count: Number(mostUsedRows[0].c) }
+        : null;
+
+      const recentMeetings = recentRows.map((m) => ({
+        id: m.id,
+        name: m.name,
+        status: m.status,
+        startedAt: m.startedAt ? m.startedAt.toISOString() : null,
+        endedAt: m.endedAt ? m.endedAt.toISOString() : null,
+        createdAt: m.createdAt.toISOString(),
+        agentId: m.agentId,
+        agentName: m.agentName,
+        hasSummary: m.summaryData != null,
+        recordingUrl: m.recordingUrl,
+      }));
+
+      const upcomingMeetings = upcomingRows.map((m) => ({
+        id: m.id,
+        name: m.name,
+        status: m.status,
+        startedAt: m.startedAt ? m.startedAt.toISOString() : null,
+        createdAt: m.createdAt.toISOString(),
+        agentId: m.agentId,
+        agentName: m.agentName,
+      }));
+
+      return {
+        totals: {
+          meetings: Number(meetingsTotal?.c ?? 0),
+          agents: Number(agentsTotal?.c ?? 0),
+          summariesReady: Number(summariesTotal?.c ?? 0),
+          voiceInteractions: Number(voiceTotal?.c ?? 0),
+          avgReplyMs,
+        },
+        previous: {
+          meetings: previousMeetingCount,
+          summariesReady: 0, // not trended separately
+          voiceInteractions: previousVoiceCount,
+        },
+        range,
+        series: { meetings: currentMeetingRows, voice: currentVoiceRows },
+        statusBreakdown: statusMap,
+        mostUsedAgent: mostUsed,
+        recentMeetings,
+        upcomingMeetings,
+        insights: {
+          completedWithoutSummary: Number(completedNoSummaryCount?.c ?? 0),
+          oldestCompletedWithoutSummaryId: completedNoSummaryRows[0]?.id ?? null,
+          scheduledCount: Number(scheduledCountRow?.c ?? 0),
+          lastCallDate: lastCallRow?.d ? new Date(lastCallRow.d).toISOString() : null,
+          hasAgent: Number(agentsTotal?.c ?? 0) > 0,
+        },
+      };
+    }),
+
+  getRecentActivity: protectedProcedure.query(async ({ ctx }) => {
+    const rows = await db
+      .select({
+        id: activities.id,
+        type: activities.type,
+        title: activities.title,
+        description: activities.description,
+        createdAt: activities.createdAt,
+      })
+      .from(activities)
+      .where(eq(activities.userId, ctx.userId))
+      .orderBy(desc(activities.createdAt))
+      .limit(10);
+    return rows.map((r) => ({
+      id: r.id,
+      type: r.type,
+      title: r.title,
+      description: r.description,
+      createdAt: r.createdAt.toISOString(),
+    }));
+  }),
+
   getOnboarding: protectedProcedure.query(async ({ ctx }) => {
     const userId = ctx.userId;
 

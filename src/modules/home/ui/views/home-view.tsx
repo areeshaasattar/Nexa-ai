@@ -1,602 +1,399 @@
-// src/modules/home/ui/views/home-view.tsx
 "use client";
 
-import { motion } from "framer-motion";
-import {
-  Video,
-  Bot,
-  Mic,
-  Calendar as CalendarIcon,
-  FileAudio,
-  Zap,
-  History,
-  ArrowUpRight,
-  Activity,
-} from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-import { MetricCard } from "../components/metric-card";
-import { AnalyticsChart } from "../components/analytics-chart";
-import { HeroSection } from "../components/hero-section";
-import { MeetingCard, type MeetingCardStatus } from "../components/meeting-card";
-import { ActivityTimeline, type ActivityType } from "../components/activity-timeline";
-import { InsightCard, type InsightCardType as InsightType } from "../components/insight-card";
-import { StatusMonitor } from "../components/status-monitor";
-import { QuickActionCard } from "../components/quick-action-card";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { NewMeetingDialog } from "@/modules/meetings/ui/components/new-meeting-dialog";
-import { useDashboard } from "@/hooks/useDashboard";
-import { OnboardingChecklist } from "../components/onboarding-checklist";
+import dynamic from "next/dynamic";
+import { trpc } from "@/trpc/client";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Progress } from "@/components/ui/progress";
+import {
+  Activity,
+  ArrowUpRight,
+  Bot,
+  Calendar,
+  CheckCircle2,
+  Circle,
+  FileText,
+  Mic,
+  MoreHorizontal,
+  Play,
+  TrendingDown,
+  TrendingUp,
+  Video,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
+import { GeneratedAvatar } from "@/components/generated-avatar";
+import { NewMeetingDialog } from "@/modules/meetings/ui/components/new-meeting-dialog";
+import { OnboardingChecklist } from "../components/onboarding-checklist";
+import { computeTrend, buildStatusBreakdown, buildInsights } from "@/modules/home/lib/dashboard-data";
+import { StatusMonitor } from "../components/status-monitor";
 
-// ─── animation variants ───────────────────────────────────────────────────────
+const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 16 },
-  show: (i: number = 0) => ({
-    opacity: 1,
-    y: 0,
-    transition: {
-      duration: 0.4,
-      delay: i * 0.07,
-      ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
-    },
-  }),
-};
+const RANGE_OPTIONS = [
+  { value: "7d", label: "Last 7 days" },
+  { value: "30d", label: "Last 30 days" },
+  { value: "12m", label: "Last 12 months" },
+] as const;
 
-const stagger = {
-  hidden: {},
-  show: { transition: { staggerChildren: 0.07 } },
-};
+type Range = "7d" | "30d" | "12m";
 
-// ─── section wrapper ──────────────────────────────────────────────────────────
-
-function Section({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <motion.section
-      variants={fadeUp}
-      initial="hidden"
-      animate="show"
-      className={cn("w-full", className)}
-    >
-      {children}
-    </motion.section>
-  );
-}
-
-// ─── section header (compact SaaS typography) ────────────────────────────────
-
-function SectionHeader({
+function StatCard({
   title,
-  subtitle,
-  action,
+  value,
+  sub,
+  trend,
+  icon: Icon,
 }: {
   title: string;
-  subtitle?: string;
-  action?: React.ReactNode;
+  value: number | string;
+  sub?: string;
+  trend?: { percent: number | null; label: "up" | "down" | "new" | "none" };
+  icon: React.ComponentType<{ className?: string }>;
 }) {
   return (
-    <div className="flex items-center justify-between mb-4">
-      <div className="space-y-0.5">
-        <h2 className="text-sm font-semibold tracking-tight text-slate-900">
-          {title}
-        </h2>
-        {subtitle && (
-          <p className="text-xs text-slate-500">{subtitle}</p>
-        )}
-      </div>
-      {action}
-    </div>
+    <Card className="rounded-2xl">
+      <CardContent className="p-5">
+        <div className="flex items-start justify-between">
+          <span className="flex size-9 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700">
+            <Icon className="size-4" aria-hidden="true" />
+          </span>
+          {trend && trend.label !== "none" && (
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
+                trend.label === "up" && "bg-emerald-100 text-emerald-700",
+                trend.label === "down" && "bg-red-100 text-red-700",
+                trend.label === "new" && "bg-slate-100 text-slate-600",
+              )}
+            >
+              {trend.label === "up" && <TrendingUp className="size-3" aria-hidden="true" />}
+              {trend.label === "down" && <TrendingDown className="size-3" aria-hidden="true" />}
+              {trend.label === "new" ? "New" : trend.percent !== null ? `${trend.percent}%` : ""}
+            </span>
+          )}
+        </div>
+        <div className="mt-3 text-3xl font-bold tracking-tight">{value}</div>
+        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{title}</div>
+        {sub && <div className="mt-1 text-xs text-slate-500">{sub}</div>}
+      </CardContent>
+    </Card>
   );
 }
-
-// ─── chart / sparkline data helpers ──────────────────────────────────────────
-
-const WEEK_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-// Align the server's sparse Mon–Sun counts into a fixed Mon..Sun array,
-// zero-filling days with no meetings so the line never looks broken.
-function normalizeWeekly(
-  chartData: { date: string; count: number }[]
-): { labels: string[]; counts: number[] } {
-  const byDay: Record<string, number> = {};
-  for (const d of chartData) byDay[d.date] = d.count;
-  const counts = WEEK_LABELS.map((label) => byDay[label] ?? 0);
-  return { labels: WEEK_LABELS, counts };
-}
-
-// ─── loading skeleton ─────────────────────────────────────────────────────────
-
-function DashboardSkeleton() {
-  return (
-    <div className="flex flex-col gap-6 lg:gap-8">
-      <Skeleton className="h-[220px] w-full rounded-2xl" />
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {[...Array(4)].map((_, i) => (
-          <Skeleton key={i} className="h-36 rounded-xl" />
-        ))}
-      </div>
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 lg:gap-6">
-        <Skeleton className="xl:col-span-8 h-80 rounded-2xl" />
-        <Skeleton className="xl:col-span-4 h-80 rounded-2xl" />
-      </div>
-    </div>
-  );
-}
-
-// ─── main view ────────────────────────────────────────────────────────────────
 
 export const HomeView = () => {
-  const { hello, dashboard, health, data } = useDashboard();
   const router = useRouter();
-  // Opens the NewMeetingDialog from the hero "New meeting" button, the empty
-  // state, and the "Schedule" quick-launch card.
+  const [range, setRange] = useState<Range>("7d");
   const [newMeetingOpen, setNewMeetingOpen] = useState(false);
 
-  const isLoading = hello.isLoading || dashboard.isLoading;
-  const isError = hello.isError || dashboard.isError;
+  const hello = trpc.hello.useQuery({ text: "Nexa User" }, { staleTime: 30_000 });
+  const overview = trpc.getOverview.useQuery({ range }, { staleTime: 30_000 });
+  const health = trpc.getSystemHealth.useQuery(undefined, { staleTime: 15_000 });
+  const recentActivity = trpc.getRecentActivity.useQuery(undefined, { staleTime: 30_000 });
 
-  const metrics = data?.metrics;
-  const upcomingMeetings = data?.upcomingMeetings ?? [];
-  const recentActivities = data?.recentActivities ?? [];
+  const data = overview.data;
+  const isLoading = hello.isLoading || overview.isLoading;
 
-  // 7-day normalization of the real server series (zero-filled Mon–Sun).
-  // Depend on the (structurally stable) server arrays directly so the memo
-  // doesn't recompute when a default empty array is re-created each render.
-  const weekly = useMemo(
-    () => normalizeWeekly(data?.chartData ?? []),
-    [data?.chartData]
-  );
-  const durationWeekly = useMemo(
-    () => normalizeWeekly(data?.durationChart ?? []),
-    [data?.durationChart]
-  );
+  const trendMeetings = data ? computeTrend(data.totals.meetings, data.previous.meetings) : { percent: null, label: "none" as const };
+  // summaries trend not tracked separately; use meetings trend? spec: trend on cards 1 and 3. We'll show trend on meetings only (no prev summaries). Show "New" if summariesReady>0 and meetings prev 0? Keep none for summaries to avoid invention.
+  const trendSummaries = { percent: null, label: "none" as const };
 
-  const insights = useMemo(() => {
-    if (!metrics) return [];
-    const list: { type: InsightType; message: string }[] = [];
-    if (metrics.meetings.trend > 0)
-      list.push({
-        type: "recommendation",
-        message: `Meeting volume up ${metrics.meetings.trend}% this week.`,
-      });
-    if (metrics.meetings.total > 0)
-      list.push({
-        type: "opportunity",
-        message: `${metrics.meetings.completed} meetings completed with AI agents.`,
-      });
-    if (metrics.recordings.total > 0)
-      list.push({
-        type: "tip",
-        message: `${metrics.recordings.transcriptions} transcriptions ready for review.`,
-      });
-    if (metrics.agents.total > 0)
-      list.push({
-        type: "recommendation",
-        message: `Most active agent: ${metrics.agents.mostUsed}.`,
-      });
-    return list.slice(0, 3);
-  }, [metrics]);
+  const statusBreakdown = data ? buildStatusBreakdown(data.statusBreakdown) : null;
 
-  if (isLoading) return <DashboardSkeleton />;
+  const insights = data
+    ? buildInsights({
+        completedWithoutSummary: data.insights.completedWithoutSummary,
+        oldestCompletedWithoutSummaryId: data.insights.oldestCompletedWithoutSummaryId,
+        scheduledCount: data.insights.scheduledCount,
+        lastCallDate: data.insights.lastCallDate ? new Date(data.insights.lastCallDate) : null,
+        hasAgent: data.insights.hasAgent,
+        avgReplyMs: data.totals.avgReplyMs,
+        voiceInteractions: data.totals.voiceInteractions,
+        mostUsedAgent: data.mostUsedAgent,
+        now: new Date(),
+      })
+    : [];
 
-  if (isError) {
+  const activitySeries = data
+    ? [
+        { name: "Meetings", data: data.series.meetings.map((b: { date: string; count: number }) => b.count) },
+        { name: "Voice interactions", data: data.series.voice.map((b: { date: string; count: number }) => b.count) },
+      ]
+    : [];
+  const categories = data ? data.series.meetings.map((b: { date: string; count: number }) => b.date) : [];
+
+  const hasActivity = data ? data.series.meetings.some((b) => b.count > 0) || data.series.voice.some((b) => b.count > 0) : false;
+
+  if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center space-y-3 max-w-sm">
-          <div className="w-12 h-12 rounded-2xl bg-red-50 flex items-center justify-center mx-auto">
-            <Activity className="w-5 h-5 text-red-500" />
-          </div>
-          <p className="text-sm font-medium text-slate-700">
-            Failed to load dashboard data.
-          </p>
-          <p className="text-xs text-slate-400">Please try refreshing the page.</p>
+      <div className="space-y-6">
+        <Skeleton className="h-8 w-48" />
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <Skeleton key={i} className="h-28 rounded-2xl" />
+          ))}
+        </div>
+        <Skeleton className="h-72 rounded-2xl" />
+      </div>
+    );
+  }
+
+  if (overview.isError) {
+    return (
+      <div className="flex items-center justify-center min-h-[40vh]">
+        <div className="text-center space-y-3">
+          <p className="text-sm font-medium text-slate-700">Failed to load dashboard.</p>
+          <Button onClick={() => overview.refetch()}>Retry</Button>
         </div>
       </div>
     );
   }
 
-  // Metric cards — one semantic accent per card, proportional sparklines.
-  const metricCards = [
-    {
-      title: "Total Meetings",
-      value: metrics?.meetings.total ?? 0,
-      icon: Video,
-      trend: {
-        value: Math.abs(metrics?.meetings.trend ?? 0),
-        isPositive: (metrics?.meetings.trend ?? 0) >= 0,
-      },
-      chartData: weekly.counts,
-      chartColor: "#10b981",
-    },
-    {
-      title: "Active AI Agents",
-      value: metrics?.agents.total ?? 0,
-      icon: Bot,
-      description: `${metrics?.agents.mostUsed ?? "—"} is most active`,
-      chartColor: "#8b5cf6",
-    },
-    {
-      title: "Voice Interactions",
-      value: metrics?.voice.totalConversations ?? 0,
-      icon: Mic,
-      description: `${metrics?.voice.responseTime ?? "-"}ms avg reply time`,
-      chartColor: "#3b82f6",
-    },
-    {
-      title: "Recordings",
-      value: metrics?.recordings.total ?? 0,
-      icon: FileAudio,
-      description: `${metrics?.recordings.transcriptions ?? 0} transcriptions`,
-      chartColor: "#f59e0b",
-    },
-  ];
+  const avgReplySec = data?.totals.avgReplyMs ? (data.totals.avgReplyMs / 1000).toFixed(1) : null;
 
   return (
-    <motion.div
-      variants={stagger}
-      initial="hidden"
-      animate="show"
-      className="mx-auto w-full max-w-[1440px] flex flex-col gap-6 lg:gap-8"
-    >
+    <div className="space-y-6">
       <OnboardingChecklist />
-      {/* ── BAND A · HERO (full width) ───────────────────────────────────── */}
-      <Section>
-        <HeroSection
-          userName={hello.data?.user?.name || "Nexa User"}
-          metrics={metrics}
-          upcomingCount={upcomingMeetings.length}
-          onNewMeeting={() => setNewMeetingOpen(true)}
+
+      {/* Stat cards */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatCard
+          title="Total meetings"
+          value={data?.totals.meetings ?? 0}
+          trend={trendMeetings}
+          icon={Video}
         />
-      </Section>
-
-      {/* ── BAND B · METRIC CARDS (full width) ───────────────────────────── */}
-      <Section>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          {metricCards.map((card, i) => (
-            <motion.div key={card.title} variants={fadeUp} custom={i} className="h-full">
-              <MetricCard {...card} />
-            </motion.div>
-          ))}
-        </div>
-      </Section>
-
-      {/* ── BAND C · INTELLIGENCE HUB (L8) + QUICK LAUNCH / STATUS (R4) ─── */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 lg:gap-6 items-stretch">
-        <Section className="xl:col-span-8 min-w-0 h-full">
-          <div className="flex flex-col rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden h-full">
-            <Tabs defaultValue="activity" className="flex flex-col flex-1 w-full">
-              {/* Card header — title + subtitle stacked, tabs below on their own row */}
-              <div className="flex flex-col gap-4 px-6 pt-5 pb-4 border-b border-slate-100">
-                <div>
-                  <h2 className="text-base font-semibold text-slate-900 tracking-tight">
-                    Intelligence Hub
-                  </h2>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Real-time workspace analytics
-                  </p>
-                </div>
-                <TabsList className="bg-slate-100/80 border-0 p-1 rounded-xl h-9 w-fit">
-                  <TabsTrigger
-                    value="activity"
-                    className="rounded-lg text-xs font-medium px-4 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm text-slate-500"
-                  >
-                    Activity
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="performance"
-                    className="rounded-lg text-xs font-medium px-4 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm text-slate-500"
-                  >
-                    Performance
-                  </TabsTrigger>
-                </TabsList>
-              </div>
-
-              {/* Chart area — fills remaining column height (no dead space) */}
-              <div className="flex-1 p-4 min-h-[320px]">
-                <TabsContent value="activity" keepMounted className="h-full mt-0 outline-none">
-                  <AnalyticsChart
-                    title="Meeting Activity"
-                    description="Volume of meetings over the last 7 days."
-                    type="area"
-                    series={[{ name: "Meetings", data: weekly.counts }]}
-                    categories={weekly.labels}
-                    colors={["#10b981"]}
-                    height="100%"
-                    hideHeader
-                    className="h-full"
-                  />
-                </TabsContent>
-
-                <TabsContent value="performance" keepMounted className="h-full mt-0 outline-none">
-                  <AnalyticsChart
-                    title="Avg. Meeting Duration"
-                    description="Tracking productivity and conversation length."
-                    type="line"
-                    series={[
-                      {
-                        name: "Duration (min)",
-                        data: durationWeekly.counts,
-                      },
-                    ]}
-                    categories={durationWeekly.labels}
-                    colors={["#8b5cf6"]}
-                    height="100%"
-                    hideHeader
-                    className="h-full"
-                  />
-                </TabsContent>
-              </div>
-            </Tabs>
-          </div>
-        </Section>
-
-        <Section className="xl:col-span-4 h-full">
-          <div className="flex flex-col gap-4 lg:gap-6 h-full">
-            {/* Quick launch */}
-            <div>
-              <SectionHeader
-                title="Quick launch"
-                subtitle="Jump into common actions"
-              />
-              <div className="grid grid-cols-1 sm:grid-cols-3 xl:grid-cols-1 gap-3">
-                <QuickActionCard
-                  title="New Agent"
-                  description="Deploy custom AI"
-                  icon={Bot}
-                  color="bg-violet-50 text-violet-600"
-                  onClick={() => router.push("/agents")}
-                />
-                <QuickActionCard
-                  title="Schedule"
-                  description="Set a meeting"
-                  icon={CalendarIcon}
-                  color="bg-emerald-50 text-emerald-600"
-                  onClick={() => setNewMeetingOpen(true)}
-                />
-                <QuickActionCard
-                  title="Instant Call"
-                  description="Start call now"
-                  icon={Zap}
-                  color="bg-amber-50 text-amber-600"
-                  onClick={() => router.push("/meetings")}
-                />
-              </div>
-            </div>
-
-            {/* System Status — flex-1 so it stretches to meet the chart height */}
-            <div className="flex-1 flex flex-col min-h-[200px]">
-              <StatusMonitor items={health?.data?.services ?? []} />
-            </div>
-          </div>
-        </Section>
+        <StatCard
+          title="Active agents"
+          value={data?.totals.agents ?? 0}
+          sub={data?.mostUsedAgent ? `Most used: ${data.mostUsedAgent.name}` : undefined}
+          icon={Bot}
+        />
+        <StatCard
+          title="Summaries ready"
+          value={data?.totals.summariesReady ?? 0}
+          icon={FileText}
+        />
+        <StatCard
+          title="Voice interactions"
+          value={data?.totals.voiceInteractions ?? 0}
+          sub={avgReplySec ? `avg reply ${avgReplySec} s` : undefined}
+          icon={Mic}
+        />
       </div>
 
-      {/* ── BAND D · UPCOMING SCHEDULE (L8) + AI INSIGHTS (R4) ───────────── */}
-      {insights.length === 0 ? (
-        <Section>
-          <div className="h-full">
-            <SectionHeader
-              title="Upcoming Schedule"
-              action={
-                <Button
-                  asChild
-                  variant="ghost"
-                  size="sm"
-                  className="text-xs text-slate-500 hover:text-emerald-600 font-medium gap-1.5 -mr-2"
-                >
-                  <Link href="/meetings">
-                    View calendar
-                    <ArrowUpRight className="w-3.5 h-3.5" />
-                  </Link>
-                </Button>
-              }
-            />
-
-            {upcomingMeetings.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 text-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center shadow-sm">
-                  <CalendarIcon className="w-5 h-5 text-slate-400" />
-                </div>
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-slate-600">
-                    No upcoming meetings
-                  </p>
-                  <p className="text-xs text-slate-400">
-                    Schedule your first meeting to get started
-                  </p>
-                </div>
-                <Button
-                  size="sm"
-                  className="mt-2 rounded-lg text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
-                  onClick={() => setNewMeetingOpen(true)}
-                >
-                  Schedule meeting
-                </Button>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {/* Left column */}
+        <div className="space-y-6 lg:col-span-2">
+          {/* Activity chart */}
+          <Card className="rounded-2xl">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Meeting activity</CardTitle>
+                <CardDescription>Meetings and voice interactions over time.</CardDescription>
               </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {upcomingMeetings.map((meeting) => (
-                  <MeetingCard
-                    key={meeting.id}
-                    className="h-full"
-                    id={meeting.id}
-                    title={meeting.name}
-                    agentName={meeting.agentName}
-                    date={
-                      meeting.startedAt
-                        ? new Date(meeting.startedAt).toLocaleDateString("en-US")
-                        : "TBD"
-                    }
-                    time={
-                      meeting.startedAt
-                        ? new Date(meeting.startedAt).toLocaleTimeString("en-US", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })
-                        : "TBD"
-                    }
-                    participants={1}
-                    status={meeting.status as MeetingCardStatus}
-                  />
+              <select
+                value={range}
+                onChange={(e) => setRange(e.target.value as Range)}
+                className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm"
+                aria-label="Range"
+              >
+                {RANGE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
                 ))}
-              </div>
-            )}
-          </div>
-        </Section>
-      ) : (
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 lg:gap-6 items-stretch">
-          <Section className="xl:col-span-8 min-w-0 h-full">
-            <div className="h-full">
-              <SectionHeader
-                title="Upcoming Schedule"
-                action={
-                  <Button
-                    asChild
-                    variant="ghost"
-                    size="sm"
-                    className="text-xs text-slate-500 hover:text-emerald-600 font-medium gap-1.5 -mr-2"
-                  >
-                    <Link href="/meetings">
-                      View calendar
-                      <ArrowUpRight className="w-3.5 h-3.5" />
-                    </Link>
+              </select>
+            </CardHeader>
+            <CardContent>
+              {hasActivity ? (
+                <Chart
+                  options={{
+                    chart: { toolbar: { show: false }, animations: { enabled: !window.matchMedia("(prefers-reduced-motion: reduce)").matches } },
+                    colors: ["#052e16", "#10b981"],
+                    stroke: { curve: "smooth", width: 3 },
+                    fill: { type: "gradient", gradient: { shadeIntensity: 1, opacityFrom: 0.35, opacityTo: 0 } },
+                    xaxis: { categories },
+                    grid: { strokeDashArray: 4, borderColor: "#e2e8f0" },
+                    legend: { position: "top" },
+                    tooltip: { shared: true, intersect: false },
+                  }}
+                  series={activitySeries}
+                  type="area"
+                  height={300}
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <p className="text-sm text-slate-500">No activity in this range.</p>
+                  <Button asChild size="sm" className="mt-3 bg-emerald-600 hover:bg-emerald-700 text-white">
+                    <Link href="/agents">Try a template</Link>
                   </Button>
-                }
-              />
+                </div>
+              )}
+              <span className="sr-only">
+                {`Meeting activity for ${range}: ${data?.series.meetings.reduce((a: number, b: { count: number }) => a + b.count, 0) ?? 0} meetings, ${data?.series.voice.reduce((a: number, b: { count: number }) => a + b.count, 0) ?? 0} voice interactions.`}
+              </span>
+            </CardContent>
+          </Card>
 
-              {upcomingMeetings.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 text-center gap-3 h-full min-h-[260px]">
-                  <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center shadow-sm">
-                    <CalendarIcon className="w-5 h-5 text-slate-400" />
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium text-slate-600">
-                      No upcoming meetings
-                    </p>
-                    <p className="text-xs text-slate-400">
-                      Schedule your first meeting to get started
-                    </p>
-                  </div>
-                  <Button
-                    size="sm"
-                    className="mt-2 rounded-lg text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
-                    onClick={() => setNewMeetingOpen(true)}
-                  >
-                    Schedule meeting
+          {/* Recent meetings */}
+          <Card className="rounded-2xl">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Recent meetings</CardTitle>
+              <Link href="/meetings" className="text-sm text-emerald-600 hover:underline">
+                View all
+              </Link>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {(data?.recentMeetings ?? []).length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 text-center">
+                  <p className="text-sm text-slate-500">No meetings yet.</p>
+                  <Button asChild size="sm" className="mt-3 bg-emerald-600 hover:bg-emerald-700 text-white">
+                    <Link href="/agents">Try a template</Link>
                   </Button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {upcomingMeetings.map((meeting) => (
-                    <MeetingCard
-                      key={meeting.id}
-                      className="h-full"
-                      id={meeting.id}
-                      title={meeting.name}
-                      agentName={meeting.agentName}
-                      date={
-                        meeting.startedAt
-                          ? new Date(meeting.startedAt).toLocaleDateString("en-US")
-                          : "TBD"
-                      }
-                      time={
-                        meeting.startedAt
-                          ? new Date(meeting.startedAt).toLocaleTimeString("en-US", {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })
-                          : "TBD"
-                      }
-                      participants={1}
-                      status={meeting.status as MeetingCardStatus}
-                    />
-                  ))}
-                </div>
+                (data?.recentMeetings ?? []).map((m: { id: string; name: string; status: string; startedAt: string | null; createdAt: string; agentName: string; hasSummary: boolean; recordingUrl: string | null }, i: number) => (
+                  <div key={m.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 p-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span className="text-xs font-semibold text-slate-400">{i + 1}</span>
+                      <GeneratedAvatar seed={m.agentName} className="size-8" />
+                      <div className="min-w-0">
+                        <Link href={`/meetings/${m.id}`} className="block truncate font-medium hover:underline" title={m.name}>
+                          {m.name}
+                        </Link>
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                          <span className={cn("rounded-full px-2 py-0.5", m.status === "completed" && "bg-emerald-100 text-emerald-700", m.status === "ongoing" && "bg-blue-100 text-blue-700", m.status === "scheduled" && "bg-slate-100 text-slate-600")}>
+                            {m.status}
+                          </span>
+                          {m.hasSummary && (
+                            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700">Summary ready</span>
+                          )}
+                          <span>{m.startedAt ? new Date(m.startedAt).toLocaleDateString() : new Date(m.createdAt).toLocaleDateString()}</span>
+                          {m.agentName && <span>· {m.agentName}</span>}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {m.recordingUrl && (
+                        <a
+                          href={m.recordingUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex size-8 items-center justify-center rounded-full border border-slate-200 text-slate-600 hover:bg-slate-50"
+                          aria-label="Play recording"
+                        >
+                          <Play className="size-3.5" />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                ))
               )}
-            </div>
-          </Section>
-
-          <Section className="xl:col-span-4 h-full">
-            <div className="flex flex-col gap-3 h-full">
-              <SectionHeader
-                title="AI Insights"
-                subtitle="Powered by your workspace data"
-              />
-              <div className="flex flex-1 flex-col gap-2.5">
-                {insights.map((insight, i) => (
-                  <InsightCard
-                    key={i}
-                    type={insight.type}
-                    message={insight.message}
-                  />
-                ))}
-              </div>
-            </div>
-          </Section>
+            </CardContent>
+          </Card>
         </div>
-      )}
 
-      {/* ── BAND E · RECENT ACTIVITY (full width) ───────────────────────── */}
-      <Section>
-        <SectionHeader
-          title="Recent Activity"
-          subtitle="Timeline of your workspace events"
-          action={
-            <Button
-              asChild
-              variant="outline"
-              size="sm"
-              className="text-xs rounded-lg border-slate-200 text-slate-600 hover:border-slate-300 gap-1.5"
-            >
-              <Link href="/meetings">
-                <History className="w-3.5 h-3.5" />
-                Full history
+        {/* Right column */}
+        <div className="space-y-6">
+          {/* Status donut */}
+          <Card className="rounded-2xl">
+            <CardHeader>
+              <CardTitle>Meeting status</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {statusBreakdown && statusBreakdown.total > 0 ? (
+                <div className="flex items-center gap-4">
+                  <Chart
+                    options={{
+                      chart: { type: "donut" },
+                      labels: ["Completed", "Ongoing", "Scheduled"],
+                      colors: ["#052e16", "#10b981", "#86efac"],
+                      legend: { show: false },
+                      dataLabels: { enabled: false },
+                    }}
+                    series={[statusBreakdown.completed, statusBreakdown.ongoing, statusBreakdown.scheduled]}
+                    type="donut"
+                    height={180}
+                  />
+                  <div className="space-y-1 text-sm">
+                    <div>Completed {statusBreakdown.percentages.completed}%</div>
+                    <div>Ongoing {statusBreakdown.percentages.ongoing}%</div>
+                    <div>Scheduled {statusBreakdown.percentages.scheduled}%</div>
+                    <div className="font-semibold">Total {statusBreakdown.total}</div>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-slate-500">No meetings yet.</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Insights */}
+          <Card className="rounded-2xl">
+            <CardHeader>
+              <CardTitle>Insights</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {insights.map((ins) => (
+                <div key={ins.id} className="text-sm text-slate-700">
+                  {ins.href ? (
+                    <Link href={ins.href} className="text-emerald-600 hover:underline">
+                      {ins.text}
+                    </Link>
+                  ) : (
+                    ins.text
+                  )}
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          {/* Upcoming */}
+          <Card className="rounded-2xl">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Upcoming</CardTitle>
+              <Link href="/meetings" className="text-sm text-emerald-600 hover:underline">
+                View all
               </Link>
-            </Button>
-          }
-        />
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {(data?.upcomingMeetings ?? []).length === 0 ? (
+                <p className="text-sm text-slate-500">No upcoming meetings.</p>
+              ) : (
+                (data?.upcomingMeetings ?? []).map((m: { id: string; name: string; agentName: string }) => (
+                  <div key={m.id} className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="truncate font-medium" title={m.name}>{m.name}</div>
+                      <div className="text-xs text-slate-500">{m.agentName}</div>
+                    </div>
+                    <Button asChild size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                      <Link href={`/call/${m.id}`}>Join</Link>
+                    </Button>
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
 
-        {recentActivities.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-14 rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 gap-3 text-center">
-            <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center shadow-sm">
-              <Activity className="w-5 h-5 text-slate-400" />
-            </div>
-            <p className="text-sm text-slate-500">No recent activity detected.</p>
-          </div>
-        ) : (
-          <ActivityTimeline
-            activities={recentActivities.map((a) => ({
-              id: a.id,
-              type: a.type as ActivityType,
-              title: a.title,
-              user: { name: "You" },
-              time: new Date(a.createdAt).toLocaleTimeString("en-US", {
-                hour: "2-digit",
-                minute: "2-digit",
-              }),
-              description: a.description || undefined,
-            }))}
-          />
-        )}
-      </Section>
+          {/* System status compact */}
+          <Card className="rounded-2xl">
+            <CardHeader>
+              <CardTitle>System status</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <StatusMonitor items={health?.data?.services ?? []} />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
 
       {newMeetingOpen && (
-        <NewMeetingDialog
-          open={newMeetingOpen}
-          onOpenChange={setNewMeetingOpen}
-        />
+        <NewMeetingDialog open={newMeetingOpen} onOpenChange={setNewMeetingOpen} />
       )}
-    </motion.div>
+    </div>
   );
 };
