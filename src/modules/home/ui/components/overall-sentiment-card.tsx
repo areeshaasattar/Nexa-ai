@@ -21,19 +21,19 @@ export interface SentimentBreakdown {
   negative: number;
 }
 
-/** Three green shades, reused from the Meeting Status donut palette. */
+/** Three green shades matching the template. */
 const SENTIMENT_META = [
-  { key: "positive", label: "Positive", color: "#14533a", dotClass: "bg-brand-800" },
-  { key: "natural", label: "Natural", color: "#55b884", dotClass: "bg-brand-400" },
-  { key: "negative", label: "Negative", color: "#b9e6cb", dotClass: "bg-brand-200" },
+  { key: "positive", label: "Positive", color: "#0B3D2E", dotClass: "bg-green-900" },
+  { key: "natural", label: "Natural", color: "#2FA36B", dotClass: "bg-green-600" },
+  { key: "negative", label: "Negative", color: "#A8E0C0", dotClass: "bg-green-200" },
 ] as const;
 
-const EMPTY_TRACK_COLOR = "#e1ece5";
+const EMPTY_TRACK_COLOR = "#E5EDE8";
 
 function SentimentDonut({
   breakdown,
-  size = 104,
-  strokeWidth = 14,
+  size = 76,
+  strokeWidth = 12,
 }: {
   breakdown: SentimentBreakdown | null;
   size?: number;
@@ -105,38 +105,35 @@ export const OverallSentimentCard = ({
   const hasData = total > 0;
 
   return (
-    <Card className="rounded-2xl border border-brand-100">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-lg font-semibold">Overall Sentiment</CardTitle>
-        <CardDescription className="text-xs text-text-muted mt-1">
-          Meeting mood analysis
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="flex items-center justify-between gap-6">
-          <div className="min-w-0 flex-1 space-y-2 text-xs">
-            {SENTIMENT_META.map(({ key, label, dotClass }) => (
-              <div key={key} className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className={`size-2 rounded-full ${dotClass}`} />
-                  <span className="text-text-muted">{label}</span>
-                </div>
-                <span className="font-medium text-text">
-                  {hasData
-                    ? `${Math.round((sentiment![key] / total) * 100)}%`
-                    : "—"}
-                </span>
+    <div className="bg-white rounded-2xl border border-gray-200/60 shadow-[0_1px_3px_rgba(16,24,40,0.06)] p-4 flex flex-col justify-between h-full hover:shadow-md transition-shadow">
+      {/* Header */}
+      <div>
+        <div className="text-[15px] font-semibold text-gray-900 leading-tight">Overall Sentiment</div>
+        <div className="text-[11px] text-gray-500 mt-0.5">Meeting mood analysis</div>
+      </div>
+
+      {/* Body */}
+      <div className="flex items-center justify-between gap-4 mt-2">
+        {/* Legend - Left */}
+        <div className="space-y-1.5 flex-1">
+          {SENTIMENT_META.map(({ key, label, dotClass }) => (
+            <div key={key} className="flex items-center justify-between min-w-[110px]">
+              <div className="flex items-center gap-2">
+                <div className={`size-1.5 rounded-full ${dotClass}`} />
+                <span className="text-xs text-gray-700">{label}</span>
               </div>
-            ))}
-          </div>
+              <span className="text-xs font-semibold text-gray-900">
+                {hasData ? `${Math.round((sentiment![key] / total) * 100)}%` : "—"}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* Donut - Right */}
+        <div className="shrink-0" title={!hasData ? "Sentiment appears here once meetings have AI summaries" : undefined}>
           <SentimentDonut breakdown={hasData ? sentiment! : null} />
         </div>
-        {!hasData && (
-          <p className="mt-3 text-[11px] text-text-subtle">
-            Sentiment appears here once meetings have AI summaries.
-          </p>
-        )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 };

@@ -85,7 +85,7 @@ const Layout = async ({ children }: Props) => {
         </div>
         <DashboardNavbar />
         <div className="flex-1 overflow-y-auto [scrollbar-gutter:stable] p-6 md:p-8 bg-[#F7F8FA]">
-          <div className="mx-auto max-w-7xl">
+          <div className="mx-auto max-w-7xl pb-6">
             {children}
           </div>
         </div>
