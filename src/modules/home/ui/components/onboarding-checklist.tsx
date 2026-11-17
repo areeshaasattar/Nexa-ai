@@ -14,21 +14,32 @@ function storageKey(userId: string) {
 }
 
 export function OnboardingChecklist() {
-  const { data: onboarding, isLoading, isError } = trpc.getOnboarding.useQuery();
   const { data: hello } = trpc.hello.useQuery({ text: "" });
   const userId = hello?.user?.id;
+  const { data: onboarding, isLoading, isError } = trpc.getOnboarding.useQuery(
+    undefined,
+    { enabled: !!userId, staleTime: 60_000 }
+  );
 
   const [mounted, setMounted] = useState(false);
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
-    queueMicrotask(() => setMounted(true));
-    if (!userId) return;
+    if (!userId) {
+      queueMicrotask(() => setMounted(true));
+      return;
+    }
+    
     try {
       const v = window.localStorage.getItem(storageKey(userId));
-      if (v === "1") queueMicrotask(() => setDismissed(true));
+      const isDismissed = v === "1";
+      queueMicrotask(() => {
+        setDismissed(isDismissed);
+        setMounted(true);
+      });
     } catch {
       // storage unavailable: show by default
+      queueMicrotask(() => setMounted(true));
     }
   }, [userId]);
 
