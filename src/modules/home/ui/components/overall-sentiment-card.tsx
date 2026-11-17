@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Card,
   CardContent,
@@ -34,10 +35,14 @@ function SentimentDonut({
   breakdown,
   size = 76,
   strokeWidth = 12,
+  hoveredIndex = null,
+  onHover = null,
 }: {
   breakdown: SentimentBreakdown | null;
   size?: number;
   strokeWidth?: number;
+  hoveredIndex?: number | null;
+  onHover?: ((index: number | null) => void) | null;
 }) {
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
@@ -57,7 +62,8 @@ function SentimentDonut({
       viewBox={`0 0 ${size} ${size}`}
       role="img"
       aria-label="Overall sentiment distribution"
-      className="shrink-0"
+      className="shrink-0 cursor-default"
+      onMouseLeave={() => onHover?.(null)}
     >
       {/* Track also serves as the empty-state ring. */}
       <circle
@@ -70,21 +76,32 @@ function SentimentDonut({
       />
       {hasData &&
         breakdown &&
-        SENTIMENT_META.map(({ key, color }) => {
+        SENTIMENT_META.map(({ key, color }, index) => {
           const fraction = Math.min(Math.max(breakdown[key] / total, 0), 1);
           if (fraction <= 0) return null;
+          
+          const isHovered = hoveredIndex === index;
+          const isOther = hoveredIndex !== null && hoveredIndex !== index;
+          
           const segment = (
             <circle
               key={key}
               cx={center}
               cy={center}
-              r={radius}
+              r={isHovered ? radius + 4 : radius}
               fill="none"
               stroke={color}
               strokeWidth={strokeWidth}
               strokeDasharray={`${fraction * circumference} ${circumference}`}
               strokeDashoffset={-accumulated * circumference}
               transform={`rotate(-90 ${center} ${center})`}
+              opacity={isOther ? 0.6 : 1}
+              onMouseEnter={() => onHover?.(index)}
+              className="transition-all duration-150"
+              style={{
+                cursor: "default",
+                transition: "opacity 150ms ease, r 150ms ease",
+              }}
             />
           );
           accumulated += fraction;
@@ -99,6 +116,8 @@ export const OverallSentimentCard = ({
 }: {
   sentiment?: SentimentBreakdown | null;
 }) => {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  
   const total = sentiment
     ? sentiment.positive + sentiment.natural + sentiment.negative
     : 0;
@@ -116,8 +135,16 @@ export const OverallSentimentCard = ({
       <div className="flex items-center justify-between gap-4 mt-2">
         {/* Legend - Left */}
         <div className="space-y-1.5 flex-1">
-          {SENTIMENT_META.map(({ key, label, dotClass }) => (
-            <div key={key} className="flex items-center justify-between min-w-[110px]">
+          {SENTIMENT_META.map(({ key, label, dotClass }, index) => (
+            <div 
+              key={key} 
+              className="flex items-center justify-between min-w-[110px] cursor-default transition-opacity duration-150"
+              style={{
+                opacity: hoveredIndex !== null && hoveredIndex !== index ? 0.6 : 1,
+              }}
+              onMouseEnter={() => setHoveredIndex(index)}
+              onMouseLeave={() => setHoveredIndex(null)}
+            >
               <div className="flex items-center gap-2">
                 <div className={`size-1.5 rounded-full ${dotClass}`} />
                 <span className="text-xs text-gray-700">{label}</span>
@@ -131,7 +158,11 @@ export const OverallSentimentCard = ({
 
         {/* Donut - Right */}
         <div className="shrink-0" title={!hasData ? "Sentiment appears here once meetings have AI summaries" : undefined}>
-          <SentimentDonut breakdown={hasData ? sentiment! : null} />
+          <SentimentDonut 
+            breakdown={hasData ? sentiment! : null}
+            hoveredIndex={hoveredIndex}
+            onHover={setHoveredIndex}
+          />
         </div>
       </div>
     </div>

@@ -25,6 +25,7 @@ import {
 import { NewMeetingDialog } from "@/modules/meetings/ui/components/new-meeting-dialog";
 import { OnboardingChecklist } from "../components/onboarding-checklist";
 import { OverallSentimentCard } from "../components/overall-sentiment-card";
+import { ChartTooltip } from "../components/chart-tooltip";
 import { buildStatusBreakdown, computeTrend, type TrendResult } from "@/modules/home/lib/dashboard-data";
 
 const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
@@ -241,7 +242,29 @@ export const HomeView = () => {
                       xaxis: { categories, axisBorder: { show: false }, axisTicks: { show: false }, labels: { style: { colors: "#7b8b83", fontSize: "12px" } } },
                       grid: { strokeDashArray: 4, borderColor: "#e1ece5", yaxis: { lines: { show: true } }, xaxis: { lines: { show: false } } },
                       legend: { show: false },
-                      tooltip: { shared: true, intersect: false, theme: "light" },
+                      tooltip: { custom: ({ series, seriesIndex, dataPointIndex, w }: any) => {
+                        const value = series[seriesIndex][dataPointIndex];
+                        const label = w.globals.seriesNames[seriesIndex];
+                        const color = w.globals.colors[seriesIndex];
+                        const categoryLabel = w.globals.categoryLabels[dataPointIndex];
+                        
+                        return `
+                          <div style="background: white; border: 1px solid #e5e7eb; border-radius: 10px; box-shadow: 0 4px 12px rgba(16, 24, 40, 0.1); padding: 8px 12px; white-space: nowrap; z-index: 50; pointer-events: none;">
+                            <div style="font-size: 11px; color: #6b7280; margin-bottom: 6px;">
+                              ${categoryLabel}
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                              <div style="width: 8px; height: 8px; border-radius: 50%; background-color: ${color}; flex-shrink: 0;"></div>
+                              <span style="font-size: 12px; font-weight: 500; color: #4b5563;">
+                                ${label}
+                              </span>
+                              <span style="font-size: 12px; font-weight: 600; color: #111827; margin-left: auto;">
+                                ${value}
+                              </span>
+                            </div>
+                          </div>
+                        `;
+                      }, shared: true, intersect: false, theme: "light" },
                       dataLabels: { enabled: false },
                       markers: { size: 4, hover: { size: 6 } },
                     } as any}
@@ -275,11 +298,52 @@ export const HomeView = () => {
                     options={{
                       chart: { type: "donut" },
                       labels: ["Completed", "Ongoing", "Scheduled"],
-                      colors: ["#0f3d2b", "#2f9e68", "#b9e6cb"],
+                      colors: ["#0B3D2E", "#2FA36B", "#A8E0C0"],
                       legend: { show: false },
                       dataLabels: { enabled: false },
-                      plotOptions: { pie: { donut: { size: "70%" } } },
-                      stroke: { width: 0 },
+                      plotOptions: { 
+                        pie: { 
+                          donut: { size: "70%" },
+                          expandOnClick: false,
+                        } 
+                      },
+                      stroke: { width: 2, colors: ["#ffffff"] },
+                      states: {
+                        hover: {
+                          filter: {
+                            type: "none",
+                          }
+                        },
+                        active: {
+                          filter: {
+                            type: "none",
+                          }
+                        }
+                      },
+                      tooltip: { custom: ({ series, seriesIndex, w }: any) => {
+                        const value = series[seriesIndex];
+                        const label = w.globals.labels[seriesIndex];
+                        const color = w.globals.colors[seriesIndex];
+                        const total = series.reduce((a: number, b: number) => a + b, 0);
+                        const percentage = Math.round((value / total) * 100);
+                        
+                        return `
+                          <div style="background: white; border: 1px solid #e5e7eb; border-radius: 10px; box-shadow: 0 4px 12px rgba(16, 24, 40, 0.1); padding: 8px 12px; white-space: nowrap; z-index: 50; pointer-events: none;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                              <div style="width: 8px; height: 8px; border-radius: 50%; background-color: ${color}; flex-shrink: 0;"></div>
+                              <span style="font-size: 12px; font-weight: 500; color: #4b5563;">
+                                ${label}
+                              </span>
+                              <span style="font-size: 12px; font-weight: 600; color: #111827; margin-left: auto;">
+                                ${value}
+                              </span>
+                            </div>
+                            <div style="font-size: 11px; color: #9ca3af; margin-top: 4px; text-align: right;">
+                              ${percentage}%
+                            </div>
+                          </div>
+                        `;
+                      }, theme: "light" },
                     } as any}
                     series={[statusBreakdown.completed, statusBreakdown.ongoing, statusBreakdown.scheduled]}
                     type="donut"
