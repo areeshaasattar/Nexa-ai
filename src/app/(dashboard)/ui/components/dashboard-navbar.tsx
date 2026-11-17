@@ -3,8 +3,7 @@
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import Link from "next/link";
-import { Search, Bell, Plus, Calendar, Bot, FileText, Activity as ActivityIcon, Check, MessageSquare, PanelLeft } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Search, Bell, Plus, Calendar, Bot, FileText, Check, MessageSquare, PanelLeft } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { activityIconName, relativeTime, shouldHideDescription } from "@/modules/home/lib/activity";
 import { trpc } from "@/trpc/client";
@@ -97,87 +96,140 @@ export const DashboardNavbar = () => {
           <MessageSquare className="size-[18px]" strokeWidth={1.5} />
         </button>
 
-        <Popover open={bellOpen} onOpenChange={setBellOpen}>
-          <PopoverTrigger
-            render={
-              <button
-                type="button"
-                aria-label="Recent activity"
-                className={cn(ICON_BUTTON_CLASSES, "relative", bellOpen && "bg-white/70")}
-              >
-                <Bell className="size-[18px]" strokeWidth={1.5} />
-              </button>
-            }
-          />
-          <PopoverContent className="w-96 max-w-[calc(100vw-16px)] rounded-xl border border-border bg-white p-0 shadow-lg z-50" sideOffset={12}>
-            <div className="flex items-center justify-between border-b border-border px-4 py-3">
-              <span className="text-sm font-semibold text-text">Recent activity</span>
-              {(activity ?? []).length > 0 && (
-                <span className="text-xs text-text-muted">{(activity ?? []).length} items</span>
-              )}
-            </div>
-            <div className="max-h-96 overflow-y-auto overscroll-contain">
-              {activity === undefined ? (
-                <div className="space-y-3 p-4">
-                  {[...Array(3)].map((_, i) => (
-                    <div key={i} className="flex gap-3">
-                      <div className="size-8 rounded-full bg-brand-100 animate-pulse" />
-                      <div className="flex-1 space-y-2">
-                        <div className="h-3 w-3/4 rounded bg-brand-100 animate-pulse" />
-                        <div className="h-2 w-1/2 rounded bg-brand-100 animate-pulse" />
-                      </div>
-                    </div>
-                  ))}
+        <div className="relative">
+          <button
+            type="button"
+            aria-label="Recent activity"
+            aria-expanded={bellOpen}
+            onClick={() => setBellOpen(!bellOpen)}
+            className={cn(
+              ICON_BUTTON_CLASSES,
+              "relative",
+              bellOpen && "bg-gray-100"
+            )}
+          >
+            <Bell className="size-[18px]" strokeWidth={1.5} />
+            {/* Unread badge */}
+            {(activity ?? []).length > 0 && (
+              <span className="absolute top-1.5 right-1.5 size-2 rounded-full bg-red-500 ring-2 ring-white" aria-hidden="true" />
+            )}
+          </button>
+
+          {/* Notification panel */}
+          {bellOpen && (
+            <div
+              className="absolute right-0 top-full mt-2 z-50 w-[380px] max-w-[calc(100vw-2rem)] sm:w-[380px] flex flex-col overflow-hidden bg-white rounded-2xl border border-gray-200/70 shadow-[0_10px_30px_rgba(16,24,40,0.12)] animate-in fade-in slide-in-from-top-2 duration-150"
+              role="dialog"
+              aria-label="Recent activity notifications"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-gray-900">Recent activity</span>
+                  {(activity ?? []).length > 0 && (
+                    <span className="inline-flex items-center justify-center rounded-full bg-green-50 text-green-700 text-[11px] font-semibold px-2 py-0.5">
+                      {(activity ?? []).length}
+                    </span>
+                  )}
                 </div>
-              ) : (activity ?? []).length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-10 text-center">
-                  <ActivityIcon className="size-8 text-brand-200" aria-hidden="true" />
-                  <p className="mt-2 text-sm text-text-muted">No activity yet</p>
-                </div>
-              ) : (
-                <ul className="divide-y divide-brand-100">
-                  {(activity ?? []).map((a) => {
-                    const iconName = activityIconName(a.type);
-                    const Icon =
-                      iconName === "calendar"
-                        ? Calendar
-                        : iconName === "play"
-                        ? FileText
-                        : iconName === "check-circle"
-                        ? Check
-                        : iconName === "bot"
-                        ? Bot
-                        : iconName === "file-text"
-                        ? FileText
-                        : ActivityIcon;
-                    const hideDesc = shouldHideDescription(a.title, a.description);
-                    const date = new Date(a.createdAt);
-                    return (
-                      <li key={a.id} className="flex gap-3 px-4 py-3 hover:bg-brand-50">
-                        <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-700">
-                          <Icon className="size-4" aria-hidden="true" />
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate text-sm font-medium text-text">{a.title}</div>
-                          {!hideDesc && a.description && (
-                            <div className="line-clamp-2 text-xs text-text-muted">{a.description}</div>
-                          )}
-                          <time
-                            dateTime={date.toISOString()}
-                            title={date.toLocaleString()}
-                            className="text-xs text-text-muted/60"
-                          >
-                            {mounted ? relativeTime(date, new Date()) : ""}
-                          </time>
+              </div>
+
+              {/* List area */}
+              <div className="flex-1 max-h-[calc(480px-120px)] overflow-y-auto overscroll-contain [scrollbar-width:thin] [scrollbar-color:#D1D5DB_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-track]:bg-transparent">
+                {activity === undefined ? (
+                  // Loading state
+                  <div className="space-y-3 p-4">
+                    {[...Array(3)].map((_, i) => (
+                      <div key={i} className="flex gap-3">
+                        <div className="size-8 rounded-full bg-gray-200 animate-pulse shrink-0" />
+                        <div className="flex-1 space-y-2 min-w-0">
+                          <div className="h-3 w-3/4 rounded bg-gray-200 animate-pulse" />
+                          <div className="h-2 w-1/2 rounded bg-gray-200 animate-pulse" />
                         </div>
-                      </li>
-                    );
-                  })}
-                </ul>
+                      </div>
+                    ))}
+                  </div>
+                ) : (activity ?? []).length === 0 ? (
+                  // Empty state
+                  <div className="flex flex-col items-center justify-center py-10 text-center px-4">
+                    <Bell className="size-8 text-gray-300 mb-3" aria-hidden="true" strokeWidth={1.5} />
+                    <p className="text-sm font-medium text-gray-700">You're all caught up</p>
+                    <p className="text-xs text-gray-400 mt-1">No new notifications</p>
+                  </div>
+                ) : (
+                  // Notification list
+                  <ul className="divide-y divide-gray-100 pb-1">
+                    {(activity ?? []).map((a) => {
+                      const iconName = activityIconName(a.type);
+                      const Icon =
+                        iconName === "calendar"
+                          ? Calendar
+                          : iconName === "play"
+                          ? FileText
+                          : iconName === "check-circle"
+                          ? Check
+                          : iconName === "bot"
+                          ? Bot
+                          : iconName === "file-text"
+                          ? FileText
+                          : ActivityIcon;
+                      const hideDesc = shouldHideDescription(a.title, a.description);
+                      const date = new Date(a.createdAt);
+                      return (
+                        <li
+                          key={a.id}
+                          className="flex gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
+                        >
+                          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-green-50 text-green-700">
+                            <Icon className="size-4" aria-hidden="true" strokeWidth={1.5} />
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-[13px] font-semibold text-gray-900 leading-snug">
+                              {a.title}
+                            </div>
+                            {!hideDesc && a.description && (
+                              <div className="text-xs text-gray-500 leading-relaxed mt-0.5 line-clamp-2">
+                                {a.description}
+                              </div>
+                            )}
+                            <time
+                              dateTime={date.toISOString()}
+                              title={date.toLocaleString()}
+                              className="text-[11px] text-gray-400 mt-1 block"
+                            >
+                              {mounted ? relativeTime(date, new Date()) : ""}
+                            </time>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+
+              {/* Footer */}
+              {(activity ?? []).length > 0 && (
+                <div className="border-t border-gray-100 px-4 py-2.5 bg-gray-50/60">
+                  <Link
+                    href="/dashboard?tab=activity"
+                    onClick={() => setBellOpen(false)}
+                    className="block text-center text-[13px] font-medium text-green-700 hover:text-green-800 transition-colors"
+                  >
+                    View all activity
+                  </Link>
+                </div>
               )}
             </div>
-          </PopoverContent>
-        </Popover>
+          )}
+
+          {/* Close on outside click */}
+          {bellOpen && (
+            <div
+              className="fixed inset-0 z-40"
+              onClick={() => setBellOpen(false)}
+            />
+          )}
+        </div>
 
         <DropdownMenu>
           <DropdownMenuTrigger
