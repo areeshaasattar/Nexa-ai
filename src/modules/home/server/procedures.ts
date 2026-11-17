@@ -373,6 +373,37 @@ export const homeRouter = createTRPCRouter({
         return acc + Number(r.c);
       }, 0);
 
+      // Windowed summary counts (AI insights trend badge).
+      const [summaryWindowRow] = await db
+        .select({
+          cur: sql<number>`count(*) filter (where ${meetings.createdAt} >= ${currentStart})`,
+          prev: sql<number>`count(*) filter (where ${meetings.createdAt} < ${currentStart})`,
+        })
+        .from(meetings)
+        .where(
+          and(
+            eq(meetings.userId, userId),
+            sql`${meetings.summaryData} IS NOT NULL`,
+            gte(meetings.createdAt, previousStart),
+          ),
+        );
+
+      // Windowed completion counts (analytics trend badge).
+      const [completionWindowRow] = await db
+        .select({
+          curTotal: sql<number>`count(*) filter (where ${meetings.createdAt} >= ${currentStart})`,
+          prevTotal: sql<number>`count(*) filter (where ${meetings.createdAt} < ${currentStart})`,
+          curCompleted: sql<number>`count(*) filter (where ${meetings.createdAt} >= ${currentStart} and ${meetings.status} = 'completed')`,
+          prevCompleted: sql<number>`count(*) filter (where ${meetings.createdAt} < ${currentStart} and ${meetings.status} = 'completed')`,
+        })
+        .from(meetings)
+        .where(
+          and(
+            eq(meetings.userId, userId),
+            gte(meetings.createdAt, previousStart),
+          ),
+        );
+
       // current counts from total? recompute current counts from rows
 
 
@@ -421,6 +452,22 @@ export const homeRouter = createTRPCRouter({
         agentName: m.agentName,
       }));
 
+      // Current-window counts for the stat-card trend badges.
+      const curMeetingsCount = currentMeetingRows.reduce((acc, r) => acc + r.count, 0);
+      const curVoiceCount = currentVoiceRows.reduce((acc, r) => acc + r.count, 0);
+      const curCompletionRate =
+        Number(completionWindowRow?.curTotal ?? 0) > 0
+          ? Math.round(
+              (Number(completionWindowRow?.curCompleted ?? 0) / Number(completionWindowRow?.curTotal ?? 0)) * 100,
+            )
+          : 0;
+      const prevCompletionRate =
+        Number(completionWindowRow?.prevTotal ?? 0) > 0
+          ? Math.round(
+              (Number(completionWindowRow?.prevCompleted ?? 0) / Number(completionWindowRow?.prevTotal ?? 0)) * 100,
+            )
+          : 0;
+
       return {
         totals: {
           meetings: Number(meetingsTotal?.c ?? 0),
@@ -433,6 +480,15 @@ export const homeRouter = createTRPCRouter({
           meetings: previousMeetingCount,
           summariesReady: 0, // not trended separately
           voiceInteractions: previousVoiceCount,
+        },
+        stats: {
+          meetings: { current: curMeetingsCount, previous: previousMeetingCount },
+          insights: {
+            current: Number(summaryWindowRow?.cur ?? 0),
+            previous: Number(summaryWindowRow?.prev ?? 0),
+          },
+          engagement: { current: curVoiceCount, previous: previousVoiceCount },
+          analytics: { current: curCompletionRate, previous: prevCompletionRate },
         },
         range,
         series: { meetings: currentMeetingRows, voice: currentVoiceRows },
