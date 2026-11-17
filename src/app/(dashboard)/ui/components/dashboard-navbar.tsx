@@ -188,7 +188,10 @@ export const DashboardNavbar = () => {
                 className={cn(ICON_BUTTON_CLASSES, "focus-visible:ring-1 focus-visible:ring-black/5")}
               >
                 <GeneratedAvatar
-                  seed={session?.user?.email || "user"}
+                  seed={session?.user?.email || session?.user?.id || "user"}
+                  src={session?.user?.image}
+                  style="bottts"
+                  size="sm"
                   className="size-8 rounded-full ring-1 ring-black/5"
                 />
               </button>
