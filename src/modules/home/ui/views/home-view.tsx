@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { NewMeetingDialog } from "@/modules/meetings/ui/components/new-meeting-dialog";
 import { OnboardingChecklist } from "../components/onboarding-checklist";
+import { OverallSentimentCard } from "../components/overall-sentiment-card";
 import { buildStatusBreakdown, computeTrend, type TrendResult } from "@/modules/home/lib/dashboard-data";
 
 const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
@@ -297,6 +298,9 @@ export const HomeView = () => {
 
         {/* Right column (1/3 width) */}
         <div className="space-y-8">
+          {/* Overall Sentiment (populated from AI summary sentiment) */}
+          <OverallSentimentCard sentiment={data?.sentiment} />
+
           {/* Meeting Status Donut */}
           <Card className="rounded-2xl border border-brand-100">
             <CardHeader className="pb-3">

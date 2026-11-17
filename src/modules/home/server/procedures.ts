@@ -231,6 +231,25 @@ export const homeRouter = createTRPCRouter({
         .where(eq(meetings.userId, userId))
         .groupBy(meetings.status);
 
+      // Sentiment breakdown from stored AI summaries (all time).
+      const sentimentRows = await db
+        .select({
+          sentiment: sql<string | null>`${meetings.summaryData}->>'sentiment'`,
+          c: count(),
+        })
+        .from(meetings)
+        .where(
+          and(
+            eq(meetings.userId, userId),
+            sql`${meetings.summaryData}->>'sentiment' IS NOT NULL`,
+          ),
+        )
+        .groupBy(sql`${meetings.summaryData}->>'sentiment'`);
+      const sentimentCounts: Record<string, number> = {};
+      for (const r of sentimentRows) {
+        if (r.sentiment) sentimentCounts[r.sentiment] = Number(r.c);
+      }
+
       // Most used agent.
       const mostUsedRows = await db
         .select({ agentId: meetings.agentId, agentName: agents.name, c: count() })
@@ -493,6 +512,11 @@ export const homeRouter = createTRPCRouter({
         range,
         series: { meetings: currentMeetingRows, voice: currentVoiceRows },
         statusBreakdown: statusMap,
+        sentiment: {
+          positive: Number(sentimentCounts.positive ?? 0),
+          natural: Number(sentimentCounts.natural ?? 0),
+          negative: Number(sentimentCounts.negative ?? 0),
+        },
         mostUsedAgent: mostUsed,
         recentMeetings,
         upcomingMeetings,

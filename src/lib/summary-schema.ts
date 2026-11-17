@@ -32,6 +32,8 @@ export const actionItemSchema = z.object({
   dueDate: z.string().trim().min(1).max(SUMMARY_LIMITS.dueDateChars).nullable(),
 });
 
+export const sentimentSchema = z.enum(["positive", "natural", "negative"]);
+
 /** The exact shape the model must return (and the only shape we persist). */
 export const summaryDataSchema = z.object({
   overview: z.string().trim().min(1).max(SUMMARY_LIMITS.overviewChars),
@@ -45,6 +47,12 @@ export const summaryDataSchema = z.object({
   openQuestions: z
     .array(z.string().trim().min(1).max(SUMMARY_LIMITS.questionChars))
     .max(SUMMARY_LIMITS.openQuestions),
+  /**
+   * Overall conversation mood. Optional so summaries stored before this field
+   * existed still validate on read; the prompt always requests it for new
+   * summaries and the dashboard aggregates it when present.
+   */
+  sentiment: sentimentSchema.optional(),
 });
 
 export const summaryKindSchema = z.enum([
@@ -90,6 +98,7 @@ Return ONLY one JSON object. Do not wrap it in markdown, do not add prose before
 Schema:
 {
   "overview": string,                         // <= ${SUMMARY_LIMITS.overviewChars} characters
+  "sentiment": "positive" | "natural" | "negative",  // overall mood of the conversation
   "decisions": string[],                      // <= ${SUMMARY_LIMITS.decisions} items
   "actionItems": [                            // <= ${SUMMARY_LIMITS.actionItems} items
     {
@@ -103,17 +112,20 @@ Schema:
 }
 
 Definitions:
+- SENTIMENT is the overall mood of the conversation, judged only from how participants sound: "positive" when they are satisfied, agreeable or enthusiastic; "negative" when there is clear frustration, disagreement or complaints; "natural" when the tone is neutral and matter-of-fact. Do not derive it from the meeting's outcome or topics.
 - A DECISION is a choice or agreement the group made together (e.g. "launch on Friday", "the budget is 40,000"). It states what was agreed, not who will do work.
 - An ACTION ITEM is work assigned to a person. If something is assigned to a person, it belongs ONLY in actionItems.
 - A task assigned to a person must NEVER also appear in decisions. The two lists are mutually exclusive for tasks.
 
 Good example (illustration only, not transcript content):
 {
+  "sentiment": "positive",
   "decisions": ["Launch on Friday", "The budget is 40,000"],
   "actionItems": [{"task": "Do the legal review", "owner": "Priya", "dueDate": null}]
 }
 Bad example (never do this - the task appears in both lists):
 {
+  "sentiment": "natural",
   "decisions": ["Launch on Friday", "Priya will do the legal review"],
   "actionItems": [{"task": "Do the legal review", "owner": "Priya", "dueDate": null}]
 }
