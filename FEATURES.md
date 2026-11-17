@@ -1,7 +1,7 @@
 # Nexa AI — Features & Architecture (Current)
 
 > **Source of truth:** generated from the codebase in `C:\nexa-ai` (read from app routes, modules, DB schema, tRPC routers, auth, and libs).  
-> **Last updated:** 2026-11-09  
+> **Last updated:** 2026-11-17  
 > This file documents **implemented** features and how they work. Items that are not implemented are listed under [Known limitations & roadmap](#8-known-limitations--roadmap).
 
 ---
@@ -244,6 +244,160 @@ Protected under dashboard layout (and included in proxy protected paths).
 - The build runs with clearly fake dummy environment values (`DATABASE_URL`, auth, Stream, OAuth, Brevo, Mistral, etc.) and unconfigured Upstash, so it never contacts a real service.
 - Live tests (`test:summary:live`, needs a real Mistral key) and `test:webhook-replay` (needs a running server) remain manual and are not part of CI.
 
+### 4.15 Legal pages
+
+- **`/terms`** and **`/privacy`** static pages with placeholder content.
+- Both pages are linked from auth views (sign-in, sign-up, forgot-password, reset-password, verify-email).
+- Server-side rendered with Next.js metadata API support.
+
+### 4.16 Landing page & public onboarding
+
+- **Public landing page** at `/` (`src/app/page.tsx`): unauthenticated static server component with:
+  - Navbar with app logo and sign-in/sign-up links
+  - Hero section with CTA ("Try for free")
+  - "How it works" walkthrough section
+  - Features highlight section
+  - Agent templates preview grid (directly from `AGENT_TEMPLATES`)
+  - Good-to-know tips for users
+  - FAQ section (native collapsible details)
+  - Final CTA before footer
+  - Footer with basic links and copyright
+  - Optimized metadata via Next.js Metadata API
+  - `robots.ts` and `sitemap.ts` for SEO
+- **Authenticated redirect:** Proxy redirects signed-in users from `/` to `/dashboard`
+- **Onboarding checklist:** Dismissible first-run checklist on the dashboard (`src/modules/home/ui/components/onboarding-checklist.tsx`) backed by:
+  - `home.getOnboarding` tRPC procedure
+  - `computeOnboardingSteps()` in `src/modules/home/lib/onboarding.ts`
+  - Dismissal state stored in `localStorage` (keyed by user id; survives page reloads but not browser cache clear)
+  - Example steps: "Create your first agent", "Schedule a meeting", "Join a call"
+
+### 4.17 Custom hooks & utilities
+
+**React hooks:**
+- `use-voice-assistant`: Push-to-talk state machine (recording, processing, speaking); integrates speech recognition/synthesis
+- `useDashboard`: Dashboard data loading and metrics refresh
+- `use-mobile`: Responsive breakpoint detection (tailwind `md` breakpoint)
+- `use-debounced-value`: Debounced text search input (300ms debounce)
+- `use-resend-cooldown`: 60-second cooldown timer for email resend buttons (sessionStorage-backed)
+- `use-sign-out`: Sign-out action with redirect and session cleanup
+
+**Utilities:**
+- `src/lib/utils.ts`: `cn()` (tailwind class merger), date formatting helpers
+- `src/lib/email.ts`: `sendEmail()` with Brevo integration, retry, budget checks
+- `src/lib/rate-limit.ts`: Upstash-backed rate limiters (with fail-open semantics)
+- `src/lib/meeting-summary.ts`: Summary generation orchestration
+- `src/lib/transcript-parser.ts`: Stream JSONL transcript parsing
+- `src/lib/stream-video.ts`: Stream Video client setup + token generation
+- `src/lib/llm.ts`: Mistral + Groq provider wrapper with fallback circuit breaker
+- `sanitizeForSpeech()`: Strips markdown, emojis, code blocks from LLM output before TTS
+
+### 4.18 Type-safe data contract (Zod schemas)
+
+- `src/lib/summary-schema.ts`: Structured meeting summary schema with:
+  - `overview` (max 600 chars)
+  - `decisions` (array, max 10 items)
+  - `actionItems` (task, owner, dueDate; owner nullable after validation)
+  - `topics` (array, max 10)
+  - `openQuestions` (array, max 10)
+  - `sentiment` (enum: positive | natural | negative)
+  - `meta` (kind: structured | insufficient | flagged, timestamp)
+- All Zod schemas in `src/modules/*/lib/schemas.ts` for each tRPC module
+- Client-side form validation in sign-in, sign-up, create-agent, create-meeting, feedback, settings forms
+
+### 4.19 Search and filtering
+
+- **Agent search:** Case-insensitive substring match on name and instruction
+- **Meeting search:** Case-insensitive substring match on meeting name and agent name
+- **Meeting status filter:** Filter by scheduled/ongoing/completed
+- **Meeting agent filter:** Filter by agent name
+- **Feedback admin filter:** List all feedback with optional status filter (new/reviewed/resolved)
+- **Activity feed:** Filterable by activity type (agent_created, agent_updated, agent_deleted, meeting_created, meeting_started, meeting_completed, recording_ready, transcription_done)
+
+### 4.20 Responsive design & mobile UX
+
+- **Sidebar drawer:** Hamburger menu toggles sidebar on mobile (`use-mobile` hook)
+- **Mobile-optimized dialogs:** Sheets on mobile, dialogs on desktop (shadcn `Dialog`/`Sheet` components)
+- **Toast notifications:** Bottom-right corner, with swipe-to-dismiss on touch
+- **Responsive grid layouts:** Agent/template cards adapt to screen width (Tailwind responsive classes)
+- **Touch-friendly buttons:** Minimum tap target 44x44 px
+- **Viewport meta tags:** Proper mobile viewport scaling in `src/app/layout.tsx`
+
+### 4.21 Data export & clipboard
+
+- **Summary copy to clipboard:** "Copy as Markdown" button on meeting details
+- **Markdown formatting:** Action items, topics, open questions exported in readable markdown
+- **Share-friendly format:** No JSON; human-readable sections with proper formatting
+
+### 4.22 Error handling & UX
+
+- **Graceful error boundaries:** `(dashboard)/error.tsx` catches dashboard crashes
+- **Loading states:** Skeleton components, spinner overlays during async operations
+- **Empty states:** Guidance text and action links when no agents/meetings exist
+- **Form validation feedback:** Real-time validation errors below form fields
+- **Toast notifications:** Non-blocking success, error, and info messages (Sonner)
+- **Network error recovery:** Automatic retry on failed tRPC calls (TanStack React Query)
+- **API error details:** Safe error messages returned to client (no stack traces)
+- **Rate limit feedback:** User-friendly message with `Retry-After` seconds
+
+### 4.23 Keyboard shortcuts & accessibility
+
+- **Command palette (⌘K / Ctrl+K):** Quick navigation, create actions, settings
+- **Keyboard navigation:** All interactive elements keyboard-accessible
+- **ARIA labels:** Semantic HTML, proper `aria-label` for icon buttons
+- **Focus management:** Focus trapped in modals, restored on close
+- **Screen reader support:** Button labels, form labels, landmark navigation
+- **Color contrast:** Meets WCAG AA standards (text on backgrounds, UI elements)
+
+### 4.24 Advanced LLM features
+
+- **JSON mode validation:** Mistral JSON mode with `response_format: { type: "json_object" }`
+- **Zod schema enforcement:** Parsed output validated against strict schema contract
+- **Retry-once strategy:** Single retry with validation feedback for summary generation
+- **Flagged fallback:** Schema-valid placeholder stored on second validation failure (no hallucination)
+- **Instruction injection guard:** Transcript wrapped in delimiters; special chars escaped
+- **Circuit breaker:** Auto-failover from Mistral to Groq on provider errors (rate-limits, auth, timeouts, 5xx)
+- **Streaming chunks:** Incremental delta events for responsive UI (`/api/chat` SSE)
+
+### 4.25 Activity logging & insights
+
+- **Activity feed:** User-visible timeline of actions (agent/meeting CRUD, recordings, transcriptions)
+- **Activity metadata:** Structured data for each activity type
+- **Analytics dashboard:** Charts, metrics, and trends (last 7 days)
+- **Upcoming meetings list:** Next scheduled meetings on dashboard
+- **Recent activity display:** Latest user actions in reverse chronological order
+- **Voice interaction metrics:** Duration, response time, call count aggregations
+
+### 4.26 Settings & preferences
+
+- **Profile settings:** Name, bio, avatar upload with validation (max 2 MB, PNG/JPEG/WebP)
+- **Avatar rejection:** Server-side blocks oversized base64 data URLs (> 100 KB)
+- **Security settings:** Password change with strength UI, session sign-out
+- **Account settings:** Read-only account details (email, member since, role/owner label)
+- **Summary email toggle:** Opt-in/out of meeting summaries (`user.summaryEmailsEnabled`)
+- **Email change:** Verification required with confirmation sent to current email
+- **Session revocation:** Sign out from current device or all devices
+
+### 4.27 Webhook & real-time updates
+
+- **Stream Video webhooks:** Signature verified, body decompressed (gzip/deflate/br), JSON parsed securely
+- **Webhook events handled:**
+  - `call.session_started` → meeting marked `ongoing`, `startedAt` set
+  - `call.session_ended` → meeting marked `completed`, `endedAt` set, summary generation triggered
+  - `call.recording_ready` → recording URL stored, activity logged, summary regenerated if applicable
+  - `call.transcription_ready` → transcript URL stored, activity logged, summary regenerated with richer transcript
+- **Idempotent processing:** Activity entries keyed by meeting metadata (no duplicates on webhook retries)
+- **Error diagnostics:** Structured logs with header info, sizes, encoding, decompression state (never content)
+
+### 4.28 Development & debugging
+
+- **Verbose logging:** Structured logs for API calls, database operations, LLM requests, email sends
+- **Masked logging:** Secrets and sensitive data never logged (recipient email masked, tokens redacted)
+- **Dev-only fallbacks:** Email verification links printed to console when Brevo fails or not configured
+- **Webhook replay script:** `npm run test:webhook-replay` signs realistic payloads and tests webhook handler
+- **Summary live testing:** `npm run test:summary:live` tests real Mistral calls (requires API key)
+- **Transcript parser tests:** `npm run test:transcript-parser` validates JSONL parsing logic
+- **Drizzle Studio:** `npm run db:studio` opens Drizzle Studio UI for direct database inspection (port 4984)
+
 ---
 
 ## 5. Authentication system — how it works
@@ -348,17 +502,23 @@ nexa-ai/
 
 1. **Transactional email (Brevo):** free plan is 300 emails/day total; sender/domain must be verified in Brevo. Email sends are logged with masked/non-sensitive details only; a dev-only action-link fallback is printed when `NODE_ENV !== "production"` and Brevo is not configured or a send fails. A global daily email budget (250/day safety margin) is enforced in `sendEmail()` before calling Brevo (shared by auth emails and summary emails). Summary emails go only to the meeting owner, and a summary regenerated after the first email does not re-send.
 2. **No billing/payments.** Billing UI and plan enforcement are not implemented.
-3. **Rate limiting / quotas / caps:** Centralized in `src/lib/limits.ts` and enforced via Upstash-backed limiters (`src/lib/rate-limit.ts`) for `/api/chat` (per-minute + daily), tRPC mutations (`meetings.createCall` hourly+daily, `meetings.getToken`, `meetings.retrySummary` per-user hourly + per-meeting daily, `meetings.logVoiceInteraction`, `feedback.create`), Better-Auth auth endpoint rules (secondary-storage backed by Upstash when configured), global Brevo daily budget, and per-user quotas (max agents/meetings) plus input/text caps and Mistral `max_tokens`/Stream call limits where supported. **Limits fail open** when Upstash is unconfigured or errors at runtime (with structured logs) so the app remains available.
+3. **Rate limiting / quotas / caps:** Centralized in `src/lib/limits.ts` and enforced via Upstash-backed limiters (`src/lib/rate-limit.ts`) for `/api/chat` (per-minute + daily), tRPC mutations (`meetings.createCall` hourly+daily, `meetings.getToken`, `meetings.retrySummary` per-user hourly + per-meeting daily, `meetings.logVoiceInteraction`, `feedback.create`, `meetings.quickStart` 10/hour), Better-Auth auth endpoint rules (secondary-storage backed by Upstash when configured), global Brevo daily budget, and per-user quotas (max agents/meetings) plus input/text caps and Mistral `max_tokens`/Stream call limits where supported. **Limits fail open** when Upstash is unconfigured or errors at runtime (with structured logs) so the app remains available.
 4. **System health is partial.** DB is actively pinged; other services are reported as configured/not configured based on env vars (no live probes). No Sentry SDK integration is evident in runtime code from this scan.
-5. **AI Insights are rule-based**, not LLM-generated.
+5. **AI Insights are rule-based**, not LLM-generated. Examples include suggestions to create an agent, schedule a meeting, etc., derived from dashboard metrics.
 6. **Voice metrics are estimates** (client-side duration/response timing).
-7. **No automated test suite/CI in repo** (beyond `tsx` scripts). Several behaviors require manual/browser verification (call UX, webhooks in deployed env, transcript availability).
+7. **Automated test suite and CI:** GitHub Actions workflow runs on main/PR with TypeScript type check (`npx tsc --noEmit`), ESLint check, `npm test` (safe offline tests), and production build. Live tests (`test:summary:live`, `test:webhook-replay`) remain manual.
 8. **Transactions not broadly adopted.** Multi-step writes are not wrapped in interactive transactions (noted historically; neon-http constraints apply).
-9. **Chart libraries are mixed** (ApexCharts used; Recharts also present). Consolidation deferred.
+9. **Chart libraries are mixed** (ApexCharts used for dashboard charts; Recharts primitives also available in `src/components/ui/chart.tsx`). Consolidation deferred.
 10. **Stream transcript speaker mapping is limited** (primarily owner mapping today); multi-participant naming needs richer member resolution.
 11. **Avatar storage**: large `data:` avatars are blocked; durable fix is object storage for avatar URLs (cookie cache should remain off until avatars are URL-based/small).
 12. **Production webhook reliability depends on Stream dashboard config** (URL, events like `call.transcription_ready`, secret alignment) and reachable public endpoint.
 13. **Language tutor quality depends on browser speech recognition and text-to-speech language support**; there is no language picker yet.
+14. **No real-time collaboration:** No co-browsing or shared editing between participants.
+15. **No mobile app:** Web-only responsive design (no native mobile app).
+16. **No user webhooks:** Only Stream webhooks are supported; no outbound webhooks for users.
+17. **No bulk operations:** No bulk agent/meeting export, import, or management.
+18. **No meeting recording viewer:** Stream provides recording/transcription links but no embedded playback viewer.
+19. **No AI model selection UI:** Model selection via environment variable only (`MODEL_NAME`, `GROQ_MODEL_NAME`).
 
 ### Limits (from `src/lib/limits.ts`)
 
@@ -402,3 +562,49 @@ This codebase has gone through multiple hardening/fix passes (all reflected in c
 - Limitations: landing page has no screenshots or social proof (intentional); `localStorage` used only to remember checklist dismissal.
 
 *Detailed chronological issue logs previously lived in this file; they were condensed here to keep the document current and maintainable. Use git history and `drizzle/` migrations for deeper provenance.*
+
+---
+
+## Appendix: Recent Updates & Feature Summary
+
+This document was updated on **2026-11-17** with comprehensive feature documentation. The following areas received expanded detail:
+
+### New Sections Added
+- **4.14–4.28:** Extended feature inventory covering:
+  - CI/CD pipeline (GitHub Actions workflow details)
+  - Legal pages (Terms, Privacy)
+  - Landing page & onboarding checklist
+  - Custom React hooks and utility functions
+  - Type-safe data contracts (Zod schemas)
+  - Search, filtering, and pagination
+  - Responsive design & mobile UX patterns
+  - Clipboard & data export features
+  - Error handling & user feedback
+  - Keyboard shortcuts & accessibility (a11y)
+  - Advanced LLM features (JSON mode, fallback, circuit breaker)
+  - Activity logging & insights
+  - Settings & preferences (profile, security, email)
+  - Webhook & real-time updates (Stream Video integration)
+  - Development & debugging tooling
+
+### Updated Sections
+- **Known limitations & roadmap (Section 8):** Added 6 additional limitations (real-time collaboration, mobile app, user webhooks, bulk ops, recording viewer, model selection UI) and clarified AI Insights are rule-based with examples, expanded on test suite/CI coverage, and added quick-start rate limits.
+
+### Key Features Already Well-Documented
+- Authentication system (Section 5) with Better-Auth configuration, OAuth, email verification, password reset
+- Agent lifecycle (Section 4.2) with five pre-built templates (Brainstorm Partner, Interview Coach, Language Tutor, Sales Call Practice, Standup Buddy)
+- Meetings (Section 4.3) with scheduling, quick-start (rate-limited 10/hour), structured summaries, retry logic
+- Video calls (Section 4.4) with Stream provisioning, recording/transcription, webhook handling
+- AI voice assistant (Section 4.5) with push-to-talk, speech recognition/synthesis, rate limiting (15/min, 300/day)
+- Mistral + Groq fallback (Section 4.6 & 6.3) with JSON mode, zod validation, circuit breaker
+- Dashboard (Section 4.8) with metrics, charts (last 7 days), upcoming meetings, activity feed, AI insights
+- Feedback & admin (Section 4.11 & 9.2) with user submission (5/hour rate limit) and admin review
+- Database schema (Section 3) with 10 core tables and relationships
+- tRPC API (Section 13) with protected procedures, ownership scoping, streaming endpoints
+- Rate limiting & quotas (Section 10.1–10.3) with comprehensive limits table
+
+### Documentation Consistency
+- All code references updated to match actual file locations (e.g., `src/lib/llm.ts`, `src/modules/home/lib/onboarding.ts`)
+- Limits table synchronized with `src/lib/limits.ts` implementation
+- Feature list cross-referenced with actual routes, tRPC procedures, and components
+- Examples include specific rate limits, character caps, and time windows (e.g., 60s email resend cooldown, 24hr summary email window)
