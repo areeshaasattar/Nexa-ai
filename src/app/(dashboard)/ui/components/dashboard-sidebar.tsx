@@ -5,7 +5,6 @@ import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
-  SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -68,26 +67,22 @@ export const DashboardSidebar = () => {
       style={{ "--sidebar-width": "200px" } as CSSProperties}
     >
       <div className="flex h-full w-full flex-col px-3 py-4">
-        {/* Logo row: logo left, collapse icon far right, 20px below */}
-        <SidebarHeader className="mb-5 flex-row items-center justify-between gap-2 p-0">
+        {/* Logo row: logo left, collapse icon far right */}
+        <div className="flex items-center justify-between h-10 mb-5">
           <Link href="/dashboard" className="flex min-w-0 flex-1 items-center gap-2">
             <BrandLogo variant="onLight" width={24} height={24} />
-            <span className="truncate text-[15px] font-semibold text-[#111827]">Nexa AI</span>
+            <span className="truncate text-[15px] font-semibold leading-none text-[#111827]">Nexa AI</span>
           </Link>
-          <SidebarMenuButton
-            render={
-              <button
-                type="button"
-                aria-label="Close sidebar"
-                onClick={toggleSidebar}
-                className="rounded-md text-[#6B7280] hover:text-[#374151] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              />
-            }
-            className="h-7 w-7 p-0"
+          <button
+            type="button"
+            aria-label="Close sidebar"
+            title="Close sidebar (Ctrl+B)"
+            onClick={toggleSidebar}
+            className="shrink-0 inline-flex items-center justify-center size-8 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 active:bg-gray-200 focus:bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-300 focus-visible:bg-gray-100 transition-colors duration-150"
           >
-            <PanelLeftIcon className="size-4" strokeWidth={1.5} />
-          </SidebarMenuButton>
-        </SidebarHeader>
+            <PanelLeftIcon className="size-[18px]" strokeWidth={1.5} />
+          </button>
+        </div>
 
         {/* Nav + Log out in one evenly spaced list (4px between rows) */}
         <SidebarContent className="p-0">

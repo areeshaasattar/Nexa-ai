@@ -49,7 +49,7 @@ export const DashboardNavbar = () => {
             onClick={toggleSidebar}
             aria-label="Open sidebar"
             title="Open sidebar (Ctrl+B)"
-            className="flex shrink-0 items-center justify-center h-9 w-9 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600/15"
+            className="shrink-0 inline-flex items-center justify-center size-8 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 active:bg-gray-200 focus:bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-300 focus-visible:bg-gray-100 transition-colors duration-150"
           >
             <PanelLeft className="size-[18px]" strokeWidth={1.5} />
           </button>
