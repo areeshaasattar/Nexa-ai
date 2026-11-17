@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import Link from "next/link";
-import { Search, Bell, Plus, Calendar, Bot, FileText, Check, MessageSquare, PanelLeft } from "lucide-react";
+import { Search, Bell, Plus, Calendar, Bot, FileText, Check, PanelLeft } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { activityIconName, relativeTime, shouldHideDescription } from "@/modules/home/lib/activity";
 import { trpc } from "@/trpc/client";
@@ -85,15 +85,6 @@ export const DashboardNavbar = () => {
         >
           <Plus className="size-4 shrink-0" strokeWidth={1.5} />
           <span className="hidden sm:inline">New meeting</span>
-        </button>
-
-        <button
-          type="button"
-          aria-label="Feedback"
-          onClick={() => window.dispatchEvent(new Event("open-feedback-dialog"))}
-          className={ICON_BUTTON_CLASSES}
-        >
-          <MessageSquare className="size-[18px]" strokeWidth={1.5} />
         </button>
 
         <div className="relative">
