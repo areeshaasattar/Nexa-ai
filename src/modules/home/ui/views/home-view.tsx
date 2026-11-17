@@ -54,30 +54,28 @@ function StatCard({
   const TrendIcon = isUp ? ArrowUp : ArrowDown;
 
   return (
-    <Card className="min-h-[128px] rounded-xl border-[#e1ece5] bg-white shadow-sm">
-      <CardContent className="flex flex-1 flex-col">
-        <Icon className="size-6 text-brand-700" aria-hidden="true" />
-        <div className="mt-auto">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-text">{label}</p>
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="text-2xl font-bold leading-none text-text">{value}</span>
-            {showTrend && (
-              <span
-                className={`flex items-center gap-0.5 text-xs font-semibold ${
-                  isDown ? "text-danger" : "text-brand-600"
-                }`}
-              >
-                {isNew ? (
-                  "New"
-                ) : (
-                  <>
-                    <TrendIcon className="size-3" aria-hidden="true" />
-                    {Math.abs(trend.percent ?? 0)}%
-                  </>
-                )}
-              </span>
-            )}
-          </div>
+    <Card className="rounded-2xl border border-gray-200/70 bg-white shadow-sm">
+      <CardContent className="p-4 flex flex-col">
+        <Icon className="size-[18px] text-brand-600 mb-3" aria-hidden="true" />
+        <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500 mb-2">{label}</p>
+        <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="text-2xl font-semibold text-gray-900">{value}</span>
+          {showTrend && (
+            <span
+              className={`flex items-center gap-0.5 text-[11px] font-semibold ${
+                isDown ? "text-danger" : "text-brand-600"
+              }`}
+            >
+              {isNew ? (
+                "New"
+              ) : (
+                <>
+                  <TrendIcon className="size-3" aria-hidden="true" />
+                  {Math.abs(trend.percent ?? 0)}%
+                </>
+              )}
+            </span>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -112,12 +110,25 @@ export const HomeView = () => {
 
   if (isLoading) {
     return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          {[...Array(4)].map((_, i) => (
-            <Skeleton key={i} className="h-[128px] rounded-xl" />
-          ))}
+      <div className="space-y-5">
+        {/* Stat cards skeleton row */}
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-5">
+          {/* Left column */}
+          <div className="flex flex-col gap-5">
+            {/* Stat cards row */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {[...Array(4)].map((_, i) => (
+                <Skeleton key={i} className="h-[150px] rounded-2xl" />
+              ))}
+            </div>
+          </div>
+          {/* Right column */}
+          <div className="flex flex-col gap-5">
+            {/* Sentiment skeleton */}
+            <Skeleton className="h-[150px] rounded-2xl" />
+          </div>
         </div>
+        {/* Activity chart skeleton */}
         <Skeleton className="h-72 rounded-2xl" />
       </div>
     );

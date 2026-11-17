@@ -3,13 +3,14 @@
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import Link from "next/link";
-import { Search, Bell, Plus, Calendar, Bot, FileText, Activity as ActivityIcon, Check, MessageSquare } from "lucide-react";
+import { Search, Bell, Plus, Calendar, Bot, FileText, Activity as ActivityIcon, Check, MessageSquare, PanelLeft } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { activityIconName, relativeTime, shouldHideDescription } from "@/modules/home/lib/activity";
 import { trpc } from "@/trpc/client";
 import { authClient } from "@/lib/auth-client";
 import { useSignOut } from "@/hooks/use-sign-out";
+import { useSidebar } from "@/components/ui/sidebar";
 import { ShortcutsModal } from "./shortcuts-modal";
 import { NewMeetingDialog } from "@/modules/meetings/ui/components/new-meeting-dialog";
 import { GeneratedAvatar } from "@/components/generated-avatar";
@@ -27,6 +28,7 @@ export const DashboardNavbar = () => {
   const { data: session } = authClient.useSession();
   const { signOut, isSigningOut } = useSignOut();
   const { data: activity } = trpc.getRecentActivity.useQuery(undefined, { staleTime: 30_000 });
+  const { open: sidebarOpen, toggleSidebar } = useSidebar();
 
   const firstName = session?.user?.name?.split(" ")[0] || "there";
   // hydration-safe date: render after mount
@@ -39,14 +41,27 @@ export const DashboardNavbar = () => {
 
   return (
     <header className="flex items-center justify-between gap-4 px-6 pt-4 pb-2 md:px-8">
-      {/* Greeting block: aligns with the content area's left padding */}
-      <div className="min-w-0 flex-1">
-        <h1 className="truncate text-[15px] font-semibold leading-5 text-[#111827]">
-          Welcome back, {firstName}
-        </h1>
-        <p className="mt-0.5 truncate text-[11px] font-normal leading-4 text-[#6B7280]">
-          {dateLabel}
-        </p>
+      {/* Sidebar toggle button and greeting block: align with the content area's left padding */}
+      <div className="flex items-center gap-3 min-w-0 flex-1">
+        {!sidebarOpen && (
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            aria-label="Open sidebar"
+            title="Open sidebar (Ctrl+B)"
+            className="flex shrink-0 items-center justify-center h-9 w-9 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600/15"
+          >
+            <PanelLeft className="size-[18px]" strokeWidth={1.5} />
+          </button>
+        )}
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate text-[15px] font-semibold leading-5 text-[#111827]">
+            Welcome back, {firstName}
+          </h1>
+          <p className="mt-0.5 truncate text-[11px] font-normal leading-4 text-[#6B7280]">
+            {dateLabel}
+          </p>
+        </div>
       </div>
 
       {/* Slim search pill, centered, not stretched */}

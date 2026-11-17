@@ -78,7 +78,7 @@ export const DashboardSidebar = () => {
             render={
               <button
                 type="button"
-                aria-label="Toggle sidebar"
+                aria-label="Close sidebar"
                 onClick={toggleSidebar}
                 className="rounded-md text-[#6B7280] hover:text-[#374151] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               />
