@@ -310,7 +310,7 @@ Protected under dashboard layout (and included in proxy protected paths).
 - **Meeting search:** Case-insensitive substring match on meeting name and agent name
 - **Meeting status filter:** Filter by scheduled/ongoing/completed
 - **Meeting agent filter:** Filter by agent name
-- **Feedback admin filter:** List all feedback with optional status filter (new/reviewed/resolved)
+- **Feedback admin filter:** List aall feedback with optional status filter (new/reviewed/resolved)
 - **Activity feed:** Filterable by activity type (agent_created, agent_updated, agent_deleted, meeting_created, meeting_started, meeting_completed, recording_ready, transcription_done)
 
 ### 4.20 Responsive design & mobile UX
