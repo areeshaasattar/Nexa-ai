@@ -1,12 +1,13 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
+import type { CSSProperties } from "react";
 import { and, eq, gte } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { activities, agents, user } from "@/db/schema";
 import { seedStarterAgent } from "@/lib/seed-starter-agent";
-import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
+import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { DashboardSidebar } from "./ui/components/dashboard-sidebar";
 import { DashboardNavbar } from "./ui/components/dashboard-navbar";
 import { ShortcutsModal } from "./ui/components/shortcuts-modal";
@@ -68,9 +69,20 @@ const Layout = async ({ children }: Props) => {
   });
 
   return (
-    <SidebarProvider>
+    <SidebarProvider
+      style={
+        {
+          "--sidebar-width": "200px",
+          "--sidebar-width-icon": "3rem",
+        } as CSSProperties
+      }
+    >
       <DashboardSidebar />
       <SidebarInset className="flex flex-col bg-gradient-to-br from-page-bg-start to-page-bg-end">
+        {/* Mobile-only hamburger: opens the sidebar as a slide-in drawer */}
+        <div className="px-3 pt-3 md:hidden">
+          <SidebarTrigger className="h-9 w-9 rounded-lg border border-border bg-white text-text-muted [&_svg]:size-4" />
+        </div>
         <DashboardNavbar />
         <div className="flex-1 overflow-y-auto [scrollbar-gutter:stable] p-6 md:p-8">
           <div className="mx-auto max-w-7xl">
