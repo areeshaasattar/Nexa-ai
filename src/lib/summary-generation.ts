@@ -27,6 +27,7 @@ export type LegacySummaryModelCaller = (
 export interface GenerateSummaryOptions {
   source: string;
   meetingId?: string;
+  agentName?: string;
   model?: string;
   apiKey?: string;
   maxValidationAttempts?: number;
@@ -45,6 +46,7 @@ export async function generateStructuredSummaryFromSource(
 ): Promise<StructuredSummaryResult> {
   const {
     source,
+    agentName,
     maxValidationAttempts = options.maxAttempts ?? 2,
     callModel,
   } = options;
@@ -68,6 +70,7 @@ export async function generateStructuredSummaryFromSource(
     const messages = buildSummaryMessages(source, {
       previousResponse,
       validationError: validationErrors[validationErrors.length - 1],
+      agentName,
     });
 
     let content: string;

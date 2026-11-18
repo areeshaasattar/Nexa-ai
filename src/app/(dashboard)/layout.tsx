@@ -84,7 +84,7 @@ const Layout = async ({ children }: Props) => {
           <SidebarTrigger className="h-9 w-9 rounded-lg border border-border bg-white text-text-muted [&_svg]:size-4" />
         </div>
         <DashboardNavbar />
-        <div className="flex-1 overflow-y-auto [scrollbar-gutter:stable] p-6 md:p-8 bg-[#F7F8FA]">
+        <div className="flex-1 overflow-y-auto [scrollbar-gutter:stable] p-6 md:p-8 bg-surface-soft">
           <div className="mx-auto max-w-7xl pb-6">
             {children}
           </div>

@@ -86,7 +86,7 @@ export const AgentsView = () => {
         <div className={`bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden transition-opacity ${agentsQuery.isFetching ? "opacity-60" : "opacity-100"}`}>
           {agentsQuery.isLoading ? (
             <div className="py-20 flex flex-col items-center justify-center gap-4">
-              <div className="size-8 rounded-full border-2 border-[#3B6D11]/20 border-t-[#3B6D11] animate-spin" />
+              <div className="size-8 rounded-full border-2 border-brand-800/20 border-t-brand-800 animate-spin" />
               <p className="text-xs text-gray-500 font-medium tracking-tight">
                 Synchronizing with Nexa network...
               </p>

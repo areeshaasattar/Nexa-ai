@@ -107,7 +107,7 @@ export const NewAgentDialog = ({
       <DialogContent
         className="
           sm:max-w-[420px] p-0 rounded-2xl
-          border border-[#d4e0d4] bg-white shadow-xl
+          border border-brand-100 bg-white shadow-xl
 
           /* Overlay fade */
           data-[state=open]:animate-in data-[state=closed]:animate-out
@@ -121,9 +121,9 @@ export const NewAgentDialog = ({
         "
       >
         {/* Header */}
-        <div className="px-6 pt-6 pb-5 border-b border-[#d4e0d4]">
+        <div className="px-6 pt-6 pb-5 border-b border-brand-100">
           <div className="flex items-center gap-4">
-            <div className="shrink-0 w-11 h-11 rounded-xl bg-[#e2ede2] border border-[#c4d8c4] flex items-center justify-center overflow-hidden">
+            <div className="shrink-0 w-11 h-11 rounded-xl bg-brand-100 border border-brand-200 flex items-center justify-center overflow-hidden">
               <GeneratedAvatar
                 seed={agentName || "Agent"}
                 style="bottts"
@@ -131,10 +131,10 @@ export const NewAgentDialog = ({
               />
             </div>
             <DialogHeader className="p-0 space-y-0.5">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-[#6a9a6a]">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-brand-400">
                 New agent
               </p>
-              <DialogTitle className="text-base font-semibold text-[#1a2e1a] leading-tight">
+              <DialogTitle className="text-base font-semibold text-brand-950 leading-tight">
                 Deploy agent
               </DialogTitle>
             </DialogHeader>
@@ -142,8 +142,8 @@ export const NewAgentDialog = ({
         </div>
 
         {/* Start from a template */}
-        <div className="px-6 pt-5 pb-5 border-b border-[#d4e0d4] bg-[#fafcfa]">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-[#6a9a6a] mb-3">
+        <div className="px-6 pt-5 pb-5 border-b border-brand-100 bg-brand-50">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-brand-400 mb-3">
             Start from a template
           </p>
           <div className="max-h-[232px] overflow-y-auto pr-1">
@@ -167,7 +167,7 @@ export const NewAgentDialog = ({
               <Input
                 {...form.register("name")}
                 placeholder="e.g. Nexus-1 Core"
-                className="h-10 rounded-lg border border-[#a8c8a8] bg-gray-50 text-sm focus:bg-white focus:border-[#3B6D11] focus:ring-1 focus:ring-[#3B6D11]/20 transition-colors placeholder:text-gray-400"
+                className="h-10 rounded-lg border border-brand-300 bg-gray-50 text-sm focus:bg-white focus:border-brand-800 focus:ring-1 focus:ring-brand-800/20 transition-colors placeholder:text-gray-400"
                 disabled={createMutation.isPending}
               />
               {form.formState.errors.name && (
@@ -182,7 +182,7 @@ export const NewAgentDialog = ({
               <Textarea
                 {...form.register("instruction")}
                 placeholder="What is this agent's primary mission?"
-                className="min-h-[108px] rounded-lg border border-[#a8c8a8] bg-gray-50 text-sm resize-none focus:bg-white focus:border-[#3B6D11] focus:ring-1 focus:ring-[#3B6D11]/20 transition-colors placeholder:text-gray-400"
+                className="min-h-[108px] rounded-lg border border-brand-300 bg-gray-50 text-sm resize-none focus:bg-white focus:border-brand-800 focus:ring-1 focus:ring-brand-800/20 transition-colors placeholder:text-gray-400"
                 disabled={createMutation.isPending}
               />
               {form.formState.errors.instruction && (
@@ -192,13 +192,13 @@ export const NewAgentDialog = ({
           </div>
 
           {/* Footer */}
-          <DialogFooter className="px-6 py-6 border-t border-[#d4e0d4] bg-[#f0f4f0] flex flex-row items-center justify-end gap-2">
+          <DialogFooter className="px-6 py-6 border-t border-brand-100 bg-brand-50 flex flex-row items-center justify-end gap-2">
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={() => onOpenChange(false)}
-              className="rounded-lg border-[#c4d4c4] bg-transparent text-gray-600 hover:bg-[#e4ede4] text-sm h-9 px-4"
+              className="rounded-lg border-brand-200 bg-transparent text-gray-600 hover:bg-brand-100 text-sm h-9 px-4"
               disabled={createMutation.isPending}
             >
               Cancel
@@ -206,7 +206,7 @@ export const NewAgentDialog = ({
             <Button
               type="submit"
               size="sm"
-              className="rounded-lg bg-[#3B6D11] hover:bg-[#2f5a0d] text-white text-sm font-medium h-9 px-5 transition-colors"
+              className="rounded-lg bg-brand-800 hover:bg-brand-900 text-white text-sm font-medium h-9 px-5 transition-colors"
               disabled={createMutation.isPending}
             >
               {createMutation.isPending ? "Deploying…" : "Deploy"}

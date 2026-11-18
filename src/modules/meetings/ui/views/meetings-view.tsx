@@ -178,7 +178,7 @@ export const MeetingsView = () => {
             </p>
           </div>
           <div className="flex items-center gap-2 px-3 py-1 bg-gray-50 rounded-full border border-gray-100">
-            <span className="size-1.5 rounded-full bg-[#3B6D11] animate-pulse"></span>
+            <span className="size-1.5 rounded-full bg-brand-800 animate-pulse"></span>
             <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">
               {total} Total Sessions
             </span>
@@ -225,7 +225,7 @@ export const MeetingsView = () => {
                               size="sm"
                               onClick={() => quickStart.start(STARTER_TEMPLATE)}
                               disabled={quickStart.isPending}
-                              className="rounded-lg bg-[#3B6D11] text-white hover:bg-[#2f5a0d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B6D11] focus-visible:ring-offset-2"
+                              className="rounded-lg bg-brand-800 text-white hover:bg-brand-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-800 focus-visible:ring-offset-2"
                             >
                               <PlayCircleIcon className="size-3.5" />
                               Try it now
@@ -233,7 +233,7 @@ export const MeetingsView = () => {
                           )}
                           <Link
                             href="/agents"
-                            className="inline-flex h-8 items-center rounded-lg border border-[#d4e0d4] px-3 text-sm font-medium text-[#3B6D11] transition-colors hover:bg-[#f0f4f0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B6D11] focus-visible:ring-offset-2"
+                            className="inline-flex h-8 items-center rounded-lg border border-brand-100 px-3 text-sm font-medium text-brand-800 transition-colors hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-800 focus-visible:ring-offset-2"
                           >
                             Browse templates
                           </Link>
@@ -241,7 +241,7 @@ export const MeetingsView = () => {
                             variant="outline"
                             size="sm"
                             onClick={() => setIsDialogOpen(true)}
-                            className="rounded-lg border-[#d4e0d4] text-[#3B6D11] hover:bg-[#f0f4f0]"
+                            className="rounded-lg border-brand-100 text-brand-800 hover:bg-brand-50"
                           >
                             Schedule First Meeting
                           </Button>
@@ -273,31 +273,43 @@ export const MeetingsView = () => {
                       return `${h}h ${String(m).padStart(2, "0")}m`;
                     };
 
+                    // Extract coaching score from summaryData if present
+                    const coachingScore = meeting.summaryData?.coaching?.overallScore;
+
                     return (
                       <tr
                         key={meeting.id}
-                        className="group hover:bg-[#fcfdfc] transition-colors"
+                        className="group hover:bg-brand-50 transition-colors"
                       >
                         <td className="px-6 py-4">
                           <div className="flex flex-col">
                             <Link
                               href={`/meetings/${meeting.id}`}
-                              className="text-sm font-bold text-gray-900 group-hover:text-[#3B6D11] transition-colors cursor-pointer flex items-center gap-2"
+                              className="text-sm font-bold text-gray-900 group-hover:text-brand-800 transition-colors cursor-pointer flex items-center gap-2"
                             >
                               {meeting.name}
-                              <ExternalLinkIcon className="size-3 opacity-0 group-hover:opacity-100 transition-opacity text-[#3B6D11]" />
+                              <ExternalLinkIcon className="size-3 opacity-0 group-hover:opacity-100 transition-opacity text-brand-800" />
                             </Link>
-                            <span className="text-[10px] font-mono text-gray-400 mt-0.5 tracking-tight uppercase">
-                              {meeting.id}
-                            </span>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-[10px] font-mono text-gray-400 tracking-tight uppercase">
+                                {meeting.id}
+                              </span>
+                              {coachingScore !== undefined && (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-brand-800/10 border border-brand-800/20">
+                                  <span className="text-[10px] font-bold text-brand-800">
+                                    {coachingScore}/10
+                                  </span>
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </td>
                         <td className="px-6 py-4">
                           <Link
                             href={`/agents/${meeting.agentId}`}
-                            className="inline-flex items-center gap-2 px-2 py-1 rounded-lg bg-gray-50 border border-gray-100 hover:border-[#3B6D11]/30 transition-colors"
+                            className="inline-flex items-center gap-2 px-2 py-1 rounded-lg bg-gray-50 border border-gray-100 hover:border-brand-800/30 transition-colors"
                           >
-                            <BotIcon className="size-3.5 text-[#3B6D11]" />
+                            <BotIcon className="size-3.5 text-brand-800" />
                             <span className="text-xs font-semibold text-gray-700">
                               {meeting.agentName}
                             </span>
@@ -351,7 +363,7 @@ export const MeetingsView = () => {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent
                               align="end"
-                              className="rounded-xl border-[#d4e0d4] shadow-lg p-1"
+                              className="rounded-xl border-brand-100 shadow-lg p-1"
                             >
                               <DropdownMenuItem
                                 className="text-xs font-bold text-gray-600 rounded-lg cursor-pointer flex items-center gap-2.5"

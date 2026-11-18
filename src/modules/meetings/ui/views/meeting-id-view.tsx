@@ -49,7 +49,7 @@ const statusConfig: Record<string, StatusBadgeConfig> = {
   },
   completed: {
     label: "Completed",
-    styles: "bg-[#f0f4f0] text-[#3B6D11] border-[#d4e0d4]",
+    styles: "bg-brand-50 text-brand-800 border-brand-100",
     icon: <CheckCircle2Icon className="size-3" />,
   },
 };
@@ -171,14 +171,14 @@ export const MeetingIdView = ({ meetingId }: MeetingIdViewProps) => {
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Relay</span>
               <span className="text-gray-300">/</span>
-              <span className="text-[10px] font-bold text-[#3B6D11] uppercase tracking-widest">{meeting.name}</span>
+              <span className="text-[10px] font-bold text-brand-800 uppercase tracking-widest">{meeting.name}</span>
             </div>
             <h1 className="text-xl font-bold text-gray-900 tracking-tight">Meeting Intelligence</h1>
           </div>
         </div>
         <div className="flex items-center gap-2">
           {["scheduled", "ongoing"].includes(meeting.status) && (
-            <Button asChild className="rounded-xl h-10 px-6 font-bold bg-[#3B6D11] hover:bg-[#2d540d] transition-all gap-2">
+            <Button asChild className="rounded-xl h-10 px-6 font-bold bg-brand-800 hover:bg-brand-900 transition-all gap-2">
               <Link href={`/call/${meeting.id}`}>
                 <VideoIcon className="size-4" />
                 {meeting.status === "scheduled" ? "Start Meeting" : "Join Call"}
@@ -194,7 +194,7 @@ export const MeetingIdView = ({ meetingId }: MeetingIdViewProps) => {
         <div className="lg:col-span-1 flex flex-col gap-6">
           <div className="bg-white rounded-3xl border border-gray-100 p-8 shadow-sm">
             <div className="flex items-center gap-4 mb-8">
-              <div className="size-12 rounded-2xl bg-[#f0f4f0] border border-[#d4e0d4] flex items-center justify-center text-[#3B6D11]">
+              <div className="size-12 rounded-2xl bg-brand-50 border border-brand-100 flex items-center justify-center text-brand-800">
                 <VideoIcon className="size-6" />
               </div>
               <div className="flex flex-col">
@@ -234,7 +234,7 @@ export const MeetingIdView = ({ meetingId }: MeetingIdViewProps) => {
                 </div>
                 <div className="flex flex-col">
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Assigned Agent</span>
-                  <Link href={`/agents/${meeting.agentId}`} className="text-sm font-semibold text-[#3B6D11] hover:underline">
+                  <Link href={`/agents/${meeting.agentId}`} className="text-sm font-semibold text-brand-800 hover:underline">
                     {meeting.agentName}
                   </Link>
                 </div>
@@ -269,7 +269,7 @@ export const MeetingIdView = ({ meetingId }: MeetingIdViewProps) => {
           <div className="bg-white rounded-3xl border border-gray-100 p-8 shadow-sm min-h-[400px]">
             <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
               <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                <ClipboardListIcon className="size-4 text-[#3B6D11]" />
+                <ClipboardListIcon className="size-4 text-brand-800" />
                 AI-Generated Mission Summary
               </h3>
               {structuredSummary && structuredSummary.meta?.kind !== "insufficient" && (
@@ -292,7 +292,7 @@ export const MeetingIdView = ({ meetingId }: MeetingIdViewProps) => {
               // Polling is still active (~2 min max) while waiting for the
               // summary; after that it stops and we show "Summary unavailable".
               <div className="flex flex-col items-center justify-center py-20 text-center gap-4">
-                <div className={`size-12 rounded-2xl flex items-center justify-center ${summaryTimedOut ? "bg-gray-50 text-gray-200" : "bg-[#f0f4f0] text-[#3B6D11] animate-pulse"}`}>
+                <div className={`size-12 rounded-2xl flex items-center justify-center ${summaryTimedOut ? "bg-gray-50 text-gray-200" : "bg-brand-50 text-brand-800 animate-pulse"}`}>
                   <ClipboardListIcon className="size-6" />
                 </div>
                 <div className="flex flex-col">

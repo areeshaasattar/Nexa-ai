@@ -415,6 +415,162 @@ await test("fallback factory always produces schema-valid stored data", () => {
   assert.equal(fallback.meta?.kind, "fallback");
 });
 
+await test("coaching schema accepts valid coaching object", () => {
+  const summaryWithCoaching = {
+    ...VALID_SUMMARY,
+    coaching: {
+      overallScore: 7,
+      rubric: [
+        { key: "clarity", score: 8, comment: "Clear explanations." },
+        { key: "structure", score: 6, comment: "Some answers lacked structure." },
+        { key: "confidence", score: 7, comment: "Steady tone." },
+        { key: "answerQuality", score: 7, comment: "Good examples." },
+      ],
+      fillerWords: { total: 12, examples: ["um", "like", "you know"] },
+      strengths: ["Used specific examples", "Stayed on topic"],
+      improvements: ["Reduce filler words", "Add measurable outcomes"],
+      betterAnswers: [
+        {
+          question: "Tell me about a time you resolved a conflict.",
+          yourAnswer: "You mentioned a team disagreement.",
+          suggestedAnswer: "I mediated by listening to both sides and proposing a compromise.",
+        },
+      ],
+    },
+  };
+  const parsed = storedSummaryDataSchema.safeParse(summaryWithCoaching);
+  assert.equal(parsed.success, true);
+  if (parsed.success) {
+    assert.equal(parsed.data.coaching?.overallScore, 7);
+    assert.equal(parsed.data.coaching?.rubric.length, 4);
+    assert.equal(parsed.data.coaching?.fillerWords.total, 12);
+  }
+});
+
+await test("coaching schema accepts summaries without coaching field", () => {
+  const parsed = storedSummaryDataSchema.safeParse(VALID_SUMMARY);
+  assert.equal(parsed.success, true);
+  if (parsed.success) {
+    assert.equal(parsed.data.coaching, undefined);
+  }
+});
+
+await test("coaching schema rejects invalid scores", () => {
+  const invalidScore = {
+    ...VALID_SUMMARY,
+    coaching: {
+      overallScore: 11,
+      rubric: [
+        { key: "clarity", score: 8, comment: "Clear." },
+        { key: "structure", score: 6, comment: "Ok." },
+        { key: "confidence", score: 7, comment: "Good." },
+        { key: "answerQuality", score: 7, comment: "Good." },
+      ],
+      fillerWords: { total: 0, examples: [] },
+      strengths: ["Good"],
+      improvements: ["Improve"],
+      betterAnswers: [],
+    },
+  };
+  const parsed = storedSummaryDataSchema.safeParse(invalidScore);
+  assert.equal(parsed.success, false);
+});
+
+await test("coaching schema rejects wrong number of rubric items", () => {
+  const wrongRubricCount = {
+    ...VALID_SUMMARY,
+    coaching: {
+      overallScore: 7,
+      rubric: [
+        { key: "clarity", score: 8, comment: "Clear." },
+        { key: "structure", score: 6, comment: "Ok." },
+      ],
+      fillerWords: { total: 0, examples: [] },
+      strengths: ["Good"],
+      improvements: ["Improve"],
+      betterAnswers: [],
+    },
+  };
+  const parsed = storedSummaryDataSchema.safeParse(wrongRubricCount);
+  assert.equal(parsed.success, false);
+});
+
+await test("coaching schema rejects too many better answers", () => {
+  const tooManyAnswers = {
+    ...VALID_SUMMARY,
+    coaching: {
+      overallScore: 7,
+      rubric: [
+        { key: "clarity", score: 8, comment: "Clear." },
+        { key: "structure", score: 6, comment: "Ok." },
+        { key: "confidence", score: 7, comment: "Good." },
+        { key: "answerQuality", score: 7, comment: "Good." },
+      ],
+      fillerWords: { total: 0, examples: [] },
+      strengths: ["Good"],
+      improvements: ["Improve"],
+      betterAnswers: [
+        { question: "Q1", yourAnswer: "A1", suggestedAnswer: "S1" },
+        { question: "Q2", yourAnswer: "A2", suggestedAnswer: "S2" },
+        { question: "Q3", yourAnswer: "A3", suggestedAnswer: "S3" },
+        { question: "Q4", yourAnswer: "A4", suggestedAnswer: "S4" },
+      ],
+    },
+  };
+  const parsed = storedSummaryDataSchema.safeParse(tooManyAnswers);
+  assert.equal(parsed.success, false);
+});
+
+await test("markdown export includes coaching content when present", () => {
+  const summaryWithCoaching = {
+    ...VALID_SUMMARY,
+    coaching: {
+      overallScore: 7,
+      rubric: [
+        { key: "clarity", score: 8, comment: "Clear explanations." },
+        { key: "structure", score: 6, comment: "Some answers lacked structure." },
+        { key: "confidence", score: 7, comment: "Steady tone." },
+        { key: "answerQuality", score: 7, comment: "Good examples." },
+      ],
+      fillerWords: { total: 12, examples: ["um", "like"] },
+      strengths: ["Used specific examples"],
+      improvements: ["Reduce filler words"],
+      betterAnswers: [
+        {
+          question: "Tell me about a conflict.",
+          yourAnswer: "Brief answer.",
+          suggestedAnswer: "Better answer.",
+        },
+      ],
+    },
+  };
+  const markdown = summaryToMarkdown(summaryWithCoaching as unknown as Parameters<typeof summaryToMarkdown>[0]);
+  assert.match(markdown, /## Interview Performance: 7\/10/);
+  assert.match(markdown, /### Rubric/);
+  assert.match(markdown, /\*\*clarity\*\*: 8\/10/);
+  assert.match(markdown, /### Filler Words: 12/);
+  assert.match(markdown, /### Strengths/);
+  assert.match(markdown, /### Areas for Improvement/);
+  assert.match(markdown, /### Better Answer Examples/);
+  assert.match(markdown, /\*\*Q:\*\* Tell me about a conflict/);
+});
+
+await test("interview coaching prompt is used when agent name is Interview Coach", () => {
+  const messages = buildSummaryMessages(SCENARIO, { agentName: "Interview Coach" });
+  assert.equal(messages[0].role, "system");
+  assert.match(messages[0].content, /interview practice coaching engine/);
+  assert.match(messages[0].content, /coaching/);
+  assert.match(messages[0].content, /overallScore/);
+  assert.match(messages[0].content, /rubric/);
+});
+
+await test("standard prompt is used when agent name is not Interview Coach", () => {
+  const messages = buildSummaryMessages(SCENARIO, { agentName: "Brainstorm Partner" });
+  assert.equal(messages[0].role, "system");
+  assert.match(messages[0].content, /meeting intelligence extraction engine/);
+  assert.ok(!messages[0].content.includes("coaching"));
+});
+
   console.log(`\n${passed} passed, ${failures.length} failed`);
   if (failures.length > 0) {
     console.error(`Failures: ${failures.join(", ")}`);
