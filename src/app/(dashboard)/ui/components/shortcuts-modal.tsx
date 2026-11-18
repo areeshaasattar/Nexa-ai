@@ -78,10 +78,10 @@ export function ShortcutsModal() {
       )}
 
       {open && (
-        <div className="fixed left-1/2 top-[20%] z-50 w-full max-w-[560px] -translate-x-1/2 animate-in fade-in slide-in-from-top-4 duration-200">
-          <div className="mx-4 overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-2xl shadow-black/10 ring-1 ring-black/5">
-            <div className="flex items-center gap-3 border-b border-gray-100 px-4 py-3.5">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-green-50 text-green-600">
+        <div className="fixed left-1/2 top-[12vh] z-50 w-full max-w-xl -translate-x-1/2 animate-in fade-in slide-in-from-top-4 duration-200 sm:top-[12vh] max-sm:top-[8vh] max-sm:w-[calc(100%-2rem)]">
+          <div className="mx-4 flex max-h-[min(70vh,560px)] flex-col overflow-hidden rounded-2xl border border-border/60 bg-white shadow-2xl max-sm:max-h-[80vh]">
+            <div className="flex shrink-0 items-center gap-3 border-b border-gray-100 px-4 py-3.5">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-100 text-brand-700">
                 <svg
                   className="h-4 w-4"
                   fill="none"
@@ -106,23 +106,23 @@ export function ShortcutsModal() {
               </button>
             </div>
 
-            <div className="max-h-[420px] overflow-y-auto overscroll-contain py-2">
+            <div className="flex-1 overflow-y-auto overscroll-contain py-2 [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-track]:bg-transparent">
               <CommandSection label="Navigate">
                 <CommandRow
                   icon={<LayoutDashboardIcon className="h-4 w-4" />}
-                  iconBg="bg-blue-50 text-blue-600"
+                  iconBg="bg-brand-100 text-brand-700"
                   label="Dashboard"
                   onSelect={() => runCommand(() => router.push("/dashboard"))}
                 />
                 <CommandRow
                   icon={<VideoIcon className="h-4 w-4" />}
-                  iconBg="bg-purple-50 text-purple-600"
+                  iconBg="bg-brand-100 text-brand-700"
                   label="Meetings"
                   onSelect={() => runCommand(() => router.push("/meetings"))}
                 />
                 <CommandRow
                   icon={<BotIcon className="h-4 w-4" />}
-                  iconBg="bg-green-50 text-green-600"
+                  iconBg="bg-brand-100 text-brand-700"
                   label="AI Agents"
                   onSelect={() => runCommand(() => router.push("/agents"))}
                 />
@@ -133,7 +133,7 @@ export function ShortcutsModal() {
               <CommandSection label="Actions">
                 <CommandRow
                   icon={<PlusIcon className="h-4 w-4" />}
-                  iconBg="bg-green-50 text-green-600"
+                  iconBg="bg-brand-100 text-brand-700"
                   label="New Meeting"
                   onSelect={() =>
                     runCommand(() => setNewMeetingOpen(true))
@@ -146,7 +146,7 @@ export function ShortcutsModal() {
               <CommandSection label="Settings">
                 <CommandRow
                   icon={<UserIcon className="h-4 w-4" />}
-                  iconBg="bg-gray-100 text-gray-600"
+                  iconBg="bg-brand-100 text-brand-700"
                   label="Profile"
                   onSelect={() =>
                     runCommand(() => router.push("/settings?tab=profile"))
@@ -154,7 +154,7 @@ export function ShortcutsModal() {
                 />
                 <CommandRow
                   icon={<ShieldCheckIcon className="h-4 w-4" />}
-                  iconBg="bg-gray-100 text-gray-600"
+                  iconBg="bg-brand-100 text-brand-700"
                   label="Security"
                   onSelect={() =>
                     runCommand(() => router.push("/settings?tab=security"))
@@ -162,7 +162,7 @@ export function ShortcutsModal() {
                 />
                 <CommandRow
                   icon={<SettingsIcon className="h-4 w-4" />}
-                  iconBg="bg-gray-100 text-gray-600"
+                  iconBg="bg-brand-100 text-brand-700"
                   label="Account Settings"
                   onSelect={() => runCommand(() => router.push("/settings"))}
                 />
@@ -173,7 +173,7 @@ export function ShortcutsModal() {
               <CommandSection label="Help">
                 <CommandRow
                   icon={<HelpCircleIcon className="h-4 w-4" />}
-                  iconBg="bg-sky-50 text-sky-600"
+                  iconBg="bg-brand-100 text-brand-700"
                   label="Documentation"
                   onSelect={() =>
                     runCommand(() =>
@@ -204,7 +204,7 @@ export function ShortcutsModal() {
                 </span>
               </div>
               <div className="flex items-center gap-1 text-[11px] text-gray-400">
-                <span className="font-medium text-green-600">NexaAI</span>
+                <span className="font-medium text-brand-700">NexaAI</span>
               </div>
             </div>
           </div>
@@ -253,7 +253,7 @@ function CommandRow({
       onClick={onSelect}
       className={cn(
         "group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-all duration-100",
-        "hover:bg-green-50 hover:shadow-sm focus:outline-none focus:bg-green-50",
+        "hover:bg-brand-50 hover:shadow-sm focus:outline-none focus:bg-brand-50",
       )}
     >
       <span
