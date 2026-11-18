@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import Link from "next/link";
-import { Search, Bell, Plus, Calendar, Bot, FileText, Check, PanelLeft } from "lucide-react";
+import { Search, Bell, Plus, Calendar, Bot, FileText, Check, PanelLeft, Settings, LogOut } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { activityIconName, relativeTime, shouldHideDescription } from "@/modules/home/lib/activity";
 import { trpc } from "@/trpc/client";
@@ -69,7 +69,7 @@ export const DashboardNavbar = () => {
           type="button"
           aria-label="Search"
           onClick={() => window.dispatchEvent(new Event("open-shortcuts"))}
-          className="flex h-9 w-[260px] max-w-[30vw] items-center gap-2 rounded-full border border-border/70 bg-white px-3 shadow-sm transition-colors hover:bg-white focus-within:border-green-600 focus-within:ring-2 focus-within:ring-green-600/15 focus-visible:border-green-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600/15"
+          className="flex h-11 w-[260px] max-w-[30vw] items-center gap-2 rounded-xl border border-border bg-white px-3 shadow-sm transition-colors hover:bg-white focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500/20 focus-visible:outline-none"
         >
           <Search className="size-3.5 shrink-0 text-text-subtle" strokeWidth={1.5} />
           <span className="flex-1 truncate text-left text-[13px] text-text-subtle">Search...</span>
@@ -81,7 +81,7 @@ export const DashboardNavbar = () => {
         <button
           type="button"
           onClick={() => setNewMeetingOpen(true)}
-          className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-primary px-4 text-[13px] font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/15 disabled:opacity-60"
+          className="flex h-11 shrink-0 items-center gap-1.5 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/15 disabled:opacity-60"
         >
           <Plus className="size-4 shrink-0" strokeWidth={1.5} />
           <span className="hidden sm:inline">New meeting</span>
@@ -228,7 +228,7 @@ export const DashboardNavbar = () => {
               <button
                 type="button"
                 aria-label="User menu"
-                className={cn(ICON_BUTTON_CLASSES, "focus-visible:ring-1 focus-visible:ring-black/5")}
+                className={cn(ICON_BUTTON_CLASSES, "focus-visible:ring-2 focus-visible:ring-brand-500/30")}
               >
                 <GeneratedAvatar
                   seed={session?.user?.email || session?.user?.id || "user"}
@@ -240,17 +240,17 @@ export const DashboardNavbar = () => {
               </button>
             }
           />
-          <DropdownMenuContent align="end" sideOffset={8} collisionPadding={8} className="w-56 bg-white border border-border shadow-lg rounded-xl">
+          <DropdownMenuContent align="end" sideOffset={8} collisionPadding={8} className="w-56 bg-white rounded-xl border border-border/60 shadow-lg p-1.5">
             <DropdownMenuGroup>
               <DropdownMenuLabel>
-                <div className="text-sm font-medium text-text truncate">{session?.user?.name}</div>
+                <div className="text-sm font-semibold text-text truncate">{session?.user?.name}</div>
                 <div className="text-xs text-text-muted truncate">{session?.user?.email}</div>
               </DropdownMenuLabel>
             </DropdownMenuGroup>
-            <DropdownMenuSeparator className="bg-border" />
-            <DropdownMenuItem render={<Link href="/settings" className="cursor-pointer text-sm">Settings</Link>} />
-            <DropdownMenuSeparator className="bg-border" />
-            <DropdownMenuItem render={<button type="button" onClick={() => signOut()} disabled={isSigningOut} className="w-full text-left text-sm">{isSigningOut ? "Signing out..." : "Sign out"}</button>} />
+            <DropdownMenuSeparator className="bg-border/60" />
+            <DropdownMenuItem render={<Link href="/settings" className="flex h-10 items-center gap-2 rounded-lg px-3 text-sm text-text hover:bg-brand-100"><Settings className="size-4" />Settings</Link>} />
+            <DropdownMenuSeparator className="bg-border/60" />
+            <DropdownMenuItem nativeButton render={<button type="button" onClick={() => signOut()} disabled={isSigningOut} className="flex h-10 w-full items-center gap-2 rounded-lg px-3 text-left text-sm text-text hover:bg-brand-100 disabled:opacity-50">{isSigningOut ? "Signing out..." : <><LogOut className="size-4" />Sign out</>}</button>} />
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

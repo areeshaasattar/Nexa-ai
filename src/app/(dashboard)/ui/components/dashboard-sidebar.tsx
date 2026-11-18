@@ -68,10 +68,10 @@ export const DashboardSidebar = () => {
     >
       <div className="flex h-full w-full flex-col px-3 py-4">
         {/* Logo row: logo left, collapse icon far right */}
-        <div className="flex items-center justify-between h-10 mb-5">
+        <div className="flex items-center justify-between h-12 mb-5">
           <Link href="/dashboard" className="flex min-w-0 flex-1 items-center gap-2">
-            <BrandLogo variant="onLight" width={24} height={24} />
-            <span className="truncate text-[15px] font-semibold leading-none text-text">Nexa AI</span>
+            <BrandLogo variant="onLight" width={36} height={36} />
+            <span className="truncate text-xl font-semibold leading-none text-text">Nexa AI</span>
           </Link>
           <button
             type="button"

@@ -49,7 +49,7 @@ export function AgentTemplateCard({
             onClick={() => onTryItNow(template)}
             disabled={isPending}
             className={cn(
-              "h-8 rounded-lg bg-brand-800 px-2.5 text-xs font-medium text-white transition-colors hover:bg-brand-900",
+              "h-8 rounded-lg bg-primary px-2.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary-hover",
               focusRing,
             )}
           >

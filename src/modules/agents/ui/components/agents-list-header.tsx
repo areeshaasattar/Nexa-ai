@@ -116,7 +116,7 @@ const AgentsListHeader = ({ onOpenDialog }: AgentsListHeaderProps) => {
           </Button>
           <Button
             onClick={onOpenDialog}
-            className="rounded-xl h-11 px-6 bg-primary hover:bg-primary-hover text-primary-foreground font-bold shadow-lg shadow-brand-700/20 transition-all active:scale-95 flex items-center gap-2"
+            className="rounded-xl h-11 px-5 bg-primary hover:bg-primary-hover text-primary-foreground font-bold shadow-lg shadow-brand-700/20 transition-all active:scale-95 flex items-center gap-2"
           >
             <PlusIcon className="size-5" />
             <span>Create Agent</span>

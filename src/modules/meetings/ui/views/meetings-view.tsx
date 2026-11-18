@@ -225,7 +225,7 @@ export const MeetingsView = () => {
                               size="sm"
                               onClick={() => quickStart.start(STARTER_TEMPLATE)}
                               disabled={quickStart.isPending}
-                              className="rounded-lg bg-primary text-primary-foreground hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                              className="rounded-xl h-11 px-5 bg-primary text-primary-foreground hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                             >
                               <PlayCircleIcon className="size-3.5" />
                               Try it now
