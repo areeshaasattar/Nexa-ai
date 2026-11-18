@@ -6,9 +6,6 @@ import { Button } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
 } from "@/components/ui/sheet";
 
 interface AgentsListHeaderProps {
@@ -45,16 +42,20 @@ const ExampleBlock = ({ title, text }: { title: string; text: string }) => {
       // ignore
     }
   };
+  
+  // Parse the text into structured lines
+  const lines = text.split('\n').filter(line => line.trim());
+  
   return (
-    <div className="rounded-xl border border-brand-100 bg-brand-100/40 p-4">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="text-xs font-bold uppercase tracking-wider text-brand-700">
+    <div className="rounded-xl border border-border/60 bg-brand-50 p-5">
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <span className="text-xs font-semibold uppercase tracking-wide text-brand-700">
           {title}
         </span>
         <button
           type="button"
           onClick={handleCopy}
-          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-semibold text-brand-700 transition-colors hover:bg-brand-100"
+          className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-brand-700 transition-colors hover:bg-brand-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/30"
         >
           {copied ? (
             <>
@@ -67,9 +68,11 @@ const ExampleBlock = ({ title, text }: { title: string; text: string }) => {
           )}
         </button>
       </div>
-      <pre className="whitespace-pre-wrap break-words font-sans text-xs leading-relaxed text-gray-700">
-        {text}
-      </pre>
+      <div className="space-y-1.5 text-sm leading-relaxed text-text">
+        {lines.map((line, index) => (
+          <p key={index}>{line}</p>
+        ))}
+      </div>
     </div>
   );
 };
@@ -125,53 +128,85 @@ const AgentsListHeader = ({ onOpenDialog }: AgentsListHeaderProps) => {
       </div>
 
       <Sheet open={guideOpen} onOpenChange={setGuideOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Writing good agent instructions</SheetTitle>
-            <SheetDescription>
-              The instruction becomes the agent&apos;s system prompt in every meeting.
-            </SheetDescription>
-          </SheetHeader>
-
-          <div className="flex flex-col gap-4 px-4 pb-4">
-            <section className="space-y-1">
-              <h3 className="text-sm font-semibold text-brand-900">Role</h3>
-              <p className="text-sm text-gray-600">
-                Who the agent is and what it is responsible for.
-              </p>
-            </section>
-            <section className="space-y-1">
-              <h3 className="text-sm font-semibold text-brand-900">Tone</h3>
-              <p className="text-sm text-gray-600">
-                How it speaks: friendly, formal, concise, encouraging, etc.
-              </p>
-            </section>
-            <section className="space-y-1">
-              <h3 className="text-sm font-semibold text-brand-900">Rules</h3>
-              <p className="text-sm text-gray-600">
-                What it must or must not do (boundaries, topics to avoid).
-              </p>
-            </section>
-            <section className="space-y-1">
-              <h3 className="text-sm font-semibold text-brand-900">Voice tips</h3>
-              <p className="text-sm text-gray-600">
-                In live calls keep answers short, one idea per reply, avoid long
-                lists.
-              </p>
-            </section>
-
-            <div className="flex flex-col gap-3 pt-2">
-              {EXAMPLES.map((example) => (
-                <ExampleBlock
-                  key={example.title}
-                  title={example.title}
-                  text={example.text}
-                />
-              ))}
+        <SheetContent 
+          side="right" 
+          className="w-full sm:max-w-md max-w-full border-l border-border/60 shadow-2xl p-0 gap-0 flex h-full flex-col"
+          showCloseButton={false}
+        >
+          {/* Fixed Header */}
+          <div className="shrink-0 px-6 py-5 border-b border-border/60">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <h2 className="text-lg font-semibold text-text">
+                  Writing good agent instructions
+                </h2>
+                <p className="text-sm text-text-muted mt-1">
+                  The instruction becomes the agent&apos;s system prompt in every meeting.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setGuideOpen(false)}
+                aria-label="Close instruction guide"
+                className="size-9 shrink-0 rounded-lg hover:bg-brand-100 flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/30"
+              >
+                <svg className="size-5 text-text" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
+          </div>
 
+          {/* Scrollable Body */}
+          <div 
+            className="flex-1 overflow-y-auto px-6 py-6"
+            style={{ scrollbarGutter: 'stable' }}
+          >
+            <div className="space-y-6 pb-6 [&::-webkit-scrollbar]:w-[6px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border">
+              <section>
+                <h3 className="text-sm font-semibold text-brand-900">Role</h3>
+                <p className="mt-1 text-sm leading-relaxed text-text-muted">
+                  Who the agent is and what it is responsible for.
+                </p>
+              </section>
+              
+              <section>
+                <h3 className="text-sm font-semibold text-brand-900">Tone</h3>
+                <p className="mt-1 text-sm leading-relaxed text-text-muted">
+                  How it speaks: friendly, formal, concise, encouraging, etc.
+                </p>
+              </section>
+              
+              <section>
+                <h3 className="text-sm font-semibold text-brand-900">Rules</h3>
+                <p className="mt-1 text-sm leading-relaxed text-text-muted">
+                  What it must or must not do (boundaries, topics to avoid).
+                </p>
+              </section>
+              
+              <section>
+                <h3 className="text-sm font-semibold text-brand-900">Voice tips</h3>
+                <p className="mt-1 text-sm leading-relaxed text-text-muted">
+                  In live calls keep answers short, one idea per reply, avoid long lists.
+                </p>
+              </section>
+
+              <div className="space-y-4 pt-2">
+                {EXAMPLES.map((example) => (
+                  <ExampleBlock
+                    key={example.title}
+                    title={example.title}
+                    text={example.text}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Fixed Footer */}
+          <div className="shrink-0 border-t border-border/60 bg-white px-6 py-4 pb-[env(safe-area-inset-bottom)]">
             <Button
-              className="mt-2 w-full rounded-xl bg-primary text-primary-foreground hover:bg-primary-hover"
+              className="h-11 w-full rounded-xl px-5 text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary-hover"
               onClick={() => {
                 setGuideOpen(false);
                 onOpenDialog();
