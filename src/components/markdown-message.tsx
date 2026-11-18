@@ -25,15 +25,15 @@ const CodeBlock = ({ language, value }: CodeBlockProps) => {
   };
 
   return (
-    <div className="group relative my-2 overflow-hidden rounded-xl bg-green-950 text-green-50">
-      <div className="flex items-center justify-between border-b border-green-800/60 px-3 py-1.5">
-        <span className="text-[10px] font-semibold uppercase tracking-widest text-green-300">
+    <div className="group relative my-2 overflow-hidden rounded-xl bg-brand-900 text-brand-50">
+      <div className="flex items-center justify-between border-b border-brand-800/60 px-3 py-1.5">
+        <span className="text-[10px] font-semibold uppercase tracking-widest text-brand-300">
           {language || "code"}
         </span>
         <button
           type="button"
           onClick={handleCopy}
-          className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold text-green-200 transition-colors hover:bg-green-800 hover:text-green-50"
+          className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold text-brand-200 transition-colors hover:bg-brand-800 hover:text-brand-50"
         >
           {copied ? (
             <>
@@ -65,13 +65,13 @@ export const MarkdownMessage = ({ content, className }: MarkdownMessageProps) =>
         remarkPlugins={[remarkGfm]}
         components={{
           h1: ({ children }) => (
-            <h1 className="mt-3 mb-1 text-base font-semibold text-green-950">{children}</h1>
+            <h1 className="mt-3 mb-1 text-base font-semibold text-brand-900">{children}</h1>
           ),
           h2: ({ children }) => (
-            <h2 className="mt-3 mb-1 text-sm font-semibold text-green-950">{children}</h2>
+            <h2 className="mt-3 mb-1 text-sm font-semibold text-brand-900">{children}</h2>
           ),
           h3: ({ children }) => (
-            <h3 className="mt-3 mb-1 text-sm font-semibold text-green-950">{children}</h3>
+            <h3 className="mt-3 mb-1 text-sm font-semibold text-brand-900">{children}</h3>
           ),
           p: ({ children }) => (
             <p className="mb-2 text-sm leading-relaxed last:mb-0">{children}</p>
@@ -90,13 +90,13 @@ export const MarkdownMessage = ({ content, className }: MarkdownMessageProps) =>
               href={href}
               target="_blank"
               rel="noopener noreferrer"
-              className="font-medium text-green-700 underline underline-offset-2 hover:text-green-800"
+              className="font-medium text-brand-700 underline underline-offset-2 hover:text-brand-600"
             >
               {children}
             </a>
           ),
           blockquote: ({ children }) => (
-            <blockquote className="my-2 border-l-2 border-green-200 pl-3 text-sm italic text-slate-600">
+            <blockquote className="my-2 border-l-2 border-brand-200 pl-3 text-sm italic text-slate-600">
               {children}
             </blockquote>
           ),
@@ -113,7 +113,7 @@ export const MarkdownMessage = ({ content, className }: MarkdownMessageProps) =>
             }
             return (
               <code
-                className="rounded bg-green-50 px-1.5 py-0.5 font-mono text-[0.85em] text-green-900"
+                className="rounded bg-brand-100 px-1.5 py-0.5 font-mono text-[0.85em] text-brand-900"
                 {...props}
               >
                 {children}

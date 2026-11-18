@@ -116,7 +116,7 @@ export function GeneratedAvatar({
         alt={`Avatar for ${seed}`}
         className="transition-opacity duration-300 object-cover" 
       />
-      <AvatarFallback className="bg-green-50 text-green-700 font-bold tracking-tighter">
+      <AvatarFallback className="bg-brand-100 text-brand-700 font-bold tracking-tighter">
         {initials}
       </AvatarFallback>
     </Avatar>

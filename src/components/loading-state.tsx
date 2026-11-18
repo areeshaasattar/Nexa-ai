@@ -37,10 +37,10 @@ export function LoadingState({
     >
       <div className="relative flex items-center justify-center mb-6">
         {/* Outer pulse effect */}
-        <div className="absolute size-14 rounded-full bg-green-500/10 animate-ping" />
-        <div className="absolute size-10 rounded-full bg-green-500/5 animate-pulse" />
+        <div className="absolute size-14 rounded-full bg-brand-500/10 animate-ping" />
+        <div className="absolute size-10 rounded-full bg-brand-500/5 animate-pulse" />
         {/* The spinner */}
-        <Spinner className="size-10 text-green-600 relative z-10" />
+        <Spinner className="size-10 text-brand-500 relative z-10" />
       </div>
       
       <div className="space-y-2">

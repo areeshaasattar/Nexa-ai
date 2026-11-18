@@ -20,6 +20,7 @@ const violations: Violation[] = [];
 const ALLOWLIST_PATHS = [
   "src/app/globals.css",
   "src/lib/email-templates.ts",
+  "src/lib/chart-colors.ts",
   "src/app/(marketing)",
   "src/app/call",
   "src/components/ui",
@@ -66,11 +67,11 @@ const PATTERNS = [
     pattern: /#[0-9a-fA-F]{6}(?![0-9a-fA-F])/g,
     test: (match: string) => {
       const brandHexes = [
-        "#f0faf4", "#bbd7c4", "#b9e6cb", "#8bd3ab", "#55b884", "#2f9e68",
-        "#1f8454", "#176a44", "#14533a", "#0f3d2b", "#0a2a1e",
-        "#f7fcf9", "#eaf6ef", "#ffffff", "#f7fbf9", "#e1ece5", "#cfe0d6",
-        "#10231a", "#5a6b62", "#7b8b83", "#dc2626", "#fef2f2",
-      ];
+         "#f3faf6", "#e6f4ec", "#b9e6cb", "#8fd3b2", "#55b884", "#2fa874",
+         "#117a55", "#0f5c42", "#14533a", "#0b3d2e", "#0a2a1e",
+         "#f7fcf9", "#eaf6ef", "#ffffff", "#f7fbf9", "#e1ece5", "#cfe0d6",
+         "#10231a", "#5a6b62", "#7b8b83", "#dc2626", "#fef2f2",
+       ];
       return !brandHexes.includes(match.toLowerCase());
     },
   },

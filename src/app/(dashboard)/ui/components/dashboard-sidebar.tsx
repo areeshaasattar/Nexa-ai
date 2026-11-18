@@ -68,10 +68,10 @@ export const DashboardSidebar = () => {
     >
       <div className="flex h-full w-full flex-col px-3 py-4">
         {/* Logo row: logo left, collapse icon far right */}
-        <div className="flex items-center justify-between h-10 mb-5">
+        <div className="flex items-center justify-between h-12 mb-5">
           <Link href="/dashboard" className="flex min-w-0 flex-1 items-center gap-2">
-            <BrandLogo variant="onLight" width={24} height={24} />
-            <span className="truncate text-[15px] font-semibold leading-none text-text">Nexa AI</span>
+            <BrandLogo variant="onLight" width={36} height={36} />
+            <span className="truncate text-xl font-semibold leading-none text-text">Nexa AI</span>
           </Link>
           <button
             type="button"
@@ -160,7 +160,7 @@ export const DashboardSidebar = () => {
                   { onSettled: () => setQuickLoading(false) },
                 );
               }}
-              className="mt-2.5 h-9 w-full rounded-lg bg-brand-600 text-[13px] font-medium text-white transition-colors hover:bg-brand-600 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-60"
+              className="mt-2.5 h-9 w-full rounded-lg bg-primary text-[13px] font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-60"
             >
               {quickLoading || quickStart.isPending ? "Starting..." : "Try it now"}
             </button>

@@ -19,13 +19,13 @@ export const SIDEBAR_NAV_THEME = {
     /** Inactive text and icon: text-muted (5a6b62, 5.8:1 on white). */
     inactiveText: "#5a6b62",
     /** Hover background: brand-100 (soft green tint). */
-    hoverBg: "#bbd7c4",
+    hoverBg: "#E6F4EC",
     /** Active and pressed background (same token as hover). */
-    activeBg: "#bbd7c4",
+    activeBg: "#E6F4EC",
     /** Active and pressed text/icon: brand-800 (dark forest green). */
     activeText: "#14533a",
     /** Focus-visible ring: brand-500. */
-    focusRing: "#2f9e68",
+    focusRing: "#2FA874",
   },
   classes: {
     /** Applied to every nav `SidebarMenuButton` (h-10, rounded-10, px-3, focus ring). */

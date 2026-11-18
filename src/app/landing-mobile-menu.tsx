@@ -25,7 +25,7 @@ export function LandingMobileMenu() {
         <Menu className="size-5" />
       </Button>
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="right" className="w-72 bg-green-950 text-white border-green-900">
+        <SheetContent side="right" className="w-72 bg-brand-900 text-white border-brand-900">
           <SheetHeader>
             <SheetTitle className="text-white">Menu</SheetTitle>
           </SheetHeader>
@@ -58,7 +58,7 @@ export function LandingMobileMenu() {
             >
               Sign in
             </Link>
-            <Button asChild className="mt-2 bg-emerald-500 text-green-950 hover:bg-emerald-400">
+            <Button asChild className="mt-2 bg-brand-500 text-brand-900 hover:bg-brand-400">
               <Link href="/sign-up" onClick={() => setOpen(false)}>
                 Get started
               </Link>

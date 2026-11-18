@@ -41,7 +41,7 @@ export default function GlobalError({
             <button
               type="button"
               onClick={reset}
-              className="min-w-28 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-700"
+              className="min-w-28 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary-hover"
             >
               Try again
             </button>
