@@ -69,7 +69,7 @@ export const DashboardNavbar = () => {
           type="button"
           aria-label="Search"
           onClick={() => window.dispatchEvent(new Event("open-shortcuts"))}
-          className="flex h-11 w-[260px] max-w-[30vw] items-center gap-2 rounded-xl border border-border bg-white px-3 shadow-sm outline-none ring-0 transition-colors hover:bg-white focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500/20 focus-visible:outline-none"
+          className="flex h-11 w-[260px] max-w-[30vw] items-center gap-2 rounded-xl border-0 bg-white px-3 shadow-sm outline-none ring-0 transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/20"
         >
           <Search className="size-3.5 shrink-0 text-text-subtle" strokeWidth={1.5} />
           <span className="flex-1 truncate text-left text-[13px] text-text-subtle">Search...</span>
@@ -235,12 +235,12 @@ export const DashboardNavbar = () => {
                   src={session?.user?.image}
                   style="bottts"
                   size="sm"
-                  className="size-8 rounded-full ring-1 ring-black/5"
+                  className="size-8 rounded-full ring-0"
                 />
               </button>
             }
           />
-          <DropdownMenuContent align="end" sideOffset={8} collisionPadding={8} className="w-56 bg-white rounded-xl border border-border/60 shadow-lg p-1.5">
+          <DropdownMenuContent align="end" sideOffset={8} collisionPadding={8} className="w-56 bg-white rounded-xl border-0 shadow-lg p-1.5">
             <DropdownMenuGroup>
               <DropdownMenuLabel>
                 <div className="text-sm font-semibold text-text truncate">{session?.user?.name}</div>
