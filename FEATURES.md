@@ -1,7 +1,7 @@
 # Nexa AI — Features & Architecture (Current)
 
 > **Source of truth:** generated from the codebase in `C:\nexa-ai` (read from app routes, modules, DB schema, tRPC routers, auth, and libs).  
-> **Last updated:** 2026-11-17  
+> **Last updated:** 2026-11-18  
 > This file documents **implemented** features and how they work. Items that are not implemented are listed under [Known limitations & roadmap](#8-known-limitations--roadmap).
 
 ---
@@ -398,6 +398,30 @@ Protected under dashboard layout (and included in proxy protected paths).
 - **Transcript parser tests:** `npm run test:transcript-parser` validates JSONL parsing logic
 - **Drizzle Studio:** `npm run db:studio` opens Drizzle Studio UI for direct database inspection (port 4984)
 
+### 4.29 Interview coaching report (practice sessions)
+
+Key files: `src/lib/summary-schema.ts` (coaching schema + prompt), `src/lib/summary-generation.ts` (filler word counting), `src/lib/meeting-summary.ts` (agent name routing), `src/modules/meetings/ui/components/coaching-report.tsx` (UI), `scripts/test-summary.ts` (8 coaching-specific tests).
+
+- **Agent name-based prompt routing:** When `agentName === "Interview Coach"`, summary generation uses `INTERVIEW_COACHING_PROMPT` instead of standard meeting prompt; old summaries validate without coaching field (backward compatible).
+- **Coaching schema (optional field in `summaryData`):**
+  - `overallScore`: integer 1–10 (candidate's overall interview performance)
+  - `rubric`: exactly 4 items in order (`clarity`, `structure`, `confidence`, `answerQuality`), each with score 1–10 and comment (max 200 chars)
+  - `fillerWords`: `total` count (integer ≥0) + `examples` array (max 5 strings)
+  - `strengths`: array of strengths (max 4, each max 200 chars)
+  - `improvements`: array of improvement suggestions (max 4, each max 200 chars)
+  - `betterAnswers`: array of better answer examples (max 3), each with `question`, `yourAnswer`, `suggestedAnswer` (all max 300 chars)
+- **Filler word counting:** Client-side helper (`countFillerWords`) counts occurrences of "um", "uh", "like", "you know", "so", "actually", "basically", "literally" in parsed transcript/messages; replaces model's count with accurate client count before persistence.
+- **Validation & fallback:** Same retry-once + flagged-fallback rules as standard summaries; if transcript has fewer than 2 candidate answers, coaching field omitted entirely (insufficient data, no hallucination).
+- **UI rendering (`CoachingReport` component):**
+  - Overall score card (large score display + progress bar)
+  - Detailed rubric scores (4 horizontal bars with labels + comments)
+  - Filler words card (count + badge chips for examples) — shown only when total > 0
+  - Strengths and improvements side-by-side grid (green checkmarks for strengths, amber trending-up icons for improvements)
+  - Better answer examples (collapsible cards with question, "You said" / "Try this instead" comparison, sparkles icon)
+- **Meetings list score pill:** When `summaryData.coaching.overallScore` exists, displays small pill badge next to meeting ID showing score (e.g., "7/10") in brand color with 10% opacity background.
+- **Placement in detail view:** Coaching report renders **above** standard summary sections (overview, decisions, action items, topics, open questions) when present; standard sections still render below coaching for context.
+- **Test coverage:** 8 tests in `scripts/test-summary.ts` validate coaching schema accepts valid objects, accepts summaries without coaching, rejects invalid scores, rejects wrong rubric item count, and covers edge cases.
+
 ---
 
 ## 5. Authentication system — how it works
@@ -567,10 +591,10 @@ This codebase has gone through multiple hardening/fix passes (all reflected in c
 
 ## Appendix: Recent Updates & Feature Summary
 
-This document was updated on **2026-11-17** with comprehensive feature documentation. The following areas received expanded detail:
+This document was updated on **2026-11-18** with comprehensive feature documentation. The following areas received expanded detail:
 
 ### New Sections Added
-- **4.14–4.28:** Extended feature inventory covering:
+- **4.14–4.29:** Extended feature inventory covering:
   - CI/CD pipeline (GitHub Actions workflow details)
   - Legal pages (Terms, Privacy)
   - Landing page & onboarding checklist
@@ -586,6 +610,7 @@ This document was updated on **2026-11-17** with comprehensive feature documenta
   - Settings & preferences (profile, security, email)
   - Webhook & real-time updates (Stream Video integration)
   - Development & debugging tooling
+  - **Interview coaching report** (practice sessions with scoring, rubric, filler words, strengths, improvements, better answer suggestions)
 
 ### Updated Sections
 - **Known limitations & roadmap (Section 8):** Added 6 additional limitations (real-time collaboration, mobile app, user webhooks, bulk ops, recording viewer, model selection UI) and clarified AI Insights are rule-based with examples, expanded on test suite/CI coverage, and added quick-start rate limits.
@@ -596,12 +621,13 @@ This document was updated on **2026-11-17** with comprehensive feature documenta
 - Meetings (Section 4.3) with scheduling, quick-start (rate-limited 10/hour), structured summaries, retry logic
 - Video calls (Section 4.4) with Stream provisioning, recording/transcription, webhook handling
 - AI voice assistant (Section 4.5) with push-to-talk, speech recognition/synthesis, rate limiting (15/min, 300/day)
-- Mistral + Groq fallback (Section 4.6 & 6.3) with JSON mode, zod validation, circuit breaker
+- Meeting summarization (Section 4.6) with Mistral + Groq fallback, JSON mode, zod validation, circuit breaker
+- **Interview coaching reports (Section 4.29)** with agent name-based prompt routing, structured scoring (overall + 4-dimension rubric), filler word counting, strengths/improvements analysis, better answer suggestions, score pills on meetings list
 - Dashboard (Section 4.8) with metrics, charts (last 7 days), upcoming meetings, activity feed, AI insights
-- Feedback & admin (Section 4.11 & 9.2) with user submission (5/hour rate limit) and admin review
+- Feedback & admin (Section 4.11) with user submission (5/hour rate limit) and admin review
 - Database schema (Section 3) with 10 core tables and relationships
-- tRPC API (Section 13) with protected procedures, ownership scoping, streaming endpoints
-- Rate limiting & quotas (Section 10.1–10.3) with comprehensive limits table
+- tRPC API with protected procedures, ownership scoping, streaming endpoints
+- Rate limiting & quotas (Section 8) with comprehensive limits table
 
 ### Documentation Consistency
 - All code references updated to match actual file locations (e.g., `src/lib/llm.ts`, `src/modules/home/lib/onboarding.ts`)
