@@ -130,11 +130,11 @@ const AgentsListHeader = ({ onOpenDialog }: AgentsListHeaderProps) => {
       <Sheet open={guideOpen} onOpenChange={setGuideOpen}>
         <SheetContent 
           side="right" 
-          className="w-full sm:max-w-md max-w-full border-l border-border/60 shadow-2xl p-0 gap-0 flex h-full flex-col"
+          className="w-full sm:max-w-md max-w-full border-l border-border/60 shadow-2xl p-0 gap-0 flex h-dvh flex-col"
           showCloseButton={false}
         >
           {/* Fixed Header */}
-          <div className="shrink-0 px-6 py-5 border-b border-border/60">
+          <div className="shrink-0 px-6 pt-5 pb-5 border-b border-border/60">
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1 min-w-0">
                 <h2 className="text-lg font-semibold text-text">
@@ -159,10 +159,10 @@ const AgentsListHeader = ({ onOpenDialog }: AgentsListHeaderProps) => {
 
           {/* Scrollable Body */}
           <div 
-            className="flex-1 overflow-y-auto px-6 py-6"
+            className="flex-1 overflow-y-auto px-6 py-6 relative"
             style={{ scrollbarGutter: 'stable' }}
           >
-            <div className="space-y-6 pb-6 [&::-webkit-scrollbar]:w-[6px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border">
+            <div className="space-y-6 pb-8 [&::-webkit-scrollbar]:w-[6px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300">
               <section>
                 <h3 className="text-sm font-semibold text-brand-900">Role</h3>
                 <p className="mt-1 text-sm leading-relaxed text-text-muted">
@@ -201,10 +201,13 @@ const AgentsListHeader = ({ onOpenDialog }: AgentsListHeaderProps) => {
                 ))}
               </div>
             </div>
+            
+            {/* Fade gradient above footer */}
+            <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white to-transparent pointer-events-none" />
           </div>
 
           {/* Fixed Footer */}
-          <div className="shrink-0 border-t border-border/60 bg-white px-6 py-4 pb-[env(safe-area-inset-bottom)]">
+          <div className="shrink-0 border-t border-border/60 bg-white px-6 pt-4 pb-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
             <Button
               className="h-11 w-full rounded-xl px-5 text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary-hover"
               onClick={() => {
