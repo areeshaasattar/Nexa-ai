@@ -6,6 +6,7 @@ import {
   removeDecisionsThatAreActionItems,
   summaryToMarkdown,
   storedSummaryDataSchema,
+  countFillerWords,
   TRANSCRIPT_END,
   TRANSCRIPT_START,
   type MeetingSummary,
@@ -569,6 +570,23 @@ await test("standard prompt is used when agent name is not Interview Coach", () 
   assert.equal(messages[0].role, "system");
   assert.match(messages[0].content, /meeting intelligence extraction engine/);
   assert.ok(!messages[0].content.includes("coaching"));
+});
+
+await test("filler counter ignores okay and i don't remember", () => {
+  const r = countFillerWords("Candidate: okay, i don't remember what I said, but it was fine.");
+  assert.equal(r.total, 0);
+});
+
+await test("filler counter counts um and you know", () => {
+  const r = countFillerWords("Candidate: um, you know, I think this is right.");
+  assert.ok(r.total >= 2, `expected at least 2, got ${r.total}`);
+  assert.ok(r.examples.includes("um"));
+  assert.ok(r.examples.includes("you know"));
+});
+
+await test("filler counter ignores AI interviewer lines", () => {
+  const r = countFillerWords("AI: um, you know, tell me more.\nCandidate: I have no fillers here.");
+  assert.equal(r.total, 0);
 });
 
   console.log(`\n${passed} passed, ${failures.length} failed`);

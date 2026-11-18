@@ -4,6 +4,7 @@ import {
   createInsufficientSummary,
   isSummarySourceTooShort,
   parseSummaryResponse,
+  countFillerWords,
   type StoredMeetingSummary,
   type SummaryChatMessage,
 } from "./summary-schema";
@@ -109,12 +110,16 @@ export async function generateStructuredSummaryFromSource(
 
     const parsed = parseSummaryResponse(content, source);
     if (parsed.success) {
+      const data = { ...parsed.data, meta: { kind: "structured" as const } };
+      if (data.coaching) {
+        data.coaching = {
+          ...data.coaching,
+          fillerWords: countFillerWords(source),
+        };
+      }
       return {
         status: "ok",
-        data: {
-          ...parsed.data,
-          meta: { kind: "structured" },
-        },
+        data,
         attempts: attempt,
         providerAttempts: attempt,
         validationAttempts: attempt,

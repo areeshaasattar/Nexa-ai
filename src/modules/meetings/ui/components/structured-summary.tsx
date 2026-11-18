@@ -138,7 +138,7 @@ export function StructuredSummarySections({
         </p>
       </Section>
 
-      {summary.decisions.length > 0 && (
+      {!summary.coaching && summary.decisions.length > 0 && (
         <Section
           title="Key decisions"
           icon={<CheckCircle2Icon className="size-3.5" />}
@@ -157,7 +157,7 @@ export function StructuredSummarySections({
         </Section>
       )}
 
-      {summary.actionItems.length > 0 && (
+      {!summary.coaching && summary.actionItems.length > 0 && (
         <Section
           title="Action items"
           icon={<ClipboardListIcon className="size-3.5" />}
@@ -214,7 +214,7 @@ export function StructuredSummarySections({
         </Section>
       )}
 
-      {summary.openQuestions.length > 0 && (
+      {!summary.coaching && summary.openQuestions.length > 0 && (
         <Section
           title="Open questions"
           icon={<HelpCircleIcon className="size-3.5" />}
