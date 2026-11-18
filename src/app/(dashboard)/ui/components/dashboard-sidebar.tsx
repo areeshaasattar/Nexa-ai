@@ -43,9 +43,9 @@ const mainNav = [
  *  `!` suffixes override the base SidebarMenuButton data-active/hover variants. */
 const NAV_ITEM_CLASSES =
   "h-9 rounded-lg px-3 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
-const ACTIVE_ROW_CLASSES = "bg-[#E6F4EA]! text-[#14532D]! font-medium";
+const ACTIVE_ROW_CLASSES = "bg-brand-50! text-brand-800! font-medium";
 const INACTIVE_ROW_CLASSES =
-  "text-[#374151]! hover:bg-[#F9FAFB]! hover:text-[#374151]! font-normal";
+  "text-text! hover:bg-surface-soft! hover:text-text! font-normal";
 
 export const DashboardSidebar = () => {
   const pathname = usePathname();
@@ -71,7 +71,7 @@ export const DashboardSidebar = () => {
         <div className="flex items-center justify-between h-10 mb-5">
           <Link href="/dashboard" className="flex min-w-0 flex-1 items-center gap-2">
             <BrandLogo variant="onLight" width={24} height={24} />
-            <span className="truncate text-[15px] font-semibold leading-none text-[#111827]">Nexa AI</span>
+            <span className="truncate text-[15px] font-semibold leading-none text-text">Nexa AI</span>
           </Link>
           <button
             type="button"
@@ -102,7 +102,7 @@ export const DashboardSidebar = () => {
                         <item.icon
                           className={cn(
                             "size-4 shrink-0",
-                            isActive ? "text-[#14532D]" : "text-[#4B5563]",
+                            isActive ? "text-brand-800" : "text-text-muted",
                           )}
                           strokeWidth={1.5}
                         />
@@ -128,7 +128,7 @@ export const DashboardSidebar = () => {
                     onClick={() => signOut()}
                     className="flex items-center gap-3"
                   >
-                    <LogOutIcon className="size-4 shrink-0 text-[#4B5563]" strokeWidth={1.5} />
+                    <LogOutIcon className="size-4 shrink-0 text-text-muted" strokeWidth={1.5} />
                     <span className="truncate text-[13px] leading-5">
                       {isSigningOut ? "Signing out..." : "Log out"}
                     </span>
@@ -142,12 +142,12 @@ export const DashboardSidebar = () => {
 
         {/* Promo card pinned to the bottom, aligned with the nav edges */}
         <SidebarFooter className="mt-auto p-0">
-          <div className="rounded-xl border border-[#E5E7EB] bg-white p-3">
-            <SparklesIcon className="size-5 text-[#166534]" strokeWidth={1.5} />
-            <div className="mt-2 text-[13px] font-semibold leading-snug text-[#111827]">
+          <div className="rounded-xl border border-border bg-white p-3">
+            <SparklesIcon className="size-5 text-brand-700" strokeWidth={1.5} />
+            <div className="mt-2 text-[13px] font-semibold leading-snug text-text">
               Start a session in one click
             </div>
-            <p className="mt-1 text-[11px] leading-snug text-[#6B7280]">
+            <p className="mt-1 text-[11px] leading-snug text-text-muted">
               Try a ready-made template agent.
             </p>
             <button
@@ -160,7 +160,7 @@ export const DashboardSidebar = () => {
                   { onSettled: () => setQuickLoading(false) },
                 );
               }}
-              className="mt-2.5 h-9 w-full rounded-lg bg-[#1F8A4C] text-[13px] font-medium text-white transition-colors hover:bg-[#1a7842] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-60"
+              className="mt-2.5 h-9 w-full rounded-lg bg-brand-600 text-[13px] font-medium text-white transition-colors hover:bg-brand-600 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-60"
             >
               {quickLoading || quickStart.isPending ? "Starting..." : "Try it now"}
             </button>

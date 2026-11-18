@@ -24,11 +24,11 @@ export const columns: ColumnDef<Agent>[] = [
       const id = row.original.id;
       return (
         <Link href={`/agents/${id}`} className="flex items-center gap-3 group/link">
-          <div className="shrink-0 w-8 h-8 rounded-lg bg-[#e2ede2] border border-[#c4d8c4] flex items-center justify-center overflow-hidden group-hover/link:border-[#3B6D11] transition-colors">
+          <div className="shrink-0 w-8 h-8 rounded-lg bg-brand-100 border border-brand-200 flex items-center justify-center overflow-hidden group-hover/link:border-brand-800 transition-colors">
             <GeneratedAvatar seed={name} style="bottts" size="sm" />
           </div>
           <div className="flex flex-col">
-            <span className="text-sm font-medium text-gray-900 leading-none group-hover/link:text-[#3B6D11] transition-colors">
+            <span className="text-sm font-medium text-gray-900 leading-none group-hover/link:text-brand-800 transition-colors">
               {name}
             </span>
             <span className="text-[10px] font-mono text-gray-400 mt-1 tracking-tight">
@@ -99,12 +99,12 @@ export const columns: ColumnDef<Agent>[] = [
         <div className="flex items-center gap-2">
           <div
             className={`size-1.5 rounded-full ${
-              inUse ? "bg-[#3B6D11]" : "bg-gray-300"
+              inUse ? "bg-brand-800" : "bg-gray-300"
             }`}
           />
           <span
             className={`text-xs font-medium ${
-              inUse ? "text-[#3B6D11]" : "text-gray-400"
+              inUse ? "text-brand-800" : "text-gray-400"
             }`}
           >
             {inUse ? "In use" : "Unused"}
@@ -124,7 +124,7 @@ export const columns: ColumnDef<Agent>[] = [
             size="sm"
             variant="outline"
             asChild
-            className="h-8 px-3 text-xs font-medium rounded-lg border-[#a8c8a8] text-[#3B6D11] hover:bg-[#e2ede2] hover:border-[#3B6D11] transition-colors gap-1.5"
+            className="h-8 px-3 text-xs font-medium rounded-lg border-brand-300 text-brand-800 hover:bg-brand-100 hover:border-brand-800 transition-colors gap-1.5"
           >
             <Link href={`/meetings?agentId=${agentId}`}>
               <VideoIcon className="size-3" />

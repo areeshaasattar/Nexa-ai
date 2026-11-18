@@ -54,10 +54,10 @@ export const DashboardNavbar = () => {
           </button>
         )}
         <div className="min-w-0 flex-1">
-          <h1 className="truncate text-[15px] font-semibold leading-5 text-[#111827]">
+          <h1 className="truncate text-[15px] font-semibold leading-5 text-text">
             Welcome back, {firstName}
           </h1>
-          <p className="mt-0.5 truncate text-[11px] font-normal leading-4 text-[#6B7280]">
+          <p className="mt-0.5 truncate text-[11px] font-normal leading-4 text-text-muted">
             {dateLabel}
           </p>
         </div>
@@ -69,10 +69,10 @@ export const DashboardNavbar = () => {
           type="button"
           aria-label="Search"
           onClick={() => window.dispatchEvent(new Event("open-shortcuts"))}
-          className="flex h-9 w-[260px] max-w-[30vw] items-center gap-2 rounded-full border border-[#E5E7EB]/70 bg-white px-3 shadow-sm transition-colors hover:bg-white focus-within:border-green-600 focus-within:ring-2 focus-within:ring-green-600/15 focus-visible:border-green-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600/15"
+          className="flex h-9 w-[260px] max-w-[30vw] items-center gap-2 rounded-full border border-border/70 bg-white px-3 shadow-sm transition-colors hover:bg-white focus-within:border-green-600 focus-within:ring-2 focus-within:ring-green-600/15 focus-visible:border-green-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600/15"
         >
-          <Search className="size-3.5 shrink-0 text-[#9CA3AF]" strokeWidth={1.5} />
-          <span className="flex-1 truncate text-left text-[13px] text-[#9CA3AF]">Search...</span>
+          <Search className="size-3.5 shrink-0 text-text-subtle" strokeWidth={1.5} />
+          <span className="flex-1 truncate text-left text-[13px] text-text-subtle">Search...</span>
         </button>
       </div>
 
@@ -81,7 +81,7 @@ export const DashboardNavbar = () => {
         <button
           type="button"
           onClick={() => setNewMeetingOpen(true)}
-          className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-[#14673A] px-4 text-[13px] font-medium text-white transition-colors hover:bg-[#0F5430] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600/15 disabled:opacity-60"
+          className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-brand-700 px-4 text-[13px] font-medium text-white transition-colors hover:bg-brand-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600/15 disabled:opacity-60"
         >
           <Plus className="size-4 shrink-0" strokeWidth={1.5} />
           <span className="hidden sm:inline">New meeting</span>
@@ -126,7 +126,7 @@ export const DashboardNavbar = () => {
               </div>
 
               {/* List area */}
-              <div className="flex-1 max-h-[calc(480px-120px)] overflow-y-auto overscroll-contain [scrollbar-width:thin] [scrollbar-color:#D1D5DB_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-track]:bg-transparent">
+              <div className="flex-1 max-h-[calc(480px-120px)] overflow-y-auto overscroll-contain [scrollbar-width:thin] [scrollbar-color:var(--color-border)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-track]:bg-transparent">
                 {activity === undefined ? (
                   // Loading state
                   <div className="space-y-3 p-4">
@@ -144,7 +144,7 @@ export const DashboardNavbar = () => {
                   // Empty state
                   <div className="flex flex-col items-center justify-center py-10 text-center px-4">
                     <Bell className="size-8 text-gray-300 mb-3" aria-hidden="true" strokeWidth={1.5} />
-                    <p className="text-sm font-medium text-gray-700">You're all caught up</p>
+                    <p className="text-sm font-medium text-gray-700">You&apos;re all caught up</p>
                     <p className="text-xs text-gray-400 mt-1">No new notifications</p>
                   </div>
                 ) : (
@@ -163,7 +163,7 @@ export const DashboardNavbar = () => {
                           ? Bot
                           : iconName === "file-text"
                           ? FileText
-                          : ActivityIcon;
+                          : Bell;
                       const hideDesc = shouldHideDescription(a.title, a.description);
                       const date = new Date(a.createdAt);
                       return (

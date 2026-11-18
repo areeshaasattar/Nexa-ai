@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { ApexOptions, ApexTooltipCustomOpts } from "apexcharts";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { trpc } from "@/trpc/client";
@@ -242,7 +243,8 @@ export const HomeView = () => {
                       xaxis: { categories, axisBorder: { show: false }, axisTicks: { show: false }, labels: { style: { colors: "#7b8b83", fontSize: "12px" } } },
                       grid: { strokeDashArray: 4, borderColor: "#e1ece5", yaxis: { lines: { show: true } }, xaxis: { lines: { show: false } } },
                       legend: { show: false },
-                      tooltip: { custom: ({ series, seriesIndex, dataPointIndex, w }: any) => {
+                      tooltip: { custom: (opts: ApexTooltipCustomOpts) => {
+                        const { series, seriesIndex, dataPointIndex, w } = opts;
                         const value = series[seriesIndex][dataPointIndex];
                         const label = w.globals.seriesNames[seriesIndex];
                         const color = w.globals.colors[seriesIndex];
@@ -267,7 +269,7 @@ export const HomeView = () => {
                       }, shared: true, intersect: false, theme: "light" },
                       dataLabels: { enabled: false },
                       markers: { size: 4, hover: { size: 6 } },
-                    } as any}
+                    } as ApexOptions}
                     series={activitySeries}
                     type="area"
                     height={260}
@@ -320,11 +322,13 @@ export const HomeView = () => {
                           }
                         }
                       },
-                      tooltip: { custom: ({ series, seriesIndex, w }: any) => {
-                        const value = series[seriesIndex];
+                      tooltip: { custom: (opts: ApexTooltipCustomOpts) => {
+                        const { series, seriesIndex, w } = opts;
+                        const s = series as unknown as number[];
+                        const value = s[seriesIndex];
                         const label = w.globals.labels[seriesIndex];
                         const color = w.globals.colors[seriesIndex];
-                        const total = series.reduce((a: number, b: number) => a + b, 0);
+                        const total = s.reduce((a: number, b: number) => a + b, 0);
                         const percentage = Math.round((value / total) * 100);
                         
                         return `
@@ -344,7 +348,7 @@ export const HomeView = () => {
                           </div>
                         `;
                       }, theme: "light" },
-                    } as any}
+                    } as ApexOptions}
                     series={[statusBreakdown.completed, statusBreakdown.ongoing, statusBreakdown.scheduled]}
                     type="donut"
                     height={180}

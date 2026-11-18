@@ -20,6 +20,7 @@ import {
   summaryToMarkdown,
   type StoredMeetingSummary,
 } from "@/lib/summary-schema";
+import { CoachingReport } from "./coaching-report";
 
 interface StructuredSummaryProps {
   summary: StoredMeetingSummary;
@@ -39,7 +40,7 @@ function Section({
   return (
     <section className="flex flex-col gap-3">
       <h4 className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-        <span className="text-[#3B6D11]">{icon}</span>
+        <span className="text-brand-800">{icon}</span>
         {title}
       </h4>
       {children}
@@ -127,6 +128,10 @@ export function StructuredSummarySections({
         </div>
       )}
 
+      {summary.coaching && (
+        <CoachingReport coaching={summary.coaching} />
+      )}
+
       <Section title="Overview" icon={<ClipboardListIcon className="size-3.5" />}>
         <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">
           {summary.overview}
@@ -144,7 +149,7 @@ export function StructuredSummarySections({
                 key={decision}
                 className="flex items-start gap-2.5 text-sm text-gray-600 leading-relaxed"
               >
-                <CheckCircle2Icon className="size-4 mt-0.5 shrink-0 text-[#3B6D11]" />
+                <CheckCircle2Icon className="size-4 mt-0.5 shrink-0 text-brand-800" />
                 <span>{decision}</span>
               </li>
             ))}

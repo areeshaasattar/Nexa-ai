@@ -315,7 +315,7 @@ export const NewMeetingDialog = ({
             <Button
               type="submit"
               disabled={createMutation.isPending || !hasAgents || timeRangeInvalid}
-              className="h-10 px-5 rounded-lg bg-[#14673A] hover:bg-[#0F5430] text-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-green-600/15 disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+              className="h-10 px-5 rounded-lg bg-brand-700 hover:bg-brand-900 text-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-green-600/15 disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
             >
               {createMutation.isPending && (
                 <Loader2 className="size-4 animate-spin" />

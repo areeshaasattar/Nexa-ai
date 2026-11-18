@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { meetings, conversationMessages, user } from "@/db/schema";
+import { meetings, conversationMessages, user, agents } from "@/db/schema";
 import { eq, asc } from "drizzle-orm";
 import { generateStructuredSummaryFromSource } from "./summary-generation";
 import {
@@ -76,10 +76,11 @@ export async function generateMeetingSummary(
   const startedAt = Date.now();
 
   try {
-    // 1. Load meeting (for transcriptUrl + existing summary/source + owner)
+    // 1. Load meeting (for transcriptUrl + existing summary/source + owner + agent)
     const [existing] = await db
       .select({
         userId: meetings.userId,
+        agentId: meetings.agentId,
         summary: meetings.summary,
         summaryData: meetings.summaryData,
         summarySource: meetings.summarySource,
@@ -94,6 +95,13 @@ export async function generateMeetingSummary(
       );
       return { outcome: "not_found" };
     }
+
+    // Fetch agent name to determine if this is interview coaching
+    const [agent] = await db
+      .select({ name: agents.name })
+      .from(agents)
+      .where(eq(agents.id, existing.agentId));
+    const agentName = agent?.name;
 
     // Map Stream user ids (transcript speaker_id) to display names.
     const [owner] = await db
@@ -211,6 +219,7 @@ export async function generateMeetingSummary(
     const result = await generateStructuredSummaryFromSource({
       source,
       meetingId,
+      agentName,
       model,
     });
 

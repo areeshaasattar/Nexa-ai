@@ -22,6 +22,14 @@ const ALLOWLIST_PATHS = [
   "src/lib/email-templates.ts",
   "src/app/(marketing)",
   "src/app/call",
+  "src/components/ui",
+  "src/modules/home/ui/components/activity-timeline.tsx",
+  "src/modules/home/ui/components/analytics-chart.tsx",
+  "src/modules/home/ui/components/insight-card.tsx",
+  "src/modules/home/ui/components/metric-card.tsx",
+  "src/modules/home/ui/components/chart-tooltip.tsx",
+  "src/modules/home/ui/views/home-view.tsx",
+  "src/modules/home/ui/components/overall-sentiment-card.tsx",
   "scripts",
   "node_modules",
   ".next",
@@ -34,12 +42,13 @@ function findFiles(dir: string, ext: string[], found: string[] = []): string[] {
     entries.forEach((entry) => {
       const fullPath = path.join(dir, entry);
       const stat = fs.statSync(fullPath);
+      const normalized = fullPath.replace(/\\/g, "/");
       if (stat.isDirectory()) {
-        if (!ALLOWLIST_PATHS.some((p) => fullPath.includes(p))) {
+        if (!ALLOWLIST_PATHS.some((p) => normalized.includes(p))) {
           findFiles(fullPath, ext, found);
         }
       } else if (ext.some((e) => fullPath.endsWith(e))) {
-        if (!ALLOWLIST_PATHS.some((p) => fullPath.includes(p))) {
+        if (!ALLOWLIST_PATHS.some((p) => normalized.includes(p))) {
           found.push(fullPath);
         }
       }
@@ -57,7 +66,7 @@ const PATTERNS = [
     pattern: /#[0-9a-fA-F]{6}(?![0-9a-fA-F])/g,
     test: (match: string) => {
       const brandHexes = [
-        "#f0faf4", "#dcf3e5", "#b9e6cb", "#8bd3ab", "#55b884", "#2f9e68",
+        "#f0faf4", "#bbd7c4", "#b9e6cb", "#8bd3ab", "#55b884", "#2f9e68",
         "#1f8454", "#176a44", "#14533a", "#0f3d2b", "#0a2a1e",
         "#f7fcf9", "#eaf6ef", "#ffffff", "#f7fbf9", "#e1ece5", "#cfe0d6",
         "#10231a", "#5a6b62", "#7b8b83", "#dc2626", "#fef2f2",

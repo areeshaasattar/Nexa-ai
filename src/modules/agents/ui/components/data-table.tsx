@@ -30,14 +30,14 @@ function EmptyState({
   return (
     <div className="flex flex-col items-center justify-center py-24 px-6 select-none">
       <div className="relative flex items-center justify-center mb-8">
-        <div className="absolute w-36 h-36 rounded-full border border-dashed border-[#c8dcc8] opacity-50 animate-[spin_18s_linear_infinite]" />
-        <div className="absolute w-24 h-24 rounded-full border border-[#b8d0b8] opacity-60 animate-[spin_12s_linear_infinite_reverse]" />
-        <div className="absolute w-14 h-14 rounded-full bg-[#e8f0e8] border border-[#a8c8a8]" />
-        <div className="relative z-10 w-14 h-14 rounded-full bg-[#e8f0e8] border border-[#a8c8a8] flex items-center justify-center">
+        <div className="absolute w-36 h-36 rounded-full border border-dashed border-brand-200 opacity-50 animate-[spin_18s_linear_infinite]" />
+        <div className="absolute w-24 h-24 rounded-full border border-brand-200 opacity-60 animate-[spin_12s_linear_infinite_reverse]" />
+        <div className="absolute w-14 h-14 rounded-full bg-brand-50 border border-brand-300" />
+        <div className="relative z-10 w-14 h-14 rounded-full bg-brand-50 border border-brand-300 flex items-center justify-center">
           <svg
             viewBox="0 0 24 24"
             fill="none"
-            stroke="#3B6D11"
+            stroke="var(--color-brand-800)"
             strokeWidth="1.5"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -49,12 +49,12 @@ function EmptyState({
           </svg>
         </div>
 
-        <div className="absolute w-1.5 h-1.5 rounded-full bg-[#3B6D11]/30 top-1 right-6" />
-        <div className="absolute w-1 h-1 rounded-full bg-[#3B6D11]/20 bottom-2 left-4" />
-        <div className="absolute w-1 h-1 rounded-full bg-[#6a9a6a]/40 top-4 left-8" />
+        <div className="absolute w-1.5 h-1.5 rounded-full bg-brand-800/30 top-1 right-6" />
+        <div className="absolute w-1 h-1 rounded-full bg-brand-800/20 bottom-2 left-4" />
+        <div className="absolute w-1 h-1 rounded-full bg-brand-400/40 top-4 left-8" />
       </div>
 
-      <p className="text-sm font-semibold text-[#1a2e1a] mb-1 tracking-tight">
+      <p className="text-sm font-semibold text-brand-950 mb-1 tracking-tight">
         No agents deployed
       </p>
       <p className="text-xs text-gray-400 text-center max-w-[220px] leading-relaxed mb-6">
@@ -68,7 +68,7 @@ function EmptyState({
       {onNewAgent && (
         <button
           onClick={onNewAgent}
-          className="inline-flex items-center gap-2 h-9 px-5 rounded-lg bg-[#3B6D11] hover:bg-[#2f5a0d] text-white text-xs font-medium transition-colors duration-150"
+          className="inline-flex items-center gap-2 h-9 px-5 rounded-lg bg-brand-800 hover:bg-brand-900 text-white text-xs font-medium transition-colors duration-150"
         >
           <svg
             viewBox="0 0 24 24"
@@ -129,7 +129,7 @@ export function DataTable<TData, TValue>({
             placeholder="Search agents by name or instructions..."
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            className="w-full pl-9 pr-4 py-1.5 bg-gray-50 border border-gray-100 rounded-lg text-xs placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-[#3B6D11]/20 focus:border-[#3B6D11]/30 transition-all"
+            className="w-full pl-9 pr-4 py-1.5 bg-gray-50 border border-gray-100 rounded-lg text-xs placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-brand-800/20 focus:border-brand-800/30 transition-all"
           />
         </div>
       </div>
@@ -167,7 +167,7 @@ export function DataTable<TData, TValue>({
           {table.getRowModel().rows.map((row) => (
             <div
               key={row.id}
-              className="group px-4 rounded-xl hover:bg-[#f4f8f4] transition-colors duration-150 cursor-pointer"
+              className="group px-4 rounded-xl hover:bg-brand-50 transition-colors duration-150 cursor-pointer"
               style={{
                 display: "grid",
                 gridTemplateColumns: "2fr 2.5fr 1fr 1.2fr 0.8fr 1fr",

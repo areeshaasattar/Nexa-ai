@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { AGENT_TEMPLATES, type AgentTemplate } from "@/lib/agent-templates";
 
 const focusRing =
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B6D11] focus-visible:ring-offset-2";
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-800 focus-visible:ring-offset-2";
 
 interface AgentTemplateCardProps {
   template: AgentTemplate;
@@ -49,7 +49,7 @@ export function AgentTemplateCard({
             onClick={() => onTryItNow(template)}
             disabled={isPending}
             className={cn(
-              "h-8 rounded-lg bg-[#3B6D11] px-2.5 text-xs font-medium text-white transition-colors hover:bg-[#2f5a0d]",
+              "h-8 rounded-lg bg-brand-800 px-2.5 text-xs font-medium text-white transition-colors hover:bg-brand-900",
               focusRing,
             )}
           >
@@ -64,7 +64,7 @@ export function AgentTemplateCard({
               onClick={() => onCustomize(template)}
               disabled={isPending}
               className={cn(
-                "h-8 rounded-lg border-[#c4d4c4] bg-transparent px-2.5 text-xs font-medium text-gray-600 hover:bg-[#e4ede4]",
+                "h-8 rounded-lg border-brand-200 bg-transparent px-2.5 text-xs font-medium text-gray-600 hover:bg-brand-100",
                 focusRing,
               )}
             >
@@ -101,7 +101,7 @@ export function AgentTemplateCard({
           onClick={() => onTryItNow(template)}
           disabled={isPending}
           className={cn(
-            "h-9 rounded-lg bg-[#3B6D11] px-4 text-sm font-medium text-white transition-colors hover:bg-[#2f5a0d]",
+            "h-9 rounded-lg bg-brand-800 px-4 text-sm font-medium text-white transition-colors hover:bg-brand-900",
             focusRing,
           )}
         >
@@ -116,7 +116,7 @@ export function AgentTemplateCard({
             onClick={() => onCustomize(template)}
             disabled={isPending}
             className={cn(
-              "h-9 rounded-lg border-[#c4d4c4] bg-transparent px-4 text-sm font-medium text-gray-600 hover:bg-[#e4ede4]",
+              "h-9 rounded-lg border-brand-200 bg-transparent px-4 text-sm font-medium text-gray-600 hover:bg-brand-100",
               focusRing,
             )}
           >
