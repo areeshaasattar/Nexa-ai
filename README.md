@@ -1,128 +1,187 @@
 # Nexa AI
 
+A Next.js-based AI meeting platform that combines real-time video conferencing with intelligent voice assistants. Create custom AI agents, conduct voice-enabled video meetings, and automatically generate structured meeting summaries.
+
 ## Overview
 
-Nexa AI is a Next.js‑based platform that combines real‑time video conferencing with an AI voice assistant. Users can create custom AI "agents", schedule meetings, and interact with the assistant via speech‑to‑text and text‑to‑speech in the browser. The AI backend is the **Mistral API** (`api.mistral.ai`), and data is stored in a Neon PostgreSQL database through Drizzle ORM.
+**Nexa AI** enables users to schedule and conduct video meetings with custom AI voice assistants. The platform features browser-based voice interaction (speech-to-text and text-to-speech), automatic meeting transcription, and AI-generated structured summaries with coaching feedback for interview practice sessions.
 
-## Key Features
+## ✨ Key Features
 
-- **Custom AI agents** – define name & instruction, stored per user.
-- **Video calls** – powered by Stream Video SDK with automatic token generation.
-- **Voice interaction** – browser native SpeechRecognition + SpeechSynthesis.
-- **AI chat & summaries** – Mistral-powered `/api/chat` for the voice assistant and automatic meeting summaries.
-- **Secure authentication** – Better‑Auth with email/password + GitHub & Google OAuth, email verification, forgot/reset password, and account settings.
-- **Settings & account** – profile (name, bio, avatar, email change), security (password change), account details.
-- **Dashboard** – manage agents, schedule meetings, view meeting status, recordings, transcriptions.
-- **Database** – Drizzle ORM + Neon (PostgreSQL) with `db:push`.
-- **TypeScript + TailwindCSS** – fully typed, modern UI via shadcn/ui components.
+### 🤖 Custom AI Agents
+- Create unlimited AI agents with custom names and instructions
+- Five pre-built templates: Brainstorm Partner, Interview Coach, Language Tutor, Sales Call Practice, Standup Buddy
+- One-click quick start from templates
+- Full CRUD operations with ownership tracking
 
-## Tech Stack
+### 📹 Video Meetings
+- Stream Video SDK integration with automatic token generation
+- HD recording (720p) with auto-transcription
+- Real-time video calls with lobby and controls
+- Meeting scheduling and status tracking (scheduled, ongoing, completed)
+- Recordings and transcriptions storage
 
-| Layer | Tech |
-|-------|------|
-| Frontend | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS, shadcn/ui |
-| API / RPC | tRPC, Next.js API routes |
-| Auth | Better‑Auth, GitHub/Google OAuth |
-| AI backend | Mistral (`api.mistral.ai`), model configurable via `MODEL_NAME` |
-| Video | Stream Video React SDK |
-| Database | Neon PostgreSQL, Drizzle‑ORM (postgresql dialect) |
-| Migrations | drizzle‑kit |
-| CI / Dev | ESLint, TypeScript, npm scripts |
+### 🎙️ AI Voice Assistant
+- Push-to-talk speech recognition (browser native)
+- Streaming AI responses via Server-Sent Events (SSE)
+- Text-to-speech playback (browser native)
+- Conversation history per meeting
+- Performance metrics tracking (response time, duration)
 
-## Getting Started
+### 📊 Intelligent Summaries
+- Structured meeting summaries with JSON validation
+- Auto-generated from Stream transcripts or conversation history
+- **Interview Coaching Reports** for practice sessions:
+  - Overall performance score (1-10)
+  - Detailed rubric (clarity, structure, confidence, answer quality)
+  - Filler words analysis with examples
+  - Strengths and improvement suggestions
+  - Better answer examples for key questions
+- Sentiment analysis (positive, neutral, negative)
+- Decisions, action items (with owners and due dates), topics, and open questions extraction
+- Owner verification against transcript (no hallucinated assignments)
+- Markdown export for sharing
+- Optional email delivery after each meeting
+
+### 🔐 Authentication & Security
+- Email/password authentication with email verification
+- OAuth support (GitHub & Google)
+- Password reset flow via Brevo transactional emails
+- Session management with Better-Auth
+- Protected routes and owner-scoped data access
+
+### 📈 Analytics Dashboard
+- Meeting statistics and trends (7-day charts)
+- Voice interaction metrics (avg response time, total interactions)
+- Agent usage tracking
+- System health monitoring (database, email, rate limiting)
+- Activity feed with filtering
+- AI-powered insights and recommendations
+
+### ⚙️ Settings & Account Management
+- Profile editing (name, bio, avatar upload with 2MB limit)
+- Email change with verification
+- Password change with session revocation
+- Summary email preferences toggle
+- Account details and security settings
+
+### 🎯 Additional Features
+- **Command palette** (⌘K / Ctrl+K) for quick navigation and actions
+- **Feedback system** with admin review portal
+- **Rate limiting** via Upstash Redis (per-user, per-minute and daily limits)
+- **Responsive design** with mobile-optimized sidebar and dialogs
+- **Empty states** and onboarding checklist for new users
+- **Legal pages** (Terms of Service, Privacy Policy)
+- **Public landing page** with features showcase and FAQ
+- **Keyboard shortcuts** and accessibility (WCAG AA compliant)
+
+## 🛠️ Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| **Frontend** | Next.js 16 (App Router), React 19, TypeScript 5, Tailwind CSS 4 |
+| **UI Components** | shadcn/ui, Radix UI, Lucide Icons, Framer Motion |
+| **API / RPC** | tRPC v11, Next.js API routes, Server-Sent Events (SSE) |
+| **Database** | Neon PostgreSQL, Drizzle ORM 0.45, drizzle-kit migrations |
+| **Authentication** | Better-Auth 1.6 with Drizzle adapter, OAuth (GitHub + Google) |
+| **Email** | Brevo (transactional: verification, reset, change email, summaries) |
+| **AI / LLM** | Mistral API (primary), optional Groq fallback |
+| **Video** | Stream Video SDK (client + server), webhooks, recordings/transcriptions |
+| **Rate Limiting** | Upstash Redis with sliding window |
+| **Forms** | React Hook Form, Zod v4 validation |
+| **Charts** | ApexCharts, Recharts |
+| **Avatars** | DiceBear (generated avatars) |
+| **Testing** | TypeScript type checking, ESLint, custom test scripts |
+| **CI/CD** | GitHub Actions (type check, lint, tests, build) |
+
+## 🚀 Getting Started
 
 ### Prerequisites
 
-- **Node.js** ≥ 20 (LTS) and **npm** (or yarn/pnpm/bun)
-- A **Neon** project with a PostgreSQL connection string
-- **Stream Video** API keys (`NEXT_PUBLIC_STREAM_VIDEO_API_KEY` & `STREAM_VIDEO_SECRET_KEY`)
-- **A Mistral API key** (`MISTRAL_API_KEY`) — the model is configurable via `MODEL_NAME` (default `mistral-small-latest`)
-- GitHub/Google OAuth credentials if you want social login (see `.env` section)
+- **Node.js** ≥ 20 LTS
+- **npm** (or yarn/pnpm/bun)
+- **Neon PostgreSQL** database
+- **Stream Video** API keys
+- **Mistral API key**
+- **Brevo** account (for emails)
+- **Upstash Redis** (for rate limiting)
+- (Optional) **GitHub/Google OAuth** credentials
+- (Optional) **Groq API key** (LLM fallback)
 
 ### Installation
 
 ```bash
-# Clone the repo
+# Clone the repository
 git clone https://github.com/your-org/nexa-ai.git
 cd nexa-ai
 
 # Install dependencies
-npm install   # or yarn / pnpm / bun
+npm install
 
-# Copy the example env file (create one if missing)
+# Copy environment template
 cp .env.example .env
 ```
 
-### Environment variables
+### Environment Variables
 
-Create a `.env` file at the project root and fill the values according to the table below.
-
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `DATABASE_URL` | Neon Postgres connection string | `postgresql://user:pass@us-east-2.aws.neon.tech/neondb` |
-| `BETTER_AUTH_SECRET` | Better‑Auth signing secret | random string |
-| `BETTER_AUTH_URL` | App base URL used by Better‑Auth | `http://localhost:3000` |
-| `MISTRAL_API_KEY` | Mistral API key (chat + summaries) | `…` |
-| `MODEL_NAME` | Mistral model to use | `mistral-small-latest` |
-| `NEXT_PUBLIC_STREAM_VIDEO_API_KEY` | Stream Video public API key | `xxxxx` |
-| `STREAM_VIDEO_SECRET_KEY` | Stream Video secret key | `xxxxx` |
-| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | GitHub OAuth (optional) | `Iv…` |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth (optional) | `…` |
-| `BREVO_API_KEY` / `BREVO_SENDER_EMAIL` / `BREVO_SENDER_NAME` | Transactional emails (verification, reset, change-email) via Brevo; sender must be verified; free plan 300/day | `xkeysib-…` |
-| `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis, rate‑limits `/api/chat` | `…` |
-| `NEXT_PUBLIC_APP_URL` | Public app URL (webhooks, tRPC base, reset links) | `http://localhost:3000` |
-
-#### `.env.example` (for reference)
+Create a `.env` file with the following required variables:
 
 ```env
-# --- Database ----------------------------------------------------
-DATABASE_URL=your-postgres-database-url
+# --- Database (Required) ---
+DATABASE_URL=postgresql://user:pass@host.neon.tech/db?sslmode=require
 
-# --- Auth ---------------------------------------------------------
-BETTER_AUTH_SECRET=your-better-auth-secret
-BETTER_AUTH_URL="http://localhost:3000"
+# --- Authentication (Required) ---
+BETTER_AUTH_SECRET=your-random-secret-key-min-32-chars
+BETTER_AUTH_URL=http://localhost:3000
 
-# --- OAuth (optional) --------------------------------------------
+# --- AI / LLM (Required) ---
+MISTRAL_API_KEY=your-mistral-api-key
+MODEL_NAME=mistral-small-latest
+
+# --- Video (Required) ---
+NEXT_PUBLIC_STREAM_VIDEO_API_KEY=your-stream-public-key
+STREAM_VIDEO_SECRET_KEY=your-stream-secret-key
+
+# --- Email (Required for auth flows) ---
+BREVO_API_KEY=your-brevo-api-key
+BREVO_SENDER_EMAIL=noreply@yourdomain.com
+BREVO_SENDER_NAME=Nexa AI
+
+# --- Rate Limiting (Required) ---
+UPSTASH_REDIS_REST_URL=your-upstash-rest-url
+UPSTASH_REDIS_REST_TOKEN=your-upstash-rest-token
+
+# --- Application ---
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+# --- OAuth (Optional) ---
 GITHUB_CLIENT_ID=your-github-client-id
 GITHUB_CLIENT_SECRET=your-github-client-secret
 GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret
 
-# --- Email (Brevo) -----------------------------------------------
-BREVO_API_KEY=
-BREVO_SENDER_EMAIL=
-BREVO_SENDER_NAME=Nexa AI
+# --- LLM Fallback (Optional) ---
+GROQ_API_KEY=your-groq-api-key
+GROQ_MODEL_NAME=mixtral-8x7b-32768
+LLM_FALLBACK_ENABLED=true
 
-# --- App / Stream Video ------------------------------------------
-NEXT_PUBLIC_APP_URL=your-next-public-app-url
-NEXT_PUBLIC_STREAM_VIDEO_API_KEY=your-next-public-stream-video-api-key
-STREAM_VIDEO_SECRET_KEY=your-stream-video-secret-key
-
-# --- Rate limiting (Upstash) --------------------------------------
-UPSTASH_REDIS_REST_URL=your-upstash-rest-url
-UPSTASH_REDIS_REST_TOKEN=your-upstash-rest-token
-
-# --- AI (Mistral) ------------------------------------------------
-MODEL_NAME=mistral-small-latest
-MISTRAL_API_KEY=your-mistral-api-key
+# --- Admin (Optional) ---
+ADMIN_EMAILS=admin@yourdomain.com,admin2@yourdomain.com
 ```
 
-### Database setup
+See `.env.example` for the complete list with descriptions.
 
-The project uses **Drizzle ORM** with the **drizzle‑kit** CLI.
+### Database Setup
 
 ```bash
-# Push the current schema to Neon
+# Run database migrations
+npm run db:migrate
+
+# Or push schema directly (development only)
 npm run db:push
 
-# Or open the DB studio UI
+# Open Drizzle Studio (optional)
 npm run db:studio
-```
-
-For future schema changes you can generate migrations:
-
-```bash
-npx drizzle-kit generate:pg --out migrations
 ```
 
 ### Development
@@ -131,74 +190,144 @@ npx drizzle-kit generate:pg --out migrations
 npm run dev
 ```
 
-The app will be available at <http://localhost:3000>. You can create an account (email/password or social login), add AI agents, schedule a meeting, and start a video call.
+Open [http://localhost:3000](http://localhost:3000) to see the application.
 
 ### Build & Deploy
 
 ```bash
-npm run build   # Next.js production build
-npm start       # Run the built app
+# Production build
+npm run build
+
+# Start production server
+npm start
+
+# Run linter
+npm run lint
+
+# Run tests
+npm test
 ```
 
-Deploy to **Vercel** (or any Node.js host). Set all `process.env` variables in the Vercel dashboard. The Neon connection string should be stored as a secret.
+**Deployment:** Deploy to Vercel, Netlify, or any Node.js host. Set all environment variables in your hosting platform's dashboard.
 
-## Project Structure (high‑level)
+## 📁 Project Structure
 
 ```
 src/
- ├─ app/                 – Next.js app router pages (auth, dashboard, call)
- ├─ components/          – UI primitives (buttons, dialogs, avatar)
- ├─ lib/                 – helpers (auth, stream‑video, env, rate-limit)
- ├─ db/                  – Drizzle schema & db client
- ├─ modules/
- │   ├─ agents/          – CRUD UI & tRPC router for AI agents
- │   ├─ meetings/        – CRUD UI & tRPC router for meetings
- │   ├─ auth/            – Sign‑in / sign‑up / forgot / reset / verify views
- │   ├─ home/            – Dashboard views & components
- │   └─ settings/        – Settings tabs (profile, security, account)
- ├─ trpc/                – tRPC initialization & router export
- └─ constants.ts        – pagination defaults
+├── app/                    # Next.js App Router pages & API routes
+│   ├── (auth)/            # Authentication pages (sign-in, sign-up, verify, reset)
+│   ├── (dashboard)/       # Protected dashboard routes (home, agents, meetings, settings)
+│   ├── call/              # Video call UI and components
+│   ├── api/               # API routes (chat, webhooks, tRPC)
+│   └── page.tsx           # Public landing page
+├── components/            # Reusable UI components (shadcn/ui)
+│   └── ui/               # Base UI primitives
+├── db/                    # Database schema and client (Drizzle ORM)
+├── hooks/                 # Custom React hooks (voice-assistant, mobile, etc.)
+├── lib/                   # Utilities and helpers
+│   ├── auth-client.ts    # Better-Auth client configuration
+│   ├── llm.ts            # LLM provider wrapper (Mistral + Groq fallback)
+│   ├── meeting-summary.ts # Summary generation orchestration
+│   ├── summary-schema.ts  # Zod schemas for structured summaries
+│   ├── transcript-parser.ts # Stream JSONL transcript parser
+│   ├── email.ts          # Brevo email integration
+│   └── rate-limit.ts     # Upstash rate limiter
+├── modules/               # Feature modules
+│   ├── agents/           # Agent CRUD (UI + tRPC router)
+│   ├── meetings/         # Meeting CRUD (UI + tRPC router)
+│   ├── home/             # Dashboard views and analytics
+│   └── settings/         # Settings tabs (profile, security, account)
+├── trpc/                  # tRPC setup and routers
+└── constants.ts           # Global constants (pagination, limits)
 ```
 
-## API Endpoints
+## 🔌 API Endpoints
 
-| Route | Method | Purpose |
-|-------|--------|---------|
-| `/api/chat` | POST | Sends `{ prompt, agentId }` to Mistral using the agent's instruction as system prompt, with per-user Upstash rate limiting. |
-| `/api/webhooks/stream` | POST | Receive Stream Video webhook events (session start/end) and update meeting status. |
-| `/api/*` (tRPC) | – | All tRPC procedures under `/api/trpc` – agents, meetings, auth, etc. |
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/chat` | POST | Streaming AI chat with rate limiting and conversation history |
+| `/api/webhooks/stream` | POST | Stream Video webhook handler (session start/end, recordings, transcriptions) |
+| `/api/trpc/[trpc]` | GET/POST | tRPC endpoint for all server procedures |
+| `/api/auth/[...all]` | GET/POST | Better-Auth authentication handler |
 
-## Voice Interaction Flow
+## 🎯 Voice Interaction Flow
 
-1. User clicks **“Push to Talk”** in the call UI.
-2. Browser `SpeechRecognition` captures audio → transcribes to text.
-3. Text sent to `/api/chat`.
-4. LLM response returned, fed to `speechSynthesis` → spoken back to the user.
+1. **Push to Talk**: Click button to activate browser speech recognition
+2. **Speech-to-Text**: Browser captures and transcribes audio (native Web Speech API)
+3. **AI Processing**: Text sent to `/api/chat` → Mistral API with agent instruction as system prompt
+4. **Streaming Response**: Server-Sent Events (SSE) stream the AI response progressively
+5. **Text-to-Speech**: Browser speaks the response (native Speech Synthesis API)
+6. **Persistence**: Conversation turns saved to database for history and summaries
 
-All processing happens in the browser; only the text payload travels to the backend.
+**Note:** The AI does not join the video call as a participant. Voice interaction happens in the browser, and only text payloads travel to the backend.
 
-## Contributing
+## 🧪 Testing
 
-1. Fork the repository.
-2. Create a feature branch (`git checkout -b feat/my-feature`).
-3. Install dependencies (`npm ci`).
-4. Run lint and type‑checking: `npm run lint`.
-5. Open a PR – please ensure the CI passes.
+```bash
+# Run all tests
+npm test
 
-> **Note:** This project uses the **Next.js 16** app‑router APIs, which differ from older Next.js versions. Review the official docs in `node_modules/next/dist/docs/` if you need to adjust routing or API conventions.
+# Individual test suites
+npm run test:summary              # Summary schema and generation tests
+npm run test:transcript-parser    # Transcript parsing tests
+npm run test:agent-templates      # Agent template validation
+npm run test:limits               # Rate limiting tests
+npm run test:email                # Email formatting tests
 
-## License
+# Live tests (require API keys)
+npm run test:summary:live         # Real Mistral API calls
+npm run test:webhook-replay       # Webhook signature verification (requires dev server)
+```
 
-MIT © 2026 Nexa AI contributors.
+## 📚 Documentation
 
-## Acknowledgments
+- **[FEATURES.md](./FEATURES.md)** - Complete feature inventory and architecture details
+- **[AI_SETUP.md](./AI_SETUP.md)** - Voice assistant architecture and setup guide
+- **[AGENTS.md](./AGENTS.md)** - Next.js-specific agent rules and conventions
+- **[COACHING_IMPLEMENTATION.md](./COACHING_IMPLEMENTATION.md)** - Interview coaching report feature details
 
-- **Stream Video** – real‑time video SDK.
-- **Better‑Auth** – authentication framework.
-- **Mistral** – LLM provider.
-- **Neon** – serverless Postgres.
-- **shadcn/ui**, **lucide-react**, **TailwindCSS** – UI building blocks.
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feat/amazing-feature`)
+3. Install dependencies (`npm ci`)
+4. Make your changes
+5. Run tests and linting (`npm test && npm run lint`)
+6. Commit your changes (`git commit -m 'Add amazing feature'`)
+7. Push to the branch (`git push origin feat/amazing-feature`)
+8. Open a Pull Request
+
+**Important:** This project uses **Next.js 16 App Router APIs**, which differ from older Next.js versions. Review the official docs or check `node_modules/next/dist/docs/` for routing and API conventions.
+
+## 🐛 Known Limitations
+
+- Browser speech recognition requires HTTPS in production (or localhost for dev)
+- Speech recognition availability varies by browser (best in Chrome/Edge)
+- Rate limits: 10 quick-starts per hour, 30 chat requests per minute per user
+- Meeting quotas: configurable per user (default limits in code)
+- Summary generation: retries once on validation failure, then stores flagged fallback
+- Email sending: Brevo free tier limited to 300/day; failures release claim for retry
+- Stream transcripts may have delays; summaries can regenerate when richer transcript arrives
+
+## 📄 License
+
+MIT © 2026 Nexa AI Contributors
+
+## 🙏 Acknowledgments
+
+- **[Stream Video](https://getstream.io/video/)** - Real-time video infrastructure
+- **[Better-Auth](https://www.better-auth.com/)** - Modern authentication framework
+- **[Mistral AI](https://mistral.ai/)** - Large language model provider
+- **[Neon](https://neon.tech/)** - Serverless PostgreSQL
+- **[Drizzle ORM](https://orm.drizzle.team/)** - TypeScript ORM
+- **[shadcn/ui](https://ui.shadcn.com/)** - Beautiful UI components
+- **[Tailwind CSS](https://tailwindcss.com/)** - Utility-first CSS framework
+- **[Lucide Icons](https://lucide.dev/)** - Beautiful icon library
+- **[Brevo](https://www.brevo.com/)** - Transactional email service
+- **[Upstash](https://upstash.com/)** - Serverless Redis for rate limiting
 
 ---
 
-Feel free to explore the `AI_SETUP.md` file for details on the voice‑assistant architecture. Happy hacking!
+**Need help?** Check out the documentation files or open an issue on GitHub. For AI assistant details, see [AI_SETUP.md](./AI_SETUP.md).
+
+**Ready to start?** Create an account at [localhost:3000](http://localhost:3000), deploy your first AI agent, and experience the future of AI-powered meetings! 🚀
