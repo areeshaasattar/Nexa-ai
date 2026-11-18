@@ -46,7 +46,7 @@ const StatusBadge = ({ status }: { status: string }) => {
     {
       scheduled: "bg-blue-50 text-blue-600 border-blue-100",
       ongoing: "bg-amber-50 text-amber-600 border-amber-100 animate-pulse",
-      completed: "bg-green-50 text-green-600 border-green-100",
+      completed: "bg-brand-100 text-brand-700 border-brand-100",
       failed: "bg-red-50 text-red-600 border-red-100",
     }[status] || "bg-gray-50 text-gray-600 border-gray-100";
 
@@ -225,7 +225,7 @@ export const MeetingsView = () => {
                               size="sm"
                               onClick={() => quickStart.start(STARTER_TEMPLATE)}
                               disabled={quickStart.isPending}
-                              className="rounded-lg bg-brand-800 text-white hover:bg-brand-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-800 focus-visible:ring-offset-2"
+                              className="rounded-lg bg-primary text-primary-foreground hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                             >
                               <PlayCircleIcon className="size-3.5" />
                               Try it now

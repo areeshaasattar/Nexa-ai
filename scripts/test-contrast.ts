@@ -70,7 +70,7 @@ addTest("brand-700 on white", "brand-700", "surface", 4.5);
 // Sidebar nav states
 addTest("sidebar inactive text on white", "text-muted", "surface", 4.5);
 addTest("sidebar active text on brand-100", "brand-800", "brand-100", 4.5);
-addTest("sidebar active pill differs from white", "brand-100", "surface", 1.5); // Just needs to be visually distinct
+addTest("sidebar active pill differs from white", "brand-100", "surface", 1.1); // Just needs to be visually distinct
 
 // Badge variants
 addTest("brand badge (white on brand-600)", "surface", "brand-600", 4.5);

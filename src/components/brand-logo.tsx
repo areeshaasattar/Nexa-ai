@@ -10,7 +10,7 @@ export interface BrandLogoProps {
 }
 
 const COLORS: Record<BrandLogoVariant, string> = {
-  onLight: "text-emerald-600", // brand green (primary button color)
+  onLight: "text-brand-700", // brand green (primary button color)
   onDark: "text-white",
 };
 

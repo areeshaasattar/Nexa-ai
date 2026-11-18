@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { ApexOptions, ApexTooltipCustomOpts } from "apexcharts";
+import { CHART_COLORS } from "@/lib/chart-colors";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { trpc } from "@/trpc/client";
@@ -237,7 +238,7 @@ export const HomeView = () => {
                   <Chart
                     options={{
                       chart: { toolbar: { show: false }, animations: { enabled: !window.matchMedia("(prefers-reduced-motion: reduce)").matches } },
-                      colors: ["#14533a", "#55b884"],
+                      colors: [CHART_COLORS.dark, CHART_COLORS.mid],
                       stroke: { curve: "smooth", width: 2 },
                       fill: { type: "gradient", gradient: { shadeIntensity: 1, opacityFrom: 0.2, opacityTo: 0, stops: [0, 100] } },
                       xaxis: { categories, axisBorder: { show: false }, axisTicks: { show: false }, labels: { style: { colors: "#7b8b83", fontSize: "12px" } } },
@@ -300,7 +301,7 @@ export const HomeView = () => {
                     options={{
                       chart: { type: "donut" },
                       labels: ["Completed", "Ongoing", "Scheduled"],
-                      colors: ["#0B3D2E", "#2FA36B", "#A8E0C0"],
+                      colors: [CHART_COLORS.dark, CHART_COLORS.mid, CHART_COLORS.light],
                       legend: { show: false },
                       dataLabels: { enabled: false },
                       plotOptions: { 

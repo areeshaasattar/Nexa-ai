@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { CHART_COLORS } from "@/lib/chart-colors";
 import {
   Card,
   CardContent,
@@ -24,12 +25,12 @@ export interface SentimentBreakdown {
 
 /** Three green shades matching the template. */
 const SENTIMENT_META = [
-  { key: "positive", label: "Positive", color: "#0B3D2E", dotClass: "bg-green-900" },
-  { key: "natural", label: "Natural", color: "#2FA36B", dotClass: "bg-green-600" },
-  { key: "negative", label: "Negative", color: "#A8E0C0", dotClass: "bg-green-200" },
+  { key: "positive", label: "Positive", color: CHART_COLORS.dark, dotClass: "bg-brand-900" },
+  { key: "natural", label: "Natural", color: CHART_COLORS.mid, dotClass: "bg-brand-500" },
+  { key: "negative", label: "Negative", color: CHART_COLORS.light, dotClass: "bg-brand-300" },
 ] as const;
 
-const EMPTY_TRACK_COLOR = "#E5EDE8";
+const EMPTY_TRACK_COLOR = CHART_COLORS.track;
 
 function SentimentDonut({
   breakdown,

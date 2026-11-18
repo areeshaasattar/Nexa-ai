@@ -81,7 +81,7 @@ export const DashboardNavbar = () => {
         <button
           type="button"
           onClick={() => setNewMeetingOpen(true)}
-          className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-brand-700 px-4 text-[13px] font-medium text-white transition-colors hover:bg-brand-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600/15 disabled:opacity-60"
+          className="flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-primary px-4 text-[13px] font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/15 disabled:opacity-60"
         >
           <Plus className="size-4 shrink-0" strokeWidth={1.5} />
           <span className="hidden sm:inline">New meeting</span>
@@ -118,7 +118,7 @@ export const DashboardNavbar = () => {
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-semibold text-gray-900">Recent activity</span>
                   {(activity ?? []).length > 0 && (
-                    <span className="inline-flex items-center justify-center rounded-full bg-green-50 text-green-700 text-[11px] font-semibold px-2 py-0.5">
+                    <span className="inline-flex items-center justify-center rounded-full bg-brand-100 text-brand-700 text-[11px] font-semibold px-2 py-0.5">
                       {(activity ?? []).length}
                     </span>
                   )}
@@ -171,7 +171,7 @@ export const DashboardNavbar = () => {
                           key={a.id}
                           className="flex gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
                         >
-                          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-green-50 text-green-700">
+                          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-700">
                             <Icon className="size-4" aria-hidden="true" strokeWidth={1.5} />
                           </span>
                           <div className="min-w-0 flex-1">

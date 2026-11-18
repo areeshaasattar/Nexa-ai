@@ -46,15 +46,15 @@ const ExampleBlock = ({ title, text }: { title: string; text: string }) => {
     }
   };
   return (
-    <div className="rounded-xl border border-green-100 bg-green-50/40 p-4">
+    <div className="rounded-xl border border-brand-100 bg-brand-100/40 p-4">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="text-xs font-bold uppercase tracking-wider text-green-700">
+        <span className="text-xs font-bold uppercase tracking-wider text-brand-700">
           {title}
         </span>
         <button
           type="button"
           onClick={handleCopy}
-          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-semibold text-green-700 transition-colors hover:bg-green-100"
+          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-semibold text-brand-700 transition-colors hover:bg-brand-100"
         >
           {copied ? (
             <>
@@ -82,13 +82,13 @@ const AgentsListHeader = ({ onOpenDialog }: AgentsListHeaderProps) => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-8 border-b border-gray-100">
         <div className="flex items-center gap-5">
           <div className="relative group">
-            <div className="absolute -inset-1 bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
-            <div className="relative size-14 rounded-2xl bg-white flex items-center justify-center border border-green-100 shadow-sm transition-transform group-hover:scale-105">
-              <BotIcon className="size-7 text-green-600" />
+            <div className="absolute -inset-1 bg-gradient-to-r from-brand-500 to-brand-600 rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
+            <div className="relative size-14 rounded-2xl bg-white flex items-center justify-center border border-brand-100 shadow-sm transition-transform group-hover:scale-105">
+              <BotIcon className="size-7 text-brand-600" />
               <div className="absolute -top-1 -right-1">
                 <span className="relative flex h-3 w-3">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-300 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-brand-500"></span>
                 </span>
               </div>
             </div>
@@ -116,7 +116,7 @@ const AgentsListHeader = ({ onOpenDialog }: AgentsListHeaderProps) => {
           </Button>
           <Button
             onClick={onOpenDialog}
-            className="rounded-xl h-11 px-6 bg-green-600 hover:bg-green-700 text-white font-bold shadow-lg shadow-green-600/20 transition-all active:scale-95 flex items-center gap-2"
+            className="rounded-xl h-11 px-6 bg-primary hover:bg-primary-hover text-primary-foreground font-bold shadow-lg shadow-brand-700/20 transition-all active:scale-95 flex items-center gap-2"
           >
             <PlusIcon className="size-5" />
             <span>Create Agent</span>
@@ -135,25 +135,25 @@ const AgentsListHeader = ({ onOpenDialog }: AgentsListHeaderProps) => {
 
           <div className="flex flex-col gap-4 px-4 pb-4">
             <section className="space-y-1">
-              <h3 className="text-sm font-semibold text-green-950">Role</h3>
+              <h3 className="text-sm font-semibold text-brand-900">Role</h3>
               <p className="text-sm text-gray-600">
                 Who the agent is and what it is responsible for.
               </p>
             </section>
             <section className="space-y-1">
-              <h3 className="text-sm font-semibold text-green-950">Tone</h3>
+              <h3 className="text-sm font-semibold text-brand-900">Tone</h3>
               <p className="text-sm text-gray-600">
                 How it speaks: friendly, formal, concise, encouraging, etc.
               </p>
             </section>
             <section className="space-y-1">
-              <h3 className="text-sm font-semibold text-green-950">Rules</h3>
+              <h3 className="text-sm font-semibold text-brand-900">Rules</h3>
               <p className="text-sm text-gray-600">
                 What it must or must not do (boundaries, topics to avoid).
               </p>
             </section>
             <section className="space-y-1">
-              <h3 className="text-sm font-semibold text-green-950">Voice tips</h3>
+              <h3 className="text-sm font-semibold text-brand-900">Voice tips</h3>
               <p className="text-sm text-gray-600">
                 In live calls keep answers short, one idea per reply, avoid long
                 lists.
@@ -171,7 +171,7 @@ const AgentsListHeader = ({ onOpenDialog }: AgentsListHeaderProps) => {
             </div>
 
             <Button
-              className="mt-2 w-full rounded-xl bg-green-600 text-white hover:bg-green-700"
+              className="mt-2 w-full rounded-xl bg-primary text-primary-foreground hover:bg-primary-hover"
               onClick={() => {
                 setGuideOpen(false);
                 onOpenDialog();

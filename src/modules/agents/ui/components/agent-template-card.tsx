@@ -27,7 +27,7 @@ export function AgentTemplateCard({
 }: AgentTemplateCardProps) {
   if (variant === "compact") {
     return (
-      <div className="flex items-center gap-3 rounded-xl border border-green-100 bg-white p-3 transition-colors hover:border-green-200">
+      <div className="flex items-center gap-3 rounded-xl border border-brand-100 bg-white p-3 transition-colors hover:border-brand-200">
         <GeneratedAvatar
           seed={template.name}
           style="bottts"
@@ -78,7 +78,7 @@ export function AgentTemplateCard({
   }
 
   return (
-    <div className="flex h-full flex-col rounded-2xl border border-green-100 bg-white p-5 shadow-sm transition-all duration-300 hover:border-green-200 hover:shadow-xl">
+    <div className="flex h-full flex-col rounded-2xl border border-brand-100 bg-white p-5 shadow-sm transition-all duration-300 hover:border-brand-200 hover:shadow-xl">
       <div className="mb-4 flex items-start gap-3">
         <GeneratedAvatar
           seed={template.name}

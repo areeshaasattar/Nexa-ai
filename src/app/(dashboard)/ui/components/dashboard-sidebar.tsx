@@ -160,7 +160,7 @@ export const DashboardSidebar = () => {
                   { onSettled: () => setQuickLoading(false) },
                 );
               }}
-              className="mt-2.5 h-9 w-full rounded-lg bg-brand-600 text-[13px] font-medium text-white transition-colors hover:bg-brand-600 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-60"
+              className="mt-2.5 h-9 w-full rounded-lg bg-primary text-[13px] font-medium text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-60"
             >
               {quickLoading || quickStart.isPending ? "Starting..." : "Try it now"}
             </button>

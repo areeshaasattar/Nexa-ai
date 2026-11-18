@@ -47,12 +47,12 @@ const MeetingsListHeader = ({ onOpenDialog }: MeetingsListHeaderProps) => {
         <div className="flex items-center gap-5">
           <div className="relative group">
             <div className="absolute -inset-1 bg-gradient-to-r from-brand-800 to-brand-400 rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
-            <div className="relative size-14 rounded-2xl bg-white flex items-center justify-center border border-green-100 shadow-sm transition-transform group-hover:scale-105">
+            <div className="relative size-14 rounded-2xl bg-white flex items-center justify-center border border-brand-100 shadow-sm transition-transform group-hover:scale-105">
               <VideoIcon className="size-7 text-brand-800" />
               <div className="absolute -top-1 -right-1">
                 <span className="relative flex h-3 w-3">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-300 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-brand-1000"></span>
                 </span>
               </div>
             </div>
@@ -63,7 +63,7 @@ const MeetingsListHeader = ({ onOpenDialog }: MeetingsListHeaderProps) => {
               <h1 className="text-3xl font-black text-gray-900 tracking-tight">
                 Meetings
               </h1>
-              <div className="px-2 py-0.5 rounded-md bg-green-50 border border-green-100 flex items-center gap-1">
+              <div className="px-2 py-0.5 rounded-md bg-brand-100 border border-brand-100 flex items-center gap-1">
                 <SparklesIcon className="size-3 text-brand-800" />
                 <span className="text-[10px] font-bold text-brand-800 uppercase tracking-wider">
                   Active
@@ -80,7 +80,7 @@ const MeetingsListHeader = ({ onOpenDialog }: MeetingsListHeaderProps) => {
 
           <Button
             onClick={onOpenDialog}
-            className="rounded-xl h-11 px-6 bg-brand-800 hover:bg-brand-900 text-white font-bold shadow-lg shadow-green-600/20 transition-all active:scale-95 flex items-center gap-2"
+            className="rounded-xl h-11 px-6 bg-primary hover:bg-primary-hover text-primary-foreground font-bold shadow-lg shadow-brand-700/20 transition-all active:scale-95 flex items-center gap-2"
           >
             <PlusIcon className="size-5" />
             <span>New Meeting</span>
