@@ -2,7 +2,7 @@ import { createTRPCRouter, protectedProcedure } from "@/trpc/init";
 import { z } from "zod";
 import { db } from "@/db";
 import { meetings, agents, activities, voiceInteractions, user } from "@/db/schema";
-import { count, eq, and, desc, gte, lt, sql, avg, sum } from "drizzle-orm";
+import { count, eq, and, desc, asc, gte, lt, sql, avg, sum } from "drizzle-orm";
 import { subDays } from "date-fns";
 
 export const homeRouter = createTRPCRouter({
@@ -103,6 +103,7 @@ export const homeRouter = createTRPCRouter({
         id: meetings.id,
         name: meetings.name,
         status: meetings.status,
+        scheduledAt: meetings.scheduledAt,
         startedAt: meetings.startedAt,
         createdAt: meetings.createdAt,
         agentName: agents.name,
@@ -110,7 +111,7 @@ export const homeRouter = createTRPCRouter({
       .from(meetings)
       .innerJoin(agents, eq(meetings.agentId, agents.id))
       .where(and(eq(meetings.userId, userId), eq(meetings.status, "scheduled")))
-      .orderBy(meetings.createdAt)
+      .orderBy(asc(meetings.scheduledAt), asc(meetings.createdAt))
       .limit(5);
 
     // 7. Chart Data (Last 7 days)
@@ -266,6 +267,7 @@ export const homeRouter = createTRPCRouter({
           id: meetings.id,
           name: meetings.name,
           status: meetings.status,
+          scheduledAt: meetings.scheduledAt,
           startedAt: meetings.startedAt,
           endedAt: meetings.endedAt,
           createdAt: meetings.createdAt,
@@ -286,6 +288,7 @@ export const homeRouter = createTRPCRouter({
           id: meetings.id,
           name: meetings.name,
           status: meetings.status,
+        scheduledAt: meetings.scheduledAt,
           startedAt: meetings.startedAt,
           createdAt: meetings.createdAt,
           agentId: meetings.agentId,
@@ -294,7 +297,7 @@ export const homeRouter = createTRPCRouter({
         .from(meetings)
         .innerJoin(agents, eq(meetings.agentId, agents.id))
         .where(and(eq(meetings.userId, userId), eq(meetings.status, "scheduled")))
-        .orderBy(meetings.createdAt)
+        .orderBy(asc(meetings.scheduledAt), asc(meetings.createdAt))
         .limit(5);
 
       // Completed without summary + oldest.
@@ -452,6 +455,7 @@ export const homeRouter = createTRPCRouter({
         id: m.id,
         name: m.name,
         status: m.status,
+        scheduledAt: m.scheduledAt ? m.scheduledAt.toISOString() : null,
         startedAt: m.startedAt ? m.startedAt.toISOString() : null,
         endedAt: m.endedAt ? m.endedAt.toISOString() : null,
         createdAt: m.createdAt.toISOString(),
@@ -465,6 +469,7 @@ export const homeRouter = createTRPCRouter({
         id: m.id,
         name: m.name,
         status: m.status,
+        scheduledAt: m.scheduledAt ? m.scheduledAt.toISOString() : null,
         startedAt: m.startedAt ? m.startedAt.toISOString() : null,
         createdAt: m.createdAt.toISOString(),
         agentId: m.agentId,

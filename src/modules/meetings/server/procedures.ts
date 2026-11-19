@@ -2,7 +2,9 @@ import { db } from "@/db";
 import { meetings, agents, activities, voiceInteractions, user } from "@/db/schema";
 import { createTRPCRouter, protectedProcedure, rateLimited } from "@/trpc/init";
 import { TRPCError } from "@trpc/server";
-import { meetingsInsertSchema, meetingsUpdateSchema } from "../schemas";
+import { meetingsInsertSchema, meetingsUpdateSchema, assertScheduledAtNotPast } from "../schemas";
+import { assertAgentOwned, AgentNotOwnedError } from "@/lib/agent-ownership";
+import { evaluateMeetingUpdate } from "@/lib/meeting-update-decision";
 import { z } from "zod";
 import { eq, and, desc, count, ilike, sql } from "drizzle-orm";
 import { DEFAULT_PAGE, DEFAULT_PAGE_SIZE } from "@/constants";
@@ -289,6 +291,7 @@ export const meetingsRouter = createTRPCRouter({
           agentId: meetings.agentId,
           agentName: agents.name,
           status: meetings.status,
+          scheduledAt: meetings.scheduledAt,
           startedAt: meetings.startedAt,
           endedAt: meetings.endedAt,
           duration: sql<number | null>`CASE WHEN ${meetings.endedAt} IS NOT NULL AND ${meetings.startedAt} IS NOT NULL AND ${meetings.endedAt} >= ${meetings.startedAt} THEN EXTRACT(EPOCH FROM (${meetings.endedAt} - ${meetings.startedAt})) / 60 ELSE NULL END`,
@@ -334,6 +337,7 @@ export const meetingsRouter = createTRPCRouter({
           agentName: agents.name,
           instructions: meetings.instructions,
           status: meetings.status,
+          scheduledAt: meetings.scheduledAt,
           startedAt: meetings.startedAt,
           endedAt: meetings.endedAt,
           duration: sql<number | null>`CASE WHEN ${meetings.endedAt} IS NOT NULL AND ${meetings.startedAt} IS NOT NULL AND ${meetings.endedAt} >= ${meetings.startedAt} THEN EXTRACT(EPOCH FROM (${meetings.endedAt} - ${meetings.startedAt})) / 60 ELSE NULL END`,
@@ -355,6 +359,30 @@ export const meetingsRouter = createTRPCRouter({
   create: protectedProcedure
     .input(meetingsInsertSchema)
     .mutation(async ({ ctx, input }) => {
+      // Agent ownership: foreign and missing agents are indistinguishable.
+      try {
+        await assertAgentOwned(ctx.userId, input.agentId, async (uid, aid) => {
+          const [agent] = await db
+            .select({ id: agents.id })
+            .from(agents)
+            .where(and(eq(agents.id, aid), eq(agents.userId, uid)));
+          return Boolean(agent);
+        });
+      } catch (error) {
+        if (error instanceof AgentNotOwnedError) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Agent not found" });
+        }
+        throw error;
+      }
+
+      if (input.scheduledAt) {
+        try {
+          assertScheduledAtNotPast(input.scheduledAt);
+        } catch {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "scheduledAt may not be more than 5 minutes in the past" });
+        }
+      }
+
       // Quota check (count-then-insert; small race acceptable on neon-http).
       const [existing] = await db
         .select({ total: count() })
@@ -371,7 +399,12 @@ export const meetingsRouter = createTRPCRouter({
       const [newMeeting] = await db
         .insert(meetings)
         .values({
-          ...input,
+          name: input.name,
+          agentId: input.agentId,
+          instructions: input.instructions ?? null,
+          scheduledAt: input.scheduledAt ?? null,
+          status: "scheduled",
+          startedAt: null,
           userId: ctx.userId,
         })
         .returning();
@@ -507,12 +540,80 @@ export const meetingsRouter = createTRPCRouter({
   update: protectedProcedure
     .input(meetingsUpdateSchema)
     .mutation(async ({ ctx, input }) => {
-      const { id, ...data } = input;
+      const [existing] = await db
+        .select()
+        .from(meetings)
+        .where(and(eq(meetings.id, input.id), eq(meetings.userId, ctx.userId)));
+      if (!existing) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Meeting not found" });
+      }
+
+      const decision = evaluateMeetingUpdate(
+        {
+          id: existing.id,
+          status: existing.status,
+          agentId: existing.agentId,
+          scheduledAt: existing.scheduledAt,
+          name: existing.name,
+          instructions: existing.instructions,
+        },
+        {
+          name: input.name,
+          agentId: input.agentId,
+          instructions: input.instructions,
+          scheduledAt: input.scheduledAt,
+        },
+      );
+
+      if (decision.kind === "error") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: decision.message });
+      }
+      if (decision.kind === "noop") {
+        return existing;
+      }
+
+      const data = decision.data;
+      const statusGuarded = decision.statusGuarded;
+
+      if (data.agentId !== undefined) {
+        try {
+          await assertAgentOwned(ctx.userId, data.agentId as string, async (uid, aid) => {
+            const [agent] = await db
+              .select({ id: agents.id })
+              .from(agents)
+              .where(and(eq(agents.id, aid), eq(agents.userId, uid)));
+            return Boolean(agent);
+          });
+        } catch (error) {
+          if (error instanceof AgentNotOwnedError) {
+            throw new TRPCError({ code: "NOT_FOUND", message: "Agent not found" });
+          }
+          throw error;
+        }
+      }
+
+      if (data.scheduledAt !== undefined) {
+        try {
+          assertScheduledAtNotPast(data.scheduledAt as Date | null);
+        } catch {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "scheduledAt may not be more than 5 minutes in the past" });
+        }
+      }
+
+      const updateFilters = [eq(meetings.id, input.id), eq(meetings.userId, ctx.userId)];
+      if (statusGuarded) {
+        updateFilters.push(eq(meetings.status, "scheduled"));
+      }
+
       const [updatedMeeting] = await db
         .update(meetings)
         .set(data)
-        .where(and(eq(meetings.id, id), eq(meetings.userId, ctx.userId)))
+        .where(and(...updateFilters))
         .returning();
+
+      if (!updatedMeeting) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Meeting can no longer be rescheduled" });
+      }
 
       if (updatedMeeting && data.status === "completed") {
          await db.insert(activities).values({
