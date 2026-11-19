@@ -252,7 +252,7 @@ function CommandRow({
     <button
       onClick={onSelect}
       className={cn(
-        "group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-all duration-100",
+        "group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-all duration-100 cursor-pointer",
         "hover:bg-brand-50 hover:shadow-sm focus:outline-none focus:bg-brand-50",
       )}
     >
