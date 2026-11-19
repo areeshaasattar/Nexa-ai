@@ -212,11 +212,11 @@ export function SecurityTab() {
             </FieldError>
           </Field>
 
-          <div className="flex justify-end">
+          <div className="flex justify-end pt-2">
             <Button
               type="submit"
               disabled={form.formState.isSubmitting || !form.formState.isValid}
-              className="min-w-[10rem] gap-2 rounded-xl bg-emerald-600 text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:pointer-events-none disabled:opacity-50"
+              className="min-w-[10rem] gap-2 rounded-xl bg-emerald-600 px-6 py-2.5 text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:pointer-events-none disabled:opacity-50"
             >
               {form.formState.isSubmitting ? (
                 <Loader2 className="size-4 animate-spin" aria-hidden />
@@ -236,7 +236,7 @@ export function SecurityTab() {
         title="Sign out"
         description="End your session on this device."
       >
-        <p className="mb-4 text-xs text-slate-500">
+        <p className="mb-5 text-xs text-slate-500">
           You&apos;ll be returned to the sign-in page. Your data stays safe on your
           account — you can sign back in anytime.
         </p>
@@ -244,7 +244,7 @@ export function SecurityTab() {
           type="button"
           onClick={handleSignOut}
           variant="outline"
-          className="gap-2 rounded-xl border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+          className="gap-2 rounded-xl border-red-200 px-6 py-2.5 text-red-600 hover:bg-red-50 hover:text-red-700"
         >
           <LogOut className="size-4" aria-hidden />
           Sign out
