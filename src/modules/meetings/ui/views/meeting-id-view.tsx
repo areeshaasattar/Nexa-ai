@@ -142,6 +142,8 @@ export const MeetingIdView = ({ meetingId }: MeetingIdViewProps) => {
     ? parsedSummaryData.data
     : null;
   const startedAt = meeting.startedAt ? new Date(meeting.startedAt) : null;
+  const displayRaw = meeting.status === "scheduled" ? meeting.scheduledAt : meeting.startedAt;
+  const displayAt = displayRaw ? new Date(displayRaw as unknown as string) : null;
   const endedAt = meeting.endedAt ? new Date(meeting.endedAt) : null;
   const durationMins = startedAt && endedAt && endedAt >= startedAt
     ? (endedAt.getTime() - startedAt.getTime()) / (1000 * 60)
@@ -211,7 +213,7 @@ export const MeetingIdView = ({ meetingId }: MeetingIdViewProps) => {
                 <div className="flex flex-col">
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Date</span>
                   <span className="text-sm font-semibold text-gray-700">
-                    {startedAt ? startedAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : "Not started"}
+                    {displayAt ? displayAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : "Not started"}
                   </span>
                 </div>
               </div>
@@ -223,7 +225,7 @@ export const MeetingIdView = ({ meetingId }: MeetingIdViewProps) => {
                 <div className="flex flex-col">
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Start Time</span>
                   <span className="text-sm font-semibold text-gray-700">
-                    {startedAt ? startedAt.toLocaleTimeString("en-US", { hour: '2-digit', minute: '2-digit' }) : "--:--"}
+                    {displayAt ? displayAt.toLocaleTimeString("en-US", { hour: '2-digit', minute: '2-digit' }) : "--:--"}
                   </span>
                 </div>
               </div>

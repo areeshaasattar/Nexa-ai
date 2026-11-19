@@ -29,6 +29,13 @@
       "when": 1794565733277,
       "tag": "0003_busy_the_santerians",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1795087994183,
+      "tag": "0004_simple_boomerang",
+      "breakpoints": true
     }
   ]
 }

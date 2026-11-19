@@ -122,6 +122,7 @@ export const meetings = pgTable(
       .references(() => agents.id, { onDelete: "cascade" }),
     instructions: text("instructions"),
     status: text("status", { enum: meetingStatus }).default("scheduled").notNull(),
+    scheduledAt: timestamp("scheduled_at"),
     startedAt: timestamp("started_at"),
     endedAt: timestamp("ended_at"),
     transcriptUrl: text("transcript_url"),

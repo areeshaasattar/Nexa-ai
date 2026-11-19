@@ -411,7 +411,7 @@ export const HomeView = () => {
               </div>
             ) : (
               <div className="flex-1 flex flex-col divide-y divide-gray-100">
-                {(data?.recentMeetings ?? []).slice(0, 5).map((m: { id: string; name: string; status: string; startedAt: string | null; createdAt: string; agentName: string; hasSummary: boolean; recordingUrl: string | null }, i: number) => (
+                {(data?.recentMeetings ?? []).slice(0, 5).map((m: { id: string; name: string; status: string; scheduledAt: string | null; startedAt: string | null; createdAt: string; agentName: string; hasSummary: boolean; recordingUrl: string | null }, i: number) => (
                   <div key={m.id} className="flex-1 flex items-center justify-between gap-3 py-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
@@ -423,11 +423,11 @@ export const HomeView = () => {
                       <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500 ml-7">
                         <span className="flex items-center gap-1">
                           <Calendar className="size-3" />
-                          {m.startedAt ? new Date(m.startedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : new Date(m.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                          {(m.status === "scheduled" ? m.scheduledAt : m.startedAt) ? new Date((m.status === "scheduled" ? m.scheduledAt : m.startedAt) as string).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : new Date(m.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                         </span>
                         <span className="flex items-center gap-1">
                           <Clock className="size-3" />
-                          {m.startedAt ? new Date(m.startedAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "10:00 AM"} · 1h
+                          {(m.status === "scheduled" ? m.scheduledAt : m.startedAt) ? new Date((m.status === "scheduled" ? m.scheduledAt : m.startedAt) as string).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : "10:00 AM"} · 1h
                         </span>
                         <span className="flex items-center gap-1">
                           <Bot className="size-3" />

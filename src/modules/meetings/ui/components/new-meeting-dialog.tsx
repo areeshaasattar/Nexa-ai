@@ -60,24 +60,14 @@ export const NewMeetingDialog = ({
       name: "",
       agentId: defaultAgentId ?? "",
       instructions: "",
-      status: "scheduled",
+      scheduledAt: null,
     },
   });
 
   const agentIdValue = form.watch("agentId");
-  const startedAtValue = form.watch("startedAt");
-  const endedAtValue = form.watch("endedAt");
+  const scheduledAtValue = form.watch("scheduledAt");
   const instructionsValue = form.watch("instructions") ?? "";
   const selectedAgent = (agents ?? []).find((agent) => agent.id === agentIdValue);
-
-  const startDate = startedAtValue ? new Date(startedAtValue) : null;
-  const endDate = endedAtValue ? new Date(endedAtValue) : null;
-  const timeRangeInvalid =
-    startDate !== null &&
-    endDate !== null &&
-    !Number.isNaN(startDate.getTime()) &&
-    !Number.isNaN(endDate.getTime()) &&
-    endDate.getTime() <= startDate.getTime();
 
   const createMutation = trpc.meetings.create.useMutation({
     onSuccess: () => {
@@ -98,7 +88,6 @@ export const NewMeetingDialog = ({
   };
 
   const onSubmit = (data: FormValues) => {
-    if (timeRangeInvalid) return;
     createMutation.mutate(data);
   };
 
@@ -233,45 +222,18 @@ export const NewMeetingDialog = ({
                   )}
                 </Field>
 
-                {/* Start and End datetime */}
-                <div className="grid grid-cols-2 gap-4">
-                  <Field orientation="vertical">
-                    <FieldLabel className="block text-[13px] font-medium text-gray-700 mb-1.5">
-                      Start <span className="text-red-600">*</span>
-                    </FieldLabel>
-                    <Input
-                      type="datetime-local"
-                      {...form.register("startedAt")}
-                      disabled={createMutation.isPending}
-                      className="h-10 min-w-0 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 focus:outline-none focus:border-green-600 focus:ring-2 focus:ring-green-600/15 disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed [color-scheme:light] [&::-webkit-calendar-picker-indicator]:opacity-60"
-                    />
-                  </Field>
-
-                  <Field orientation="vertical">
-                    <FieldLabel className="block text-[13px] font-medium text-gray-700 mb-1.5">
-                      End <span className="text-red-600">*</span>
-                    </FieldLabel>
-                    <Input
-                      type="datetime-local"
-                      {...form.register("endedAt")}
-                      aria-invalid={timeRangeInvalid}
-                      aria-describedby={
-                        timeRangeInvalid ? "new-meeting-end-error" : undefined
-                      }
-                      disabled={createMutation.isPending}
-                      className="h-10 min-w-0 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 focus:outline-none focus:border-green-600 focus:ring-2 focus:ring-green-600/15 disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed [color-scheme:light] [&::-webkit-calendar-picker-indicator]:opacity-60"
-                    />
-                    {timeRangeInvalid && (
-                      <p
-                        id="new-meeting-end-error"
-                        className="mt-1 flex items-center gap-1 text-xs text-red-600"
-                      >
-                        <AlertCircleIcon className="size-3 shrink-0" aria-hidden="true" />
-                        End must be after start.
-                      </p>
-                    )}
-                  </Field>
-                </div>
+                {/* Scheduled time */}
+                <Field orientation="vertical">
+                  <FieldLabel className="block text-[13px] font-medium text-gray-700 mb-1.5">
+                    Scheduled for
+                  </FieldLabel>
+                  <Input
+                    type="datetime-local"
+                    {...form.register("scheduledAt")}
+                    disabled={createMutation.isPending}
+                    className="h-10 min-w-0 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 focus:outline-none focus:border-green-600 focus:ring-2 focus:ring-green-600/15 disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed [color-scheme:light] [&::-webkit-calendar-picker-indicator]:opacity-60"
+                  />
+                </Field>
               </div>
 
               {/* Right column: Instructions */}
@@ -314,7 +276,7 @@ export const NewMeetingDialog = ({
             </Button>
             <Button
               type="submit"
-              disabled={createMutation.isPending || !hasAgents || timeRangeInvalid}
+              disabled={createMutation.isPending || !hasAgents}
               className="h-10 px-5 rounded-lg bg-brand-700 hover:bg-brand-900 text-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-green-600/15 disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
             >
               {createMutation.isPending && (

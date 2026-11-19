@@ -251,8 +251,9 @@ export const MeetingsView = () => {
                   </tr>
                 ) : (
                   meetingsData.map((meeting) => {
-                    const startedAt = meeting.startedAt
-                      ? new Date(meeting.startedAt)
+                    const displayAt = meeting.status === "scheduled" ? meeting.scheduledAt : meeting.startedAt;
+                    const startedAt = displayAt
+                      ? new Date(displayAt)
                       : null;
                     const endedAt = meeting.endedAt
                       ? new Date(meeting.endedAt)
