@@ -32,7 +32,7 @@ export type SummaryGenerationOutcome =
  * parser. speaker_id values are Stream user ids; they are mapped to display
  * names via knownUsers (currently the meeting owner).
  */
-async function fetchTranscriptText(
+export async function fetchTranscriptText(
   url: string,
   knownUsers: Record<string, string>,
   meetingId?: string,

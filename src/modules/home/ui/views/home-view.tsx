@@ -204,11 +204,11 @@ export const HomeView = () => {
               <CardTitle className="text-[15px] font-semibold text-gray-900">Meeting activity</CardTitle>
               <CardDescription className="text-xs text-gray-500 mt-1">Meetings and participants over time</CardDescription>
             </div>
-            <div className="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1.5 shrink-0">
+            <div className="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1.5 shrink-0 relative">
               <select
                 value={range}
                 onChange={(e) => setRange(e.target.value as Range)}
-                className="bg-transparent text-sm font-medium outline-none text-gray-900"
+                className="bg-transparent text-sm font-medium outline-none text-gray-900 appearance-none pr-6 cursor-pointer"
                 aria-label="Range"
               >
                 {RANGE_OPTIONS.map((o) => (
@@ -217,7 +217,7 @@ export const HomeView = () => {
                   </option>
                 ))}
               </select>
-              <ChevronDown className="size-4 text-gray-500 pointer-events-none" />
+              <ChevronDown className="size-4 text-gray-500 pointer-events-none absolute right-3" />
             </div>
           </CardHeader>
           <CardContent className="pt-2 flex-1 flex flex-col min-h-[280px]">
