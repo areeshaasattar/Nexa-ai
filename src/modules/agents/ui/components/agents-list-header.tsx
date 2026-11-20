@@ -119,7 +119,7 @@ const AgentsListHeader = ({ onOpenDialog }: AgentsListHeaderProps) => {
           </Button>
           <Button
             onClick={onOpenDialog}
-            className="rounded-xl h-11 px-5 bg-primary hover:bg-primary-hover text-primary-foreground font-bold shadow-lg shadow-brand-700/20 transition-all active:scale-95 flex items-center gap-2"
+            className="rounded-xl h-11 px-5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-lg shadow-emerald-700/20 transition-all active:scale-95 flex items-center gap-2"
           >
             <PlusIcon className="size-5" />
             <span>Create Agent</span>
@@ -209,7 +209,7 @@ const AgentsListHeader = ({ onOpenDialog }: AgentsListHeaderProps) => {
           {/* Fixed Footer */}
           <div className="shrink-0 border-t border-border/60 bg-white px-6 pt-4 pb-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
             <Button
-              className="h-11 w-full rounded-xl px-5 text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary-hover"
+              className="h-11 w-full rounded-xl px-5 text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700"
               onClick={() => {
                 setGuideOpen(false);
                 onOpenDialog();
