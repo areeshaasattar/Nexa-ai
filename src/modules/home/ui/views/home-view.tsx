@@ -436,7 +436,7 @@ export const HomeView = () => {
                       </div>
                     </div>
                     <div className="flex items-center gap-1 ml-4 shrink-0">
-                      {m.recordingUrl && (
+                      {m.recordingUrl && /^https:\/\//i.test(m.recordingUrl) && (
                         <Button size="sm" variant="ghost" asChild className="h-8 w-8 p-0">
                           <a href={m.recordingUrl} target="_blank" rel="noopener noreferrer" aria-label="Play recording">
                             <Play className="size-4" />

@@ -180,7 +180,7 @@ export const MeetingIdView = ({ meetingId }: MeetingIdViewProps) => {
         </div>
         <div className="flex items-center gap-2">
           {["scheduled", "ongoing"].includes(meeting.status) && (
-            <Button asChild className="h-11 px-5 font-bold bg-primary hover:bg-primary-hover transition-all gap-2">
+            <Button asChild className="h-11 px-5 font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-all gap-2 shadow-sm">
               <Link href={`/call/${meeting.id}`}>
                 <VideoIcon className="size-4" />
                 {meeting.status === "scheduled" ? "Start Meeting" : "Join Call"}
@@ -246,7 +246,7 @@ export const MeetingIdView = ({ meetingId }: MeetingIdViewProps) => {
             <Separator className="my-8 bg-gray-50" />
 
             <div className="space-y-3">
-              {meeting.recordingUrl && (
+              {meeting.recordingUrl && /^https:\/\//i.test(meeting.recordingUrl) && (
                 <Button variant="outline" className="w-full rounded-xl h-11 font-bold border-gray-200 text-gray-600 hover:bg-gray-50 gap-2" asChild>
                   <a href={meeting.recordingUrl} target="_blank" rel="noopener noreferrer">
                     <PlayCircleIcon className="size-4" />
@@ -254,7 +254,7 @@ export const MeetingIdView = ({ meetingId }: MeetingIdViewProps) => {
                   </a>
                 </Button>
               )}
-              {meeting.transcriptUrl && (
+              {meeting.transcriptUrl && /^https:\/\//i.test(meeting.transcriptUrl) && (
                 <Button variant="outline" className="w-full rounded-xl h-11 font-bold border-gray-200 text-gray-600 hover:bg-gray-50 gap-2" asChild>
                   <a href={meeting.transcriptUrl} target="_blank" rel="noopener noreferrer">
                     <FileTextIcon className="size-4" />

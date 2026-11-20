@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "npm run test:summary && npm run test:transcript-parser && npm run test:seed-starter-agent && npm run test:limits && npm run test:chat-errors && npm run test:agent-templates && npm run test:email && npm run test:summary-email && npm run test:summary-backoff && npm run test:llm-fallback && npm run test:onboarding && npm run test:dashboard-data && npm run test:shell-helpers && npm run test:contrast && npm run test:theme-tokens && npm run test:meetings-input",
+    "test": "npm run test:summary && npm run test:transcript-parser && npm run test:seed-starter-agent && npm run test:limits && npm run test:chat-errors && npm run test:agent-templates && npm run test:email && npm run test:summary-email && npm run test:summary-backoff && npm run test:llm-fallback && npm run test:onboarding && npm run test:dashboard-data && npm run test:shell-helpers && npm run test:contrast && npm run test:theme-tokens && npm run test:meetings-input && npm run test:safe-url",
     "test:contrast": "tsx scripts/test-contrast.ts",
     "test:theme-tokens": "tsx scripts/test-theme-tokens.ts",
     "test:summary": "tsx scripts/test-summary.ts",
@@ -30,7 +30,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio --port 4984",
-    "test:meetings-input": "tsx scripts/test-meetings-input.ts"
+    "test:meetings-input": "tsx scripts/test-meetings-input.ts",
+    "test:safe-url": "tsx scripts/test-safe-url.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",

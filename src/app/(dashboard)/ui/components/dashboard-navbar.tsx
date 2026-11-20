@@ -81,7 +81,7 @@ export const DashboardNavbar = () => {
         <button
           type="button"
           onClick={() => setNewMeetingOpen(true)}
-          className="flex h-11 shrink-0 items-center gap-1.5 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/15 disabled:opacity-60"
+          className="flex h-11 shrink-0 items-center gap-1.5 rounded-xl bg-emerald-600 px-5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/20 disabled:opacity-60 shadow-sm"
         >
           <Plus className="size-4 shrink-0" strokeWidth={1.5} />
           <span className="hidden sm:inline">New meeting</span>

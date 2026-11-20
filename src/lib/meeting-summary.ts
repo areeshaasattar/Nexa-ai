@@ -8,6 +8,7 @@ import {
   type StoredMeetingSummary,
 } from "./summary-schema";
 import { parseStreamTranscript } from "./transcript-parser";
+import { validateAssetUrl, fetchTextLimited, getAllowedAssetHosts } from "./safe-url";
 import { maybeSendSummaryEmail } from "./summary-email";
 import {
   SUMMARY_ENDCALL_INITIAL_DELAY_MS,
@@ -34,31 +35,45 @@ export type SummaryGenerationOutcome =
 async function fetchTranscriptText(
   url: string,
   knownUsers: Record<string, string>,
+  meetingId?: string,
 ): Promise<string | null> {
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    const raw = await res.text();
-
-    const parsed = parseStreamTranscript(raw, knownUsers);
-    if (!parsed) {
-      console.log(
-        JSON.stringify({
-          event: "summary.transcript_parse_failed",
-          urlLength: url.length,
-        }),
-      );
-      return null;
-    }
-    return parsed.text;
-  } catch {
-    console.error(
+  const validation = validateAssetUrl(url, getAllowedAssetHosts());
+  if (!validation.ok) {
+    console.warn(
       JSON.stringify({
         event: "summary.transcript_fetch_failed",
+        meetingId,
+        reason: validation.reason,
+        host: (() => { try { return new URL(url).hostname; } catch { return null; } })(),
       }),
     );
     return null;
   }
+  const result = await fetchTextLimited(validation.url.toString(), { timeoutMs: 10000, maxBytes: 2_000_000 });
+  if (!result.ok) {
+    console.warn(
+      JSON.stringify({
+        event: "summary.transcript_fetch_failed",
+        meetingId,
+        reason: result.reason,
+        host: validation.url.hostname,
+      }),
+    );
+    return null;
+  }
+  const raw = result.text;
+  const parsed = parseStreamTranscript(raw, knownUsers);
+  if (!parsed) {
+    console.log(
+      JSON.stringify({
+        event: "summary.transcript_parse_failed",
+        meetingId,
+        urlLength: url.length,
+      }),
+    );
+    return null;
+  }
+  return parsed.text;
 }
 
 /**
@@ -126,6 +141,7 @@ export async function generateMeetingSummary(
       transcriptText = await fetchTranscriptText(
         existing.transcriptUrl,
         knownUsers,
+        meetingId,
       );
       if (transcriptText && transcriptText.length > TRANSCRIPT_CHAR_CAP) {
         transcriptText =
