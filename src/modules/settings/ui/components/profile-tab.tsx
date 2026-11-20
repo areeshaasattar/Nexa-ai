@@ -184,7 +184,7 @@ export function ProfileTab({
               </FieldError>
             </Field>
 
-            <div className="flex items-center justify-end gap-3 pt-1">
+            <div className="flex items-center justify-end gap-3 pt-3">
               {profileForm.formState.isDirty && (
                 <Button
                   type="button"
@@ -195,7 +195,7 @@ export function ProfileTab({
                       bio: user.bio ?? "",
                     })
                   }
-                  className="text-xs text-slate-500 hover:text-slate-700"
+                  className="text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 px-4 py-2"
                 >
                   Discard
                 </Button>
@@ -207,7 +207,7 @@ export function ProfileTab({
                   profileForm.formState.isSubmitting ||
                   !profileForm.formState.isValid
                 }
-                className="min-w-[9rem] gap-2 rounded-xl bg-emerald-600 text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:pointer-events-none disabled:opacity-50"
+                className="min-w-[10rem] gap-2 rounded-xl bg-emerald-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:pointer-events-none disabled:opacity-50"
               >
                 {profileForm.formState.isSubmitting ? (
                   <Loader2 className="size-4 animate-spin" aria-hidden />
@@ -270,14 +270,14 @@ export function ProfileTab({
               </FieldError>
             </Field>
 
-            <div className="flex justify-end">
+            <div className="flex justify-end pt-2">
               <Button
                 type="submit"
                 variant="outline"
                 disabled={
                   emailSubmitting || emailForm.formState.isValid === false
                 }
-                className="min-w-[11rem] gap-2 rounded-xl border-slate-200 bg-white text-slate-700 shadow-sm hover:bg-slate-50"
+                className="min-w-[12rem] gap-2 rounded-xl border-slate-300 bg-white px-6 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 hover:border-slate-400"
               >
                 {emailSubmitting && (
                   <Loader2 className="size-4 animate-spin" aria-hidden />
