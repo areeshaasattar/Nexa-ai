@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800" viewBox="0 0 600 800" role="img" aria-label="Abstract green placeholder for a participant video feed">
+  <!-- TODO: replace with a licensed photo or product screenshot before launch. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0B5D3B"/>
+      <stop offset="1" stop-color="#052E1C"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#10B981" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#10B981" stop-opacity="0.05"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="800" fill="url(#bg)"/>
+  <circle cx="300" cy="310" r="230" fill="url(#glow)"/>
+  <circle cx="300" cy="300" r="95" fill="#8FD3B2" opacity="0.85"/>
+  <path d="M140 640c26-118 90-170 160-170s134 52 160 170" fill="#8FD3B2" opacity="0.85"/>
+  <circle cx="490" cy="120" r="60" fill="#10B981" opacity="0.25"/>
+  <circle cx="90" cy="700" r="80" fill="#059669" opacity="0.25"/>
+</svg>

@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import "./landing/landing.css";
 import { LandingNavbar } from "./landing/navbar";
 import { LandingHero } from "./landing/hero";
-import { CapabilityStrip } from "./landing/capability-strip";
 import { HowItWorks } from "./landing/how-it-works";
 import { Showcase } from "./landing/showcase";
 import { Features } from "./landing/features";
@@ -50,7 +49,6 @@ export default function LandingPage() {
       <LandingNavbar />
       <main id="main">
         <LandingHero />
-        <CapabilityStrip />
         <HowItWorks />
         <Showcase />
         <Features />
