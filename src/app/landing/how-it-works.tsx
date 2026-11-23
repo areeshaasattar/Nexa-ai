@@ -71,10 +71,9 @@ export function HowItWorks() {
 
             {/* Right: media card + floating integration card */}
             <div className="relative mb-8 md:mb-0">
-              <div className="overflow-hidden rounded-nx-media border border-nx-line shadow-nx-glow">
-                {/* TODO: swap placeholder for a licensed photo / real product shot. */}
+              <div className="overflow-hidden rounded-3xl border border-nx-line shadow-nx-glow">
                 <Image
-                  src="/landing/call-placeholder.svg"
+                  src="/landing/how-it-works.jpg"
                   alt="Illustration of a live video call with an AI agent"
                   width={1200}
                   height={900}

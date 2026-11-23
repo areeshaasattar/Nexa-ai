@@ -50,10 +50,9 @@ export function Showcase() {
 
             {/* Right: media area + floating example summary card */}
             <div className="relative mb-8 lg:mb-0">
-              <div className="relative aspect-[4/5] overflow-hidden rounded-nx-media border border-nx-line shadow-nx-glow">
-                {/* TODO: swap placeholder for a licensed photo / real product shot. */}
+              <div className="relative aspect-[4/3] overflow-hidden rounded-3xl border border-nx-line shadow-nx-glow">
                 <Image
-                  src="/landing/summary-placeholder.svg"
+                  src="/landing/a-clear-summary.jpg"
                   alt="Illustration of a structured meeting summary emailed after a call"
                   fill
                   sizes="(min-width: 1024px) 560px, (min-width: 768px) 45vw, 100vw"

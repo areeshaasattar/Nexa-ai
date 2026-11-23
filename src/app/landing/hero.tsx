@@ -82,14 +82,14 @@ export function LandingHero() {
                   </span>
                 </div>
                 {/* Video feed placeholder */}
-                <div className="relative mx-3 mt-3 aspect-[3/4] overflow-hidden rounded-2xl">
-                  {/* TODO: swap placeholder for a licensed photo / real product shot. */}
+                <div className="relative mx-3 mt-3 aspect-[4/5] overflow-hidden rounded-2xl">
                   <Image
-                    src="/landing/avatar-placeholder.svg"
+                    src="/landing/hero-phone-mockup.jpg"
                     alt="Example video feed of a call participant"
                     fill
                     sizes="320px"
                     className="object-cover"
+                    priority
                   />
                   <div className="absolute left-3 top-3 flex items-center gap-2">
                     <span className="flex size-8 items-center justify-center rounded-full bg-nx-accent/25 text-xs font-semibold text-nx-accent">

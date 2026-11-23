@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { Bot, Camera, FileText, Lock, Mail, Mic, PhoneOff, Sparkles, Video } from "lucide-react";
 import { Reveal } from "./reveal";
 
@@ -11,9 +12,9 @@ const features = [
 ];
 
 const participants = [
-  { initial: "A", name: "Alex", large: true },
-  { initial: "P", name: "Priya", large: false },
-  { initial: "M", name: "Marcus", large: false },
+  { initial: "A", name: "Alex", large: true, image: "/landing/avatar.jpg" },
+  { initial: "P", name: "Priya", large: false, image: "/landing/video-grid-title-2.jpg" },
+  { initial: "M", name: "Marcus", large: false, image: "/landing/video-grid-title-3.jpg" },
 ];
 
 export function Features() {
@@ -37,12 +38,19 @@ export function Features() {
                 {participants.map((p) => (
                   <div
                     key={p.name}
-                    className={`relative flex aspect-video flex-col justify-between overflow-hidden rounded-2xl bg-gradient-to-br from-nx-deep-2 to-nx-deep p-3 ${p.large ? "col-span-2" : ""}`}
+                    className={`relative flex aspect-video flex-col justify-between overflow-hidden rounded-2xl ${p.large ? "col-span-2" : ""}`}
                   >
-                    <span className="flex size-9 items-center justify-center rounded-full bg-nx-accent/25 text-sm font-semibold text-nx-accent">
+                    <Image
+                      src={p.image}
+                      alt={`Video feed showing ${p.name}`}
+                      fill
+                      sizes={p.large ? "(min-width: 768px) 520px, 100vw" : "(min-width: 768px) 250px, 50vw"}
+                      className="object-cover"
+                    />
+                    <span className="relative z-10 m-3 flex size-9 items-center justify-center rounded-full bg-nx-accent/25 text-sm font-semibold text-nx-accent">
                       {p.initial}
                     </span>
-                    <span className="self-start rounded bg-black/40 px-2 py-0.5 text-xs text-white">
+                    <span className="relative z-10 m-3 self-start rounded bg-black/40 px-2 py-0.5 text-xs text-white">
                       {p.name}
                     </span>
                   </div>
