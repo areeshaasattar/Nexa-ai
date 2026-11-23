@@ -46,7 +46,8 @@ export function Features() {
                       fill
                       sizes={p.large ? "(min-width: 768px) 520px, 100vw" : "(min-width: 768px) 250px, 50vw"}
                       className="object-cover"
-                      quality={95}
+                      loading="lazy"
+                      quality={90}
                     />
                     <span className="relative z-10 m-3 flex size-9 items-center justify-center rounded-full bg-nx-accent/25 text-sm font-semibold text-nx-accent">
                       {p.initial}
