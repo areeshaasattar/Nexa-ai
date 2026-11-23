@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900" role="img" aria-label="Abstract green illustration of a live video call">
+  <!-- TODO: replace with a licensed photo or product screenshot before launch. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F0FDF4"/>
+      <stop offset="0.55" stop-color="#D7F2E3"/>
+      <stop offset="1" stop-color="#A7E3C6"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0B5D3B"/>
+      <stop offset="1" stop-color="#052E1C"/>
+    </linearGradient>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#10B981" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#059669" stop-opacity="0.15"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="900" fill="url(#bg)"/>
+  <circle cx="1050" cy="120" r="180" fill="#10B981" opacity="0.12"/>
+  <circle cx="120" cy="780" r="150" fill="#059669" opacity="0.10"/>
+  <!-- main call window -->
+  <rect x="170" y="150" width="860" height="560" rx="36" fill="url(#screen)"/>
+  <rect x="170" y="150" width="860" height="560" rx="36" fill="none" stroke="#FFFFFF" stroke-opacity="0.15" stroke-width="2"/>
+  <!-- speaker tile -->
+  <rect x="210" y="195" width="540" height="470" rx="24" fill="url(#tile)"/>
+  <circle cx="480" cy="390" r="86" fill="#10B981" opacity="0.55"/>
+  <circle cx="480" cy="360" r="34" fill="#F0FDF4" opacity="0.9"/>
+  <path d="M410 470c14-40 46-58 70-58s56 18 70 58" fill="#F0FDF4" opacity="0.9"/>
+  <!-- side tiles -->
+  <rect x="780" y="195" width="210" height="225" rx="20" fill="url(#tile)"/>
+  <circle cx="885" cy="285" r="38" fill="#8FD3B2" opacity="0.7"/>
+  <circle cx="885" cy="272" r="15" fill="#052E1C" opacity="0.55"/>
+  <path d="M855 318c8-18 18-25 30-25s22 7 30 25" fill="#052E1C" opacity="0.55"/>
+  <rect x="780" y="440" width="210" height="225" rx="20" fill="url(#tile)"/>
+  <!-- sound waves -->
+  <g stroke="#10B981" stroke-width="10" stroke-linecap="round" opacity="0.8">
+    <line x1="830" y1="540" x2="830" y2="565"/>
+    <line x1="860" y1="520" x2="860" y2="585"/>
+    <line x1="890" y1="500" x2="890" y2="605"/>
+    <line x1="920" y1="525" x2="920" y2="580"/>
+    <line x1="950" y1="545" x2="950" y2="560"/>
+  </g>
+  <!-- call controls -->
+  <g>
+    <circle cx="500" cy="760" r="34" fill="#FFFFFF"/>
+    <rect x="492" y="744" width="16" height="24" rx="8" fill="#059669"/>
+    <path d="M486 762a14 14 0 0 0 28 0" fill="none" stroke="#059669" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="600" cy="760" r="34" fill="#FFFFFF"/>
+    <rect x="586" y="750" width="22" height="16" rx="4" fill="#059669"/>
+    <path d="M608 754l10-5v18l-10-5z" fill="#059669"/>
+    <circle cx="700" cy="760" r="34" fill="#DC2626"/>
+    <path d="M686 764c8-8 20-8 28 0l-5 6c-2 2-5 2-7 0l-2-3c-3 1-5 1-8 0l-2 3c-2 2-5 2-7 0z" fill="#FFFFFF"/>
+  </g>
+</svg>

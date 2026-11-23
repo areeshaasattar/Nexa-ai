@@ -1,4 +1,5 @@
 import { ChevronDown } from "lucide-react";
+import { Reveal } from "./reveal";
 
 const faqs = [
   { q: "Is it free?", a: "No payment is required during beta. Fair-use limits apply to keep the service available for everyone." },
@@ -11,21 +12,35 @@ const faqs = [
 
 export function Faq() {
   return (
-    <section id="faq" className="scroll-mt-20 bg-emerald-50/60 py-20 sm:py-28">
+    <section id="faq" className="scroll-mt-24 bg-nx-mint py-24 lg:py-30">
       <div className="mx-auto max-w-3xl px-4 sm:px-6">
-        <p className="text-xs font-semibold uppercase tracking-widest text-emerald-600">FAQ</p>
-        <h2 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">Frequently asked questions</h2>
-        <div className="mt-8 space-y-3">
-          {faqs.map((f) => (
-            <details key={f.q} className="group rounded-2xl border border-slate-200 bg-white p-5">
-              <summary className="flex cursor-pointer list-none items-center justify-between font-medium">
-                {f.q}
-                <ChevronDown className="size-4 text-slate-400 transition-transform group-open:rotate-180" aria-hidden="true" />
-              </summary>
-              <p className="mt-3 text-sm leading-relaxed text-slate-600">{f.a}</p>
-            </details>
-          ))}
-        </div>
+        <Reveal>
+          <div className="text-center">
+            <p className="text-xs font-semibold uppercase tracking-widest text-nx-primary-deep">
+              FAQ
+            </p>
+            <h2 className="mt-2 text-3xl font-bold tracking-tight text-nx-ink sm:text-4xl">
+              Frequently asked questions
+            </h2>
+          </div>
+          <div className="mt-8 space-y-3">
+            {faqs.map((f) => (
+              <details
+                key={f.q}
+                className="group rounded-nx-card border border-nx-line bg-white p-5 shadow-nx-glow"
+              >
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-medium text-nx-ink [&::-webkit-details-marker]:hidden focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-nx-primary-deep">
+                  {f.q}
+                  <ChevronDown
+                    className="size-4 shrink-0 text-nx-muted transition-transform group-open:rotate-180 motion-reduce:transition-none"
+                    aria-hidden="true"
+                  />
+                </summary>
+                <p className="mt-3 text-sm leading-relaxed text-nx-muted">{f.a}</p>
+              </details>
+            ))}
+          </div>
+        </Reveal>
       </div>
     </section>
   );
