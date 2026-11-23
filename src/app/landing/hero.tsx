@@ -83,6 +83,7 @@ export function LandingHero() {
                   sizes="300px"
                   className="object-cover object-top"
                   priority
+                  quality={95}
                 />
 
                 {/* Status bar overlay */}

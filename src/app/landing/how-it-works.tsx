@@ -79,6 +79,7 @@ export function HowItWorks() {
                   height={900}
                   sizes="(min-width: 768px) 560px, 100vw"
                   className="h-auto w-full"
+                  quality={95}
                 />
               </div>
               <div className="absolute -bottom-6 left-4 flex items-center gap-3 rounded-nx-card border border-nx-line bg-white p-4 shadow-nx-glow sm:left-8">

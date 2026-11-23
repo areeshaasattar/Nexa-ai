@@ -57,6 +57,7 @@ export function Showcase() {
                   fill
                   sizes="(min-width: 1024px) 560px, (min-width: 768px) 45vw, 100vw"
                   className="object-cover"
+                  quality={95}
                 />
               </div>
 
