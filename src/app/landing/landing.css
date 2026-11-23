@@ -1,0 +1,94 @@
+/*
+  Nexa AI — home page design tokens & motion (home route only).
+  Imported by src/app/page.tsx; no other route uses these classes.
+
+  Colors are written as rgb() equivalents because scripts/test-theme-tokens.ts
+  flags raw 6-digit hex literals in src/. The hex equivalents are noted in
+  comments (without the leading #) for reference.
+*/
+@import "tailwindcss" source(none);
+
+/* Only scan home-page files for class names in this entry. */
+@source "../page.tsx";
+@source "../landing-mobile-menu.tsx";
+@source "./";
+
+@theme {
+  /* Keep the app font (Geist) — this entry also emits preflight. */
+  --font-sans: var(--font-geist-sans);
+
+  /* Primary green (059669) — icons, accents, decorative fills. */
+  --color-nx-primary: rgb(5 150 105);
+  /* Accessible solid green (047857) — 5.5:1 with white text.
+     Used for solid buttons and green text on light surfaces. */
+  --color-nx-primary-deep: rgb(4 120 87);
+  /* Hover for solid buttons (065f46). */
+  --color-nx-primary-darker: rgb(6 95 70);
+  /* Bright accent (10b981) — only on dark green surfaces. */
+  --color-nx-accent: rgb(16 185 129);
+  /* Deep green gradient ends (052e1c -> 0b5d3b). */
+  --color-nx-deep: rgb(5 46 28);
+  --color-nx-deep-2: rgb(11 93 59);
+  /* Mint background tints (f0fdf4 / f5fff9). */
+  --color-nx-mint: rgb(240 253 244);
+  --color-nx-mint-2: rgb(245 255 249);
+  /* Text dark (0f1f1a) and muted (5b6b64). */
+  --color-nx-ink: rgb(15 31 26);
+  --color-nx-muted: rgb(91 107 100);
+  /* Borders (e3efe8). */
+  --color-nx-line: rgb(227 239 232);
+
+  /* Soft green glow for cards. */
+  --shadow-nx-glow: 0 10px 30px rgb(5 150 105 / 0.12);
+  --shadow-nx-lift: 0 16px 40px rgb(5 150 105 / 0.16);
+
+  /* Radii: buttons 12px, cards 20px, large media 24px. */
+  --radius-nx-btn: 12px;
+  --radius-nx-card: 20px;
+  --radius-nx-media: 24px;
+}
+
+@layer base {
+  /* In-page anchor scrolling (home route only). */
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
+  }
+}
+
+/*
+  Scroll reveal. The hidden state (.nx-reveal-init) is only ever added by JS
+  (see reveal.tsx), so content is never hidden when JS is disabled, and
+  prefers-reduced-motion skips the effect entirely.
+*/
+.nx-reveal-init {
+  opacity: 0;
+  transform: translateY(18px);
+}
+.nx-reveal-in {
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity 0.6s ease,
+    transform 0.6s ease;
+}
+
+/* Gentle float for the hero's floating cards. */
+@keyframes nx-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .nx-float {
+    animation: nx-float 6s ease-in-out infinite;
+  }
+  .nx-float-delayed {
+    animation: nx-float 7s ease-in-out 1.2s infinite;
+  }
+}

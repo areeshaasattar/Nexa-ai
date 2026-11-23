@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900" role="img" aria-label="Abstract green illustration of a structured meeting summary">
+  <!-- TODO: replace with a licensed photo or product screenshot before launch. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F5FFF9"/>
+      <stop offset="0.55" stop-color="#DFF5E9"/>
+      <stop offset="1" stop-color="#B5E8CD"/>
+    </linearGradient>
+    <linearGradient id="band" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#059669"/>
+      <stop offset="1" stop-color="#10B981"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="900" fill="url(#bg)"/>
+  <circle cx="1080" cy="760" r="200" fill="#059669" opacity="0.10"/>
+  <circle cx="140" cy="140" r="140" fill="#10B981" opacity="0.12"/>
+  <!-- document card -->
+  <rect x="260" y="110" width="680" height="680" rx="32" fill="#FFFFFF"/>
+  <rect x="260" y="110" width="680" height="680" rx="32" fill="none" stroke="#E3EFE8" stroke-width="3"/>
+  <rect x="310" y="165" width="200" height="26" rx="13" fill="url(#band)"/>
+  <rect x="310" y="215" width="330" height="20" rx="10" fill="#0F1F1A" opacity="0.8"/>
+  <!-- overview lines -->
+  <g fill="#5B6B64" opacity="0.55">
+    <rect x="310" y="270" width="580" height="14" rx="7"/>
+    <rect x="310" y="298" width="540" height="14" rx="7"/>
+    <rect x="310" y="326" width="560" height="14" rx="7"/>
+  </g>
+  <!-- decisions -->
+  <rect x="310" y="380" width="140" height="18" rx="9" fill="#047857"/>
+  <g>
+    <circle cx="322" cy="428" r="12" fill="#10B981"/>
+    <path d="M316 428l4 4 8-8" stroke="#FFFFFF" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="348" y="420" width="420" height="14" rx="7" fill="#5B6B64" opacity="0.55"/>
+  </g>
+  <!-- action items -->
+  <rect x="310" y="480" width="170" height="18" rx="9" fill="#047857"/>
+  <g>
+    <circle cx="322" cy="528" r="12" fill="#10B981"/>
+    <path d="M316 528l4 4 8-8" stroke="#FFFFFF" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="348" y="520" width="460" height="14" rx="7" fill="#5B6B64" opacity="0.55"/>
+    <circle cx="322" cy="568" r="12" fill="#10B981"/>
+    <path d="M316 568l4 4 8-8" stroke="#FFFFFF" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="348" y="560" width="380" height="14" rx="7" fill="#5B6B64" opacity="0.55"/>
+  </g>
+  <!-- topics chips -->
+  <rect x="310" y="620" width="120" height="18" rx="9" fill="#047857"/>
+  <g>
+    <rect x="310" y="658" width="150" height="34" rx="17" fill="#F0FDF4" stroke="#E3EFE8" stroke-width="2"/>
+    <rect x="476" y="658" width="180" height="34" rx="17" fill="#F0FDF4" stroke="#E3EFE8" stroke-width="2"/>
+    <rect x="672" y="658" width="130" height="34" rx="17" fill="#F0FDF4" stroke="#E3EFE8" stroke-width="2"/>
+  </g>
+  <!-- email badge -->
+  <g>
+    <circle cx="940" cy="700" r="72" fill="#052E1C"/>
+    <rect x="906" y="678" width="68" height="46" rx="8" fill="#10B981"/>
+    <path d="M906 684l34 24 34-24" fill="none" stroke="#052E1C" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>
