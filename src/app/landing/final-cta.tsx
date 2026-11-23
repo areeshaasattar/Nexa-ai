@@ -9,7 +9,7 @@ export function FinalCta() {
         className="pointer-events-none absolute -top-24 left-1/2 h-[360px] w-[560px] -translate-x-1/2 rounded-full bg-nx-accent/15 blur-3xl"
       />
       <div className="relative mx-auto max-w-3xl px-4 text-center sm:px-6">
-        <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Try your first AI call</h2>
+        <h2 className="text-[clamp(1.75rem,3vw,2.5rem)] font-semibold leading-[1.15] tracking-[-0.015em]">Try your first AI call</h2>
         <p className="mt-3 text-white/75">Create your first agent in a minute.</p>
         <div className="mt-8">
           <Link

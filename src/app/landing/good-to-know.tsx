@@ -12,10 +12,10 @@ export function GoodToKnow() {
     <section className="bg-white py-24 lg:py-30">
       <div className="mx-auto max-w-[1200px] px-4 sm:px-6">
         <Reveal>
-          <p className="text-xs font-semibold uppercase tracking-widest text-nx-primary-deep">
+          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-nx-primary-deep">
             Good to know
           </p>
-          <h2 className="mt-2 text-3xl font-bold tracking-tight text-nx-ink sm:text-4xl">
+          <h2 className="mt-2 text-[clamp(1.75rem,3vw,2.5rem)] font-semibold leading-[1.15] tracking-[-0.015em] text-nx-ink">
             A few helpful notes
           </h2>
           <div className="mt-8 grid gap-4 sm:grid-cols-3">

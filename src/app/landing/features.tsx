@@ -71,13 +71,13 @@ export function Features() {
 
             {/* Right: heading + compact feature list */}
             <div>
-              <p className="text-xs font-semibold uppercase tracking-widest text-nx-primary-deep">
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-nx-primary-deep">
                 Features
               </p>
-              <h2 className="mt-2 text-3xl font-bold tracking-tight text-nx-ink sm:text-4xl">
+              <h2 className="mt-2 text-[clamp(1.75rem,3vw,2.5rem)] font-semibold leading-[1.15] tracking-[-0.015em] text-nx-ink">
                 Everything you need for a productive call
               </h2>
-              <p className="mt-4 max-w-[65ch] text-nx-muted">
+              <p className="mt-4 max-w-[65ch] text-base leading-[1.65] text-nx-body sm:text-[17px]">
                 Create an AI agent, join a video call, and speak with push-to-talk. After the call
                 you get a structured summary with decisions and action items.
               </p>
@@ -89,7 +89,7 @@ export function Features() {
                     </span>
                     <div>
                       <h3 className="text-sm font-semibold text-nx-ink">{f.title}</h3>
-                      <p className="mt-1 text-sm leading-relaxed text-nx-muted">{f.desc}</p>
+                      <p className="mt-1 text-sm leading-[1.65] text-nx-body">{f.desc}</p>
                     </div>
                   </div>
                 ))}

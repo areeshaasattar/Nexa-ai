@@ -23,10 +23,10 @@ export function HowItWorks() {
           <div className="grid items-center gap-12 md:grid-cols-2 lg:gap-16">
             {/* Left: heading + vertical steps + stats */}
             <div>
-              <p className="text-xs font-semibold uppercase tracking-widest text-nx-primary-deep">
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-nx-primary-deep">
                 How it works
               </p>
-              <h2 className="mt-2 text-3xl font-bold tracking-tight text-nx-ink sm:text-4xl">
+              <h2 className="mt-2 text-[clamp(1.75rem,3vw,2.5rem)] font-semibold leading-[1.15] tracking-[-0.015em] text-nx-ink">
                 Three steps to a better meeting
               </h2>
 
@@ -49,7 +49,7 @@ export function HowItWorks() {
                           </span>
                           <h3 className="text-lg font-semibold text-nx-ink">{s.title}</h3>
                         </div>
-                        <p className="mt-2 text-sm leading-relaxed text-nx-muted">{s.desc}</p>
+                        <p className="mt-2 text-sm leading-[1.65] text-nx-body">{s.desc}</p>
                       </div>
                     </li>
                   ))}

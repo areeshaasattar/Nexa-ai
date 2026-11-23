@@ -17,34 +17,34 @@ export function LandingHero() {
         <div className="grid items-center gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:gap-12">
           {/* Left: copy */}
           <div className="max-w-[520px]">
-            <span className="inline-flex items-center gap-2 rounded-full border border-nx-line bg-white px-3 py-1 text-xs font-semibold uppercase tracking-widest text-nx-primary-deep">
+            <span className="inline-flex items-center gap-2 rounded-full border border-nx-line bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-nx-primary-deep">
               <span className="size-1.5 rounded-full bg-nx-primary" aria-hidden="true" />
               Voice agents + live video calls
             </span>
-            <h1 className="mt-6 text-[clamp(2.5rem,5vw,4rem)] font-bold leading-[1.08] tracking-tight text-nx-ink">
+            <h1 className="mt-6 max-w-[520px] text-[clamp(2.25rem,4.2vw,3.5rem)] font-semibold leading-[1.1] tracking-[-0.02em] text-nx-ink">
               Talk to an AI agent in a{" "}
               <span className="text-nx-primary-deep">live call</span>. Get a clean
               summary after.
             </h1>
-            <p className="mt-5 max-w-[520px] text-lg leading-relaxed text-nx-muted">
+            <p className="mt-5 max-w-[520px] text-base leading-[1.65] text-nx-body sm:text-[17px]">
               Create an AI agent, join a video call, and speak with push-to-talk. After the call you
               get a structured summary with decisions and action items.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link
                 href="/sign-up"
-                className="inline-flex items-center rounded-nx-btn bg-nx-primary-deep px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-nx-primary-darker focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-nx-primary-deep"
+                className="inline-flex items-center rounded-nx-btn bg-nx-primary-deep px-6 py-3 text-[15px] font-semibold text-white transition-colors hover:bg-nx-primary-darker focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-nx-primary-deep"
               >
                 Get started free
               </Link>
               <a
                 href="#how-it-works"
-                className="inline-flex items-center rounded-nx-btn border border-nx-line bg-white px-6 py-3 text-sm font-semibold text-nx-ink transition-colors hover:bg-nx-mint focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-nx-primary-deep"
+                className="inline-flex items-center rounded-nx-btn border border-nx-line bg-white px-6 py-3 text-[15px] font-semibold text-nx-ink transition-colors hover:bg-nx-mint focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-nx-primary-deep"
               >
                 See how it works
               </a>
             </div>
-            <p className="mt-4 text-sm text-nx-muted">
+            <p className="mt-4 text-sm font-medium text-nx-body">
               No credit card required. Fair-use limits apply.
             </p>
 

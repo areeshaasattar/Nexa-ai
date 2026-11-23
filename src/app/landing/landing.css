@@ -14,8 +14,8 @@
 @source "./";
 
 @theme {
-  /* Keep the app font (Geist) — this entry also emits preflight. */
-  --font-sans: var(--font-geist-sans);
+  /* Use Plus Jakarta Sans font */
+  --font-sans: var(--font-sans);
 
   /* Primary green (059669) — icons, accents, decorative fills. */
   --color-nx-primary: rgb(5 150 105);
@@ -32,8 +32,9 @@
   /* Mint background tints (f0fdf4 / f5fff9). */
   --color-nx-mint: rgb(240 253 244);
   --color-nx-mint-2: rgb(245 255 249);
-  /* Text dark (0f1f1a) and muted (5b6b64). */
+  /* Text dark (0f1f1a) and body text (4B5B54). */
   --color-nx-ink: rgb(15 31 26);
+  --color-nx-body: rgb(75 91 84);
   --color-nx-muted: rgb(91 107 100);
   /* Borders (e3efe8). */
   --color-nx-line: rgb(227 239 232);
