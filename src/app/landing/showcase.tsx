@@ -49,20 +49,19 @@ export function Showcase() {
             </div>
 
             {/* Right: media area + floating example summary card */}
-            <div className="relative mb-8 md:mb-0">
-              <div className="overflow-hidden rounded-nx-media border border-nx-line shadow-nx-glow">
+            <div className="relative mb-8 lg:mb-0">
+              <div className="relative aspect-[4/5] overflow-hidden rounded-nx-media border border-nx-line shadow-nx-glow">
                 {/* TODO: swap placeholder for a licensed photo / real product shot. */}
                 <Image
                   src="/landing/summary-placeholder.svg"
                   alt="Illustration of a structured meeting summary emailed after a call"
-                  width={1200}
-                  height={900}
-                  sizes="(min-width: 768px) 560px, 100vw"
-                  className="h-auto w-full"
+                  fill
+                  sizes="(min-width: 1024px) 560px, (min-width: 768px) 45vw, 100vw"
+                  className="object-cover"
                 />
               </div>
 
-              <div className="mt-6 w-full rounded-nx-card border border-nx-line bg-white p-5 shadow-nx-glow md:absolute md:-bottom-8 md:-left-6 md:mt-0 md:max-w-sm">
+              <div className="mt-6 w-full rounded-nx-card border border-nx-line bg-white p-5 shadow-nx-glow lg:absolute lg:-bottom-8 lg:-left-6 lg:mt-0 lg:max-w-sm">
                 <div className="text-[10px] font-bold uppercase tracking-widest text-amber-600">
                   Example
                 </div>
