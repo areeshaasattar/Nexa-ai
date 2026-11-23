@@ -60,7 +60,7 @@ export function Showcase() {
                 />
               </div>
 
-              <div className="mt-6 w-full rounded-nx-card border border-nx-line bg-white p-5 shadow-nx-glow lg:absolute lg:-bottom-8 lg:-left-6 lg:mt-0 lg:max-w-sm">
+              <div className="mt-6 w-full rounded-nx-card border border-nx-line bg-white p-5 shadow-nx-glow lg:absolute lg:-bottom-8 lg:-left-12 lg:mt-0 lg:max-w-sm xl:-left-16">
                 <div className="text-[10px] font-bold uppercase tracking-widest text-amber-600">
                   Example
                 </div>
