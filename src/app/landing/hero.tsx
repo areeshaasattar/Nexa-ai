@@ -154,7 +154,7 @@ export function LandingHero() {
             </div>
 
             {/* Floating card 1: Meeting summary - LEFT upper-middle */}
-            <div className="nx-hero-float-1 absolute left-0 top-[140px] z-30 w-[210px] rounded-[16px] border border-[#E3EFE8] bg-white p-3 shadow-[0_10px_30px_rgba(5,150,105,0.14)] max-sm:hidden">
+            <div className="nx-hero-float-1 absolute -left-6 top-[140px] z-30 w-[210px] rounded-[16px] border border-[#E3EFE8] bg-white p-3 shadow-[0_10px_30px_rgba(5,150,105,0.14)] max-sm:hidden lg:-left-10">
               <div className="mb-1 text-[9px] font-bold uppercase tracking-widest text-amber-600">
                 Example
               </div>
@@ -166,7 +166,7 @@ export function LandingHero() {
             </div>
 
             {/* Floating card 2: Chat + Push to Talk - RIGHT upper */}
-            <div className="nx-hero-float-2 absolute right-0 top-[90px] z-30 w-[220px] rounded-[16px] border border-[#E3EFE8] bg-white p-3 shadow-[0_10px_30px_rgba(5,150,105,0.14)] max-sm:hidden">
+            <div className="nx-hero-float-2 absolute -right-6 top-[90px] z-30 w-[220px] rounded-[16px] border border-[#E3EFE8] bg-white p-3 shadow-[0_10px_30px_rgba(5,150,105,0.14)] max-sm:hidden lg:-right-10">
               <div className="mb-1 text-[9px] font-bold uppercase tracking-widest text-amber-600">
                 Example
               </div>
@@ -191,7 +191,7 @@ export function LandingHero() {
             </div>
 
             {/* Floating card 3: Status - LEFT lower */}
-            <div className="nx-hero-float-3 absolute bottom-[80px] left-0 z-30 w-[170px] rounded-[16px] border border-[#E3EFE8] bg-white p-3 shadow-[0_10px_30px_rgba(5,150,105,0.14)] max-lg:hidden">
+            <div className="nx-hero-float-3 absolute bottom-[80px] -left-4 z-30 w-[170px] rounded-[16px] border border-[#E3EFE8] bg-white p-3 shadow-[0_10px_30px_rgba(5,150,105,0.14)] max-lg:hidden lg:-left-8">
               <div className="mb-2 text-[9px] font-bold uppercase tracking-widest text-amber-600">
                 Example
               </div>
